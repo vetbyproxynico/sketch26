@@ -1,6 +1,6 @@
 // Hash-based routing, so a refresh or a shared link lands on the same page.
 
-import { focusEl } from './dom.js';
+import { focusEl, h } from './dom.js';
 
 let current = null;
 let firstRender = true;
@@ -26,9 +26,29 @@ export function navigate(path) {
 function match(path) {
   for (const route of table) {
     const m = route.re.exec(path);
-    if (m) return { route, params: m.slice(1).map((p) => decodeURIComponent(p)) };
+    if (!m) continue;
+    try {
+      return { route, params: m.slice(1).map((p) => decodeURIComponent(p)) };
+    } catch {
+      // A link with a broken % code cannot match anything real.
+      return null;
+    }
   }
   return null;
+}
+
+/** Shown if a page fails while it is being built, so the screen is never blank or stale. */
+function failedView() {
+  return {
+    title: 'Something went wrong',
+    el: h(
+      'div',
+      { class: 'page' },
+      h('h1', null, 'This page could not be shown'),
+      h('p', { class: 'lede' }, 'Something unexpected went wrong. Nothing you have saved has been changed. Please go back to the start and try again.'),
+      h('div', { class: 'actions' }, h('a', { class: 'btn btn--primary', href: '#/' }, 'Back to the start'), h('a', { class: 'btn btn--secondary', href: '#/people' }, 'See saved people')),
+    ),
+  };
 }
 
 function render() {
@@ -41,7 +61,14 @@ function render() {
   }
   const path = currentPath();
   const found = match(path) || match('/__missing__');
-  const view = found.route.view(...found.params);
+  let view;
+  try {
+    view = found.route.view(...found.params);
+    if (!view || !(view.el instanceof Node)) throw new Error('The page did not return anything to show.');
+  } catch (error) {
+    console.info('Encore could not build this page.', error && error.message);
+    view = failedView();
+  }
   current = view;
   outlet.replaceChildren(view.el);
   document.title = `${view.title} - Encore`;
@@ -51,7 +78,11 @@ function render() {
     if (heading) focusEl(heading);
   }
   firstRender = false;
-  afterRender(path, view);
+  try {
+    afterRender(path, view);
+  } catch {
+    // The navigation highlight is a nicety; it must not break the page.
+  }
 }
 
 /** routes: [{ re: RegExp, view: (...params) => { title, el, dispose? } }] */

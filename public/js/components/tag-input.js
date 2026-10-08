@@ -1,7 +1,7 @@
 // A tag-style input: type a name, press Enter or comma, and it becomes a chip
 // that can be removed. Works with keyboard, touch and paste.
 
-import { announce, h, uid } from '../dom.js';
+import { announce, h, srOnly, uid } from '../dom.js';
 
 /**
  * options: { label, hint, max, maxLength, placeholder, noun, nounPlural }
@@ -31,7 +31,7 @@ export function createTagInput(options) {
     'aria-describedby': `${hintId} ${countId}`,
   });
   const count = h('p', { class: 'tag-count', id: countId, role: 'status' });
-  const addButton = h('button', { type: 'button', class: 'btn btn--secondary btn--small', onClick: () => commit(true) }, 'Add');
+  const addButton = h('button', { type: 'button', class: 'btn btn--secondary btn--small', onClick: () => commit(true) }, 'Add', srOnly(` ${noun}`));
   const box = h('div', { class: 'tag-box' }, chips, input);
 
   const el = h(

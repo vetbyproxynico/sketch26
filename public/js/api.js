@@ -198,6 +198,10 @@ export function plainError(error, what) {
   if (error.kind === 'bad_response') {
     return `The service sent back something Encore could not read, so it could not ${task}. Please try again.`;
   }
+  if (error.code === 'rate_limited') {
+    // The server's own words say how long to wait, so show them as they are.
+    return error.serverMessage || 'Encore has paused this connection for a few minutes to keep the free demo available to everyone. Please try again in a few minutes.';
+  }
   if (error.status === 429 || error.code === 'qloo_rate_limited') {
     return 'The taste service is busy right now. Wait a minute, then try again.';
   }

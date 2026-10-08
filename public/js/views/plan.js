@@ -2,8 +2,8 @@ import * as api from '../api.js';
 import { entry } from '../components/entry.js';
 import { journey } from '../components/journey.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
-import { announce, focusEl, h, srOnly, uid } from '../dom.js';
-import { buildPlan } from '../flow.js';
+import { announce, focusEl, h, isBusy, setBusy, srOnly, uid } from '../dom.js';
+import { buildPlan, readFeedbackAnswer } from '../flow.js';
 import { personSummary, plural } from '../format.js';
 import { navigate } from '../router.js';
 import { getPerson, savePerson } from '../store.js';
@@ -25,6 +25,7 @@ export function planView(id) {
   person.draft = person.draft || {};
   let alive = true;
   let controller = null;
+  let updating = false;
   const holder = h('div', { class: 'holder' });
   const el = h(
     'div',
@@ -43,6 +44,9 @@ export function planView(id) {
     if (controller) controller.abort();
     controller = new AbortController();
     const { signal } = controller;
+    updating = false;
+    // The button that was pressed is about to disappear, so keep the keyboard on this page.
+    if (force) focusEl(el.querySelector('h1'));
     holder.replaceChildren(loadingBlock('Planning the week...', 'Encore is choosing themes and writing questions. This can take up to half a minute.'));
     try {
       if (force || !person.plan || (person.sample && !api.isSample())) await buildPlan(person, { signal });
@@ -81,6 +85,7 @@ export function planView(id) {
               person.changes = null;
               savePerson(person);
               render();
+              focusEl(el.querySelector('h1'));
             },
           },
           'Hide this',
@@ -140,7 +145,7 @@ export function planView(id) {
       draft.note = noteBox.value;
       savePerson(person);
     });
-    const updateButton = h('button', { type: 'submit', class: 'btn btn--primary' }, 'Update the plan');
+    const updateButton = h('button', { type: 'submit', class: 'btn btn--primary' }, 'Update the plan', srOnly(` for day ${session.day}`));
 
     const items = session.items.map((si) => {
       const name = si.item.entity.name;
@@ -180,14 +185,14 @@ export function planView(id) {
           submitFeedback(session, draft, status, updateButton);
         },
       },
-      h('label', { class: 'label', for: noteId }, 'A short note about how it went'),
+      h('label', { class: 'label', for: noteId }, 'A short note about how it went', srOnly(` on day ${session.day}`)),
       h('p', { class: 'hint', id: `${noteId}-hint` }, 'Optional. For example: sang along to the first song, found the film too long.'),
       noteBox,
       h(
         'div',
         { class: 'actions' },
         updateButton,
-        h('a', { class: 'btn btn--secondary', href: `#/person/${encodeURIComponent(person.id)}/print/${session.day}` }, 'Print this session'),
+        h('a', { class: 'btn btn--secondary', href: `#/person/${encodeURIComponent(person.id)}/print/${session.day}` }, 'Print this session', srOnly(` for day ${session.day}`)),
       ),
       status,
     );
@@ -200,9 +205,9 @@ export function planView(id) {
         'article',
         { class: 'session', 'aria-labelledby': headingId },
         h('header', { class: 'session-head' }, h('h2', { class: 'session-theme', id: headingId }, srOnly(`Day ${session.day}: `), session.theme), session.opener ? h('p', { class: 'opener' }, h('strong', null, 'Open with: '), session.opener) : null),
-        h('section', { 'aria-label': `Things to bring on day ${session.day}` }, h('h3', { class: 'session-sub' }, 'Things to bring'), items.length ? h('ul', { class: 'entries entries--plan' }, items) : h('p', { class: 'hint' }, 'No items are left for this day.')),
+        h('section', null, h('h3', { class: 'session-sub' }, 'Things to bring', srOnly(` on day ${session.day}`)), items.length ? h('ul', { class: 'entries entries--plan' }, items) : h('p', { class: 'hint' }, 'No items are left for this day.')),
         session.prompts && session.prompts.length
-          ? h('section', { 'aria-label': `Questions to ask on day ${session.day}` }, h('h3', { class: 'session-sub' }, 'Questions to ask'), h('ul', { class: 'prompts' }, session.prompts.map((p) => h('li', null, p))))
+          ? h('section', null, h('h3', { class: 'session-sub' }, 'Questions to ask', srOnly(` on day ${session.day}`)), h('ul', { class: 'prompts' }, session.prompts.map((p) => h('li', null, p))))
           : null,
         form,
       ),
@@ -210,15 +215,21 @@ export function planView(id) {
   }
 
   async function submitFeedback(session, draft, status, button) {
+    if (isBusy(button)) return;
     const reactions = Object.entries(draft.reactions).map(([entityId, reaction]) => ({ entityId, reaction }));
     const note = (draft.note || '').trim();
     if (reactions.length === 0 && !note) {
       status.replaceChildren(h('p', { class: 'inline-message inline-message--warn' }, 'Mark how at least one item went, or write a short note, then press Update the plan.'));
       return;
     }
+    if (updating) {
+      status.replaceChildren(h('p', { class: 'inline-message inline-message--warn' }, 'Another day is still being updated. Please wait a moment, then press Update the plan again.'));
+      return;
+    }
+    updating = true;
     if (controller) controller.abort();
     controller = new AbortController();
-    button.disabled = true;
+    setBusy(button, true);
     status.replaceChildren(h('p', { class: 'inline-message' }, h('span', { class: 'spinner spinner--small', 'aria-hidden': 'true' }), 'Updating the plan...'));
     try {
       const data = await api.call(
@@ -232,18 +243,22 @@ export function planView(id) {
         { signal: controller.signal },
       );
       if (!alive) return;
-      person.profile = data.profile;
-      person.map = data.map;
-      person.plan = data.plan;
-      person.changes = Array.isArray(data.changes) ? data.changes : [];
+      // Check the whole answer first, so a bad one never replaces a good plan.
+      const answer = readFeedbackAnswer(data);
+      person.profile = answer.profile;
+      person.map = answer.map;
+      person.plan = answer.plan;
+      person.changes = answer.changes.length ? answer.changes : ['No changes were needed this time. The plan stays as it was.'];
       person.draft = {};
       person.sample = person.sample || api.isSample();
       savePerson(person);
+      updating = false;
       render(true);
-      announce(`The plan is updated. ${plural(person.changes.length, 'change', 'changes')} listed under What changed.`);
+      announce(answer.changes.length ? `The plan is updated. ${plural(answer.changes.length, 'change', 'changes')} listed under What changed.` : 'The plan is updated. No changes were needed.');
     } catch (error) {
+      updating = false;
       if (!alive || api.isAborted(error)) return;
-      button.disabled = false;
+      setBusy(button, false);
       status.replaceChildren(h('p', { class: 'inline-message inline-message--error', role: 'alert' }, `${api.plainError(error, 'update the plan')} Your marks and note are kept. Press Update the plan to try again.`));
     }
   }

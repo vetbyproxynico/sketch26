@@ -2,7 +2,7 @@ import * as api from '../api.js';
 import { entry } from '../components/entry.js';
 import { journey } from '../components/journey.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
-import { announce, h, scrollToEl } from '../dom.js';
+import { announce, focusEl, h, scrollToEl } from '../dom.js';
 import { buildMap, noteNames } from '../flow.js';
 import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, personSummary, plural } from '../format.js';
 import { navigate } from '../router.js';
@@ -37,13 +37,15 @@ export function mapView(id) {
     if (controller) controller.abort();
     controller = new AbortController();
     const { signal } = controller;
+    // The button that was pressed is about to disappear, so keep the keyboard on this page.
+    if (force) focusEl(el.querySelector('h1'));
     holder.replaceChildren(loadingBlock('Building the map...', 'Encore is asking the taste service about each kind of thing. This can take up to half a minute.'));
     try {
       if (force || !person.map || (person.sample && !api.isSample())) await buildMap(person, { signal });
       if (!alive) return;
       render();
-      const total = DOMAIN_ORDER.reduce((n, d) => n + ((person.map.byDomain[d] || []).length), 0);
-      announce(`The map is ready, with ${plural(total, 'suggestion', 'suggestions')}.`);
+      const total = countSuggestions(person.map);
+      announce(total ? `The map is ready, with ${plural(total, 'suggestion', 'suggestions')}.` : 'The map is ready, but nothing was found for it.');
     } catch (error) {
       if (!alive || api.isAborted(error)) return;
       holder.replaceChildren(
@@ -66,6 +68,7 @@ export function mapView(id) {
   function render() {
     const map = person.map;
     const parts = [];
+    const nothingFound = countSuggestions(map) === 0;
 
     if (map.window) {
       parts.push(
@@ -77,22 +80,35 @@ export function mapView(id) {
       );
     }
 
-    parts.push(
-      h(
-        'div',
-        { class: 'actions actions--top' },
-        planButton(),
-        h('button', { type: 'button', class: 'btn btn--quiet btn--large', onClick: () => load(true) }, 'Build the map again'),
-      ),
-    );
+    if (!nothingFound) {
+      parts.push(
+        h(
+          'div',
+          { class: 'actions actions--top' },
+          planButton(),
+          h('button', { type: 'button', class: 'btn btn--quiet btn--large', onClick: () => load(true) }, 'Build the map again'),
+        ),
+      );
+    }
 
     const notes = noteNames(person);
     const messages = (map.warnings || []).map((w) => w.message);
     if (notes.length) messages.push(`${notes.join(', ')} could not be matched, so ${notes.length === 1 ? 'it was' : 'they were'} kept as ${notes.length === 1 ? 'a note' : 'notes'} and not used.`);
     if (messages.length) {
       parts.push(
-        h('aside', { class: 'notice notice--soft', 'aria-labelledby': 'good-to-know' }, h('h2', { id: 'good-to-know', class: 'notice-title' }, 'Good to know'), h('ul', null, messages.map((m) => h('li', null, m)))),
+        h('section', { class: 'notice notice--soft', 'aria-labelledby': 'good-to-know' }, h('h2', { id: 'good-to-know', class: 'notice-title' }, 'Good to know'), h('ul', null, messages.map((m) => h('li', null, m)))),
       );
+    }
+
+    if (nothingFound) {
+      parts.push(
+        emptyBlock('Nothing was found for this map', 'The taste service had no suggestions for these favourites and years. Try other favourites, or build the map again in a moment.', [
+          h('a', { class: 'btn btn--primary', href: `#/edit/${encodeURIComponent(person.id)}` }, 'Change the favourites'),
+          h('button', { type: 'button', class: 'btn btn--secondary', onClick: () => load(true) }, 'Build the map again'),
+        ]),
+      );
+      holder.replaceChildren(...parts);
+      return;
     }
 
     if ((map.tasteWords || []).length) {
@@ -175,6 +191,10 @@ export function mapView(id) {
       if (controller) controller.abort();
     },
   };
+}
+
+function countSuggestions(map) {
+  return DOMAIN_ORDER.reduce((n, d) => n + (map && map.byDomain && Array.isArray(map.byDomain[d]) ? map.byDomain[d].length : 0), 0);
 }
 
 function missing() {

@@ -15,9 +15,9 @@
   --panel: #fafbf8;
   --panel-2: #e2e8df;
   --ink: #172a24;
-  --ink-2: #425650;
+  --ink-2: #3b4e48;
   --rule: #c6d0c3;
-  --rule-strong: #7d8f85;
+  --rule-strong: #738679; /* at least 3:1 against the page and the panels */
   --spruce: #1c5846;
   --spruce-hover: #123b2f;
   --spruce-ink: #ffffff;
@@ -83,7 +83,7 @@
     --panel: #172420;
     --panel-2: #213129;
     --ink: #e9f0ea;
-    --ink-2: #b0bfb6;
+    --ink-2: #bccbc2;
     --rule: #2f4137;
     --rule-strong: #70877b;
     --spruce: #86d3b7;
@@ -161,6 +161,7 @@ h4 {
   line-height: 1.2;
   margin: 0 0 var(--s-3);
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 h1 {
@@ -219,7 +220,8 @@ a:hover {
 }
 
 .wrap {
-  width: min(100% - 2rem, 68rem);
+  /* A 1rem gutter on each side, never more than 5% of the screen, so large text keeps its room */
+  width: min(100% - 2 * min(1rem, 5vw), 68rem);
   margin-inline: auto;
 }
 
@@ -264,6 +266,12 @@ a:hover {
   color: var(--lamp-ink);
   border-bottom: 3px solid var(--lamp-edge);
   padding: var(--s-3) 0;
+}
+
+.banner--storage {
+  background: var(--panel-2);
+  color: var(--ink);
+  border-bottom-color: var(--rule-strong);
 }
 
 .banner p {
@@ -411,6 +419,13 @@ a:hover {
   color: var(--ink-2);
 }
 
+.footer-link,
+.error-summary a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
 /* ------------------------------------------------------------- page frame */
 
 .page {
@@ -483,10 +498,11 @@ a:hover {
   justify-content: center;
   gap: var(--s-2);
   min-height: var(--tap);
-  padding: 0.55rem 1.25rem;
+  padding: 0.55rem min(1.25rem, 6vw);
   font: inherit;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   text-align: center;
   text-decoration: none;
   color: var(--link);
@@ -496,7 +512,8 @@ a:hover {
   cursor: pointer;
 }
 
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.55;
   cursor: progress;
 }
@@ -507,7 +524,7 @@ a:hover {
   color: var(--spruce-ink);
 }
 
-.btn--primary:hover:not(:disabled) {
+.btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--spruce-hover);
   border-color: var(--spruce-hover);
 }
@@ -518,7 +535,7 @@ a:hover {
   background: var(--panel);
 }
 
-.btn--secondary:hover:not(:disabled) {
+.btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--spruce-soft);
 }
 
@@ -528,7 +545,7 @@ a:hover {
   text-decoration-thickness: 0.09em;
 }
 
-.btn--quiet:hover:not(:disabled) {
+.btn--quiet:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--panel-2);
 }
 
@@ -538,7 +555,7 @@ a:hover {
   background: var(--panel);
 }
 
-.btn--danger-outline:hover:not(:disabled) {
+.btn--danger-outline:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--danger-soft);
 }
 
@@ -550,12 +567,12 @@ a:hover {
 
 .btn--small {
   min-height: 2.75rem;
-  padding: 0.35rem 1rem;
+  padding: 0.35rem min(1rem, 5vw);
 }
 
 .btn--large {
   min-height: 3.5rem;
-  padding: 0.7rem 1.6rem;
+  padding: 0.7rem min(1.6rem, 6vw);
   font-size: var(--step-1);
 }
 
@@ -813,6 +830,46 @@ a:hover {
   }
 }
 
+/*
+  A card is laid out by its own width measured in its own text size, not by the
+  screen width. Larger text, or a narrower card, puts the stamp above the words
+  instead of beside them, so nothing is squeezed or cut off.
+*/
+
+.entries > li,
+.programme > li,
+.example-grid > li {
+  container-type: inline-size;
+}
+
+@container (max-width: 17em) {
+  .entry {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "stamp"
+      "name"
+      "body"
+      "foot";
+    grid-template-rows: auto;
+  }
+  .entry > .stamp {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.1rem var(--s-2);
+    padding: var(--s-2) var(--s-3);
+    border-right: 0;
+    border-bottom: 4px dotted var(--panel);
+  }
+  .entry > .stamp .stamp-kind {
+    order: -1;
+  }
+  .entry-name {
+    padding-top: var(--s-3);
+  }
+}
+
 /* ------------------------------------------------------------------ home */
 
 .hero {
@@ -894,6 +951,48 @@ a:hover {
   line-height: 1.4;
 }
 
+@container (max-width: 17em) {
+  .example {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .example .stamp {
+    grid-column: 1;
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.1rem var(--s-2);
+    padding: var(--s-2) var(--s-3);
+    border-right: 0;
+    border-bottom: 4px dotted var(--panel);
+  }
+  .example:hover .stamp {
+    border-bottom-color: var(--spruce-soft);
+  }
+  .example .stamp .stamp-kind {
+    order: -1;
+  }
+  .example .stamp {
+    grid-row: 1;
+  }
+  .example-name,
+  .example-where,
+  .example-loves {
+    grid-column: 1;
+  }
+  .example-name {
+    grid-row: 2;
+  }
+  .example-where {
+    grid-row: 3;
+  }
+  .example-loves {
+    grid-row: 4;
+  }
+}
+
 .resume-list {
   list-style: none;
   padding: 0;
@@ -957,6 +1056,7 @@ a:hover {
 
 .form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-5);
 }
 
@@ -1014,6 +1114,13 @@ a:hover {
   min-height: 2.75rem;
 }
 
+.input::placeholder,
+.textarea::placeholder,
+.tag-text::placeholder {
+  color: var(--ink-2);
+  opacity: 0.8;
+}
+
 .input[aria-invalid="true"] {
   border-color: var(--danger);
   border-width: 3px;
@@ -1041,6 +1148,10 @@ a:hover {
 
 .error-summary ul {
   margin: 0;
+}
+
+.error-summary li {
+  margin-bottom: 0;
 }
 
 .error-summary a {
@@ -1091,7 +1202,7 @@ a:hover {
 
 .tag-text {
   flex: 1 1 11rem;
-  min-width: 8rem;
+  min-width: min(8rem, 100%);
   min-height: 2.75rem;
   padding: 0.3rem 0.4rem;
   font: inherit;
@@ -1187,21 +1298,20 @@ a:hover {
 .switch {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s-2) var(--s-3);
   min-height: var(--tap);
   cursor: pointer;
 }
 
 .switch-input {
   position: absolute;
-  left: 0;
-  top: 50%;
+  inset: 0;
   z-index: 1;
-  width: 3.5rem;
-  height: 2.25rem;
+  width: 100%;
+  height: 100%;
   margin: 0;
-  transform: translateY(-50%);
   opacity: 0;
   cursor: pointer;
 }
@@ -1248,6 +1358,7 @@ a:hover {
 
 .switch-state {
   margin-left: auto;
+  white-space: nowrap;
   padding: 0.1rem 0.7rem;
   font-weight: 700;
   background: var(--panel-2);
@@ -1389,12 +1500,15 @@ a:hover {
 
 .journey li {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .journey-link {
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
+  max-width: 100%;
   min-height: 2.75rem;
   padding: 0 var(--s-3) 0 var(--s-1);
   color: var(--link);
@@ -1410,7 +1524,13 @@ a.journey-link:hover {
   border-color: var(--spruce);
 }
 
+.journey-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .journey-num {
+  flex: none;
   display: grid;
   place-items: center;
   width: 2rem;
@@ -1447,6 +1567,7 @@ a.journey-link:hover {
   margin: 0 0 var(--s-5);
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-3);
   max-width: 48rem;
 }
@@ -1706,6 +1827,7 @@ a.journey-link:hover {
   margin: var(--s-5) 0 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-7);
 }
 
@@ -1767,6 +1889,7 @@ a.journey-link:hover {
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-3);
   max-width: 38rem;
 }
@@ -1904,6 +2027,7 @@ a.journey-link:hover {
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-3);
   max-width: 48rem;
 }
@@ -1995,6 +2119,7 @@ a.journey-link:hover {
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-2);
   max-width: 42rem;
 }
@@ -2146,6 +2271,7 @@ a.journey-link:hover {
   margin: var(--s-4) 0 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-4);
   max-width: 52rem;
 }
@@ -2259,6 +2385,7 @@ a.journey-link:hover {
   top: 0;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
@@ -2298,6 +2425,7 @@ a.journey-link:hover {
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-4);
 }
 
@@ -2368,6 +2496,10 @@ a.journey-link:hover {
 
 /* ----------------------------------------------------------------- print */
 
+.print-title {
+  max-width: 24ch;
+}
+
 .print-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2388,12 +2520,20 @@ a.journey-link:hover {
   background: var(--sheet-bg);
   border: 1px solid #777;
   font-size: 1.1rem;
+  overflow-wrap: anywhere;
 }
 
 .sheet p,
 .sheet h1,
 .sheet h2 {
   color: var(--sheet-ink);
+}
+
+.sheet-sample {
+  margin: 0 0 var(--s-3);
+  padding: 0.3rem 0.7rem;
+  font-weight: 700;
+  border: 2px solid var(--sheet-ink);
 }
 
 .sheet-for {
@@ -2403,6 +2543,8 @@ a.journey-link:hover {
 
 .sheet-title {
   margin-bottom: var(--s-3);
+  font-size: var(--step-3);
+  line-height: 1.15;
 }
 
 .sheet-sub {
@@ -2469,10 +2611,10 @@ a.journey-link:hover {
     font-size: var(--step--1);
   }
   .main-nav a {
-    padding: 0 var(--s-2);
+    padding: 0 min(var(--s-2), 2.5vw);
   }
   .main-nav ul {
-    margin-inline: calc(var(--s-2) * -1);
+    margin-inline: calc(min(var(--s-2), 2.5vw) * -1);
   }
   .entry-foot {
     padding-inline: var(--s-3);

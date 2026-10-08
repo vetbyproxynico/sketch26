@@ -84,3 +84,17 @@ export function focusEl(el) {
   if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
   el.focus({ preventScroll: false });
 }
+
+/**
+ * Mark a button as busy without using `disabled`. A disabled button that has
+ * keyboard focus drops that focus, so the keyboard user loses their place.
+ * Handlers must check isBusy() and do nothing while it is true.
+ */
+export function setBusy(button, busy) {
+  if (busy) button.setAttribute('aria-disabled', 'true');
+  else button.removeAttribute('aria-disabled');
+}
+
+export function isBusy(button) {
+  return button.getAttribute('aria-disabled') === 'true';
+}

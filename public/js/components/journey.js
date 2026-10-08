@@ -1,7 +1,7 @@
 // The short trail shown on every page about one person: details, favourites, map, plan.
 // It is a true sequence, so it is numbered.
 
-import { h } from '../dom.js';
+import { h, srOnly } from '../dom.js';
 
 export function journey(person, current) {
   const id = encodeURIComponent(person.id);
@@ -20,7 +20,7 @@ export function journey(person, current) {
     } else if (step.reached) {
       inner = h('a', { class: 'journey-link', href: step.href }, content);
     } else {
-      inner = h('span', { class: 'journey-link journey-link--later' }, content);
+      inner = h('span', { class: 'journey-link journey-link--later' }, content, srOnly(' (not available yet)'));
     }
     return h('li', { class: `journey-item${isCurrent ? ' is-current' : ''}${step.reached ? '' : ' is-later'}` }, inner);
   });

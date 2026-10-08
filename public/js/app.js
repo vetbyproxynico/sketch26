@@ -1,4 +1,6 @@
 import * as api from './api.js';
+import { announce } from './dom.js';
+import { isPersistent, onChange as onStoreChange } from './store.js';
 import { createTracePanel } from './components/trace-panel.js';
 import { startRouter } from './router.js';
 import { favouritesView } from './views/favourites.js';
@@ -31,7 +33,19 @@ const traceCount = document.getElementById('trace-count');
 const skip = document.getElementById('skip-link');
 
 function updateBanner() {
-  banner.hidden = !api.isSample();
+  const show = api.isSample();
+  const wasHidden = banner.hidden;
+  banner.hidden = !show;
+  if (show && wasHidden) announce('Sample data is on. Every name, year and score you see is invented.');
+}
+
+const storageNote = document.getElementById('storage-note');
+
+function updateStorageNote() {
+  const show = !isPersistent();
+  const wasHidden = storageNote.hidden;
+  storageNote.hidden = !show;
+  if (show && wasHidden) announce('This browser is not saving your work. People you add will be forgotten when you close or refresh this page.');
 }
 
 function updateTraceButton() {
@@ -53,6 +67,7 @@ document.body.appendChild(tracePanel.dialog);
 traceButton.addEventListener('click', () => tracePanel.open());
 api.onTrace(updateTraceButton);
 api.onModeChange(updateBanner);
+onStoreChange(updateStorageNote);
 
 skip.addEventListener('click', (event) => {
   event.preventDefault();
@@ -63,4 +78,7 @@ skip.addEventListener('click', (event) => {
 api.init().then(updateBanner);
 updateBanner();
 updateTraceButton();
-startRouter(routes, main, markNav);
+startRouter(routes, main, (path, view) => {
+  markNav(path, view);
+  updateStorageNote();
+});

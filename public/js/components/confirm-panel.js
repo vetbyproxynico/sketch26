@@ -6,6 +6,7 @@ import { h, uid } from '../dom.js';
 /**
  * Returns { el, open, close }. `el` holds the trigger button and the hidden question.
  * options: { triggerLabel, triggerClass, question, detail, confirmLabel, cancelLabel, onConfirm }
+ * Escape closes the question and puts focus back on the trigger.
  */
 export function confirmAction(options) {
   const headingId = uid('confirm');
@@ -35,6 +36,13 @@ export function confirmAction(options) {
     h('div', { class: 'actions' }, confirm, cancel),
   );
   const el = h('div', { class: 'confirm-wrap' }, trigger, panel);
+
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close(true);
+    }
+  });
 
   function open() {
     panel.hidden = false;

@@ -1,7 +1,7 @@
 import * as api from '../api.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
 import { journey } from '../components/journey.js';
-import { announce, h, uid } from '../dom.js';
+import { announce, focusEl, h, uid } from '../dom.js';
 import { entityLine, personSummary, plural } from '../format.js';
 import { buildProfile, chosenCount, noteNames, resolveFavourites } from '../flow.js';
 import { navigate } from '../router.js';
@@ -35,6 +35,8 @@ export function favouritesView(id) {
     if (controller) controller.abort();
     controller = new AbortController();
     const { signal } = controller;
+    // The button that was pressed is about to disappear, so keep the keyboard on this page.
+    if (force) focusEl(el.querySelector('h1'));
     listHolder.replaceChildren(loadingBlock(`Looking up ${plural(person.input.favourites.length, 'favourite', 'favourites')}...`, 'This usually takes a few seconds.'));
     footerHolder.replaceChildren();
     try {
@@ -60,14 +62,27 @@ export function favouritesView(id) {
     savePerson(person);
   }
 
-  function renderList() {
+  /** Put keyboard focus somewhere sensible after the list is drawn again. */
+  function applyFocus(spec) {
+    const rows = listHolder.querySelectorAll('.fav-list > li');
+    if (rows.length === 0) {
+      focusEl(listHolder.querySelector('.state-title'));
+      return;
+    }
+    const row = rows[Math.min(spec.index, rows.length - 1)];
+    const target = spec.kind === 'select' ? row.querySelector('select') : row.querySelector('.fav-actions > button');
+    if (target) target.focus();
+  }
+
+  function renderList(focusSpec) {
     const items = person.resolved || [];
     const visible = items.filter((f) => !f.removed);
     if (visible.length === 0) {
       listHolder.replaceChildren(
-        emptyBlock('No favourites left', 'Add at least one favourite so Encore has something to start from.', [h('a', { class: 'btn btn--primary', href: `#/edit/${encodeURIComponent(person.id)}` }, 'Add favourites')]),
+        emptyBlock(items.length ? 'No favourites left' : 'No favourites yet', 'Add at least one favourite so Encore has something to start from.', [h('a', { class: 'btn btn--primary', href: `#/edit/${encodeURIComponent(person.id)}` }, 'Add favourites')]),
       );
       footerHolder.replaceChildren();
+      if (focusSpec) applyFocus(focusSpec);
       return;
     }
     const matched = visible.filter((f) => f.chosen).length;
@@ -77,12 +92,13 @@ export function favouritesView(id) {
       { class: 'list-summary', role: 'status' },
       `${plural(matched, 'favourite', 'favourites')} matched${notes ? `, ${plural(notes, 'kept as a note', 'kept as notes')}` : ''}.`,
     );
-    const list = h('ul', { class: 'fav-list' }, visible.map((f) => favRow(f)));
+    const list = h('ul', { class: 'fav-list' }, visible.map((f, index) => favRow(f, index)));
     listHolder.replaceChildren(summary, list);
     renderFooter();
+    if (focusSpec) applyFocus(focusSpec);
   }
 
-  function favRow(f) {
+  function favRow(f, index) {
     const selectId = uid('alt');
     const typed = h('p', { class: 'fav-typed' }, 'You typed: ', h('span', { class: 'fav-typed-text' }, f.query));
     const removeBtn = h(
@@ -95,10 +111,8 @@ export function favouritesView(id) {
           f.removed = true;
           person.input.favourites = person.input.favourites.filter((q) => q !== f.query);
           save();
-          renderList();
+          renderList({ kind: 'remove', index });
           announce(`Removed ${f.chosen ? f.chosen.name : f.query}.`);
-          const next = listHolder.querySelector('.fav-list .btn');
-          if (next) next.focus();
         },
       },
       'Remove',
@@ -117,7 +131,8 @@ export function favouritesView(id) {
     const actions = h('div', { class: 'fav-actions' });
 
     if (f.status === 'ambiguous' && f.alternatives.length > 0) {
-      const options = [f.chosen, ...f.alternatives];
+      // The list keeps one fixed order, so the arrow keys can reach every match.
+      const options = f.options && f.options.length ? f.options : [f.chosen, ...f.alternatives];
       const select = h(
         'select',
         {
@@ -126,17 +141,17 @@ export function favouritesView(id) {
           onChange: (event) => {
             const picked = options[Number(event.target.value)];
             if (!picked) return;
-            const rest = options.filter((o) => o !== picked);
+            f.options = options;
             f.chosen = picked;
-            f.alternatives = rest;
+            f.alternatives = options.filter((o) => o.id !== picked.id);
             save();
-            renderList();
+            renderList({ kind: 'select', index });
             announce(`Changed to ${picked.name}.`);
           },
         },
-        options.map((o, index) => h('option', { value: String(index) }, `${o.name} (${entityLine(o)})`)),
+        options.map((o, i) => h('option', { value: String(i) }, `${o.name} (${entityLine(o)})`)),
       );
-      select.value = '0';
+      select.value = String(Math.max(0, options.findIndex((o) => o.id === f.chosen.id)));
       main.appendChild(h('p', { class: 'fav-status fav-status--check' }, 'Several matches. Check this is the one you meant.'));
       actions.appendChild(h('div', { class: 'alt' }, h('label', { for: selectId, class: 'alt-label' }, `Not the right ${f.query}? Choose another`), select));
     }

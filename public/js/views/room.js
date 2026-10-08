@@ -4,7 +4,7 @@ import { bar } from '../components/meter.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
 import { announce, focusEl, h, uid } from '../dom.js';
 import { EXAMPLES } from '../examples.js';
-import { ensureMap } from '../flow.js';
+import { FlowError, ensureMap, readRoomAnswer } from '../flow.js';
 import { percent, personSummary, plural } from '../format.js';
 import { allPeople, createPerson, getPerson, savePerson } from '../store.js';
 
@@ -18,8 +18,9 @@ export function roomView() {
   let alive = true;
   let controller = null;
   const listHolder = h('div', { class: 'holder' });
-  const resultHolder = h('div', { class: 'holder', 'aria-live': 'polite' });
+  const resultHolder = h('div', { class: 'holder' });
   const status = h('p', { class: 'list-summary', role: 'status' });
+  let planButton = null;
 
   const el = h(
     'div',
@@ -130,11 +131,12 @@ export function roomView() {
       );
     }
 
+    planButton = h('button', { type: 'button', class: 'btn btn--primary btn--large', onClick: run }, 'Plan the room');
     parts.push(
       h(
         'div',
         { class: 'actions actions--room' },
-        h('button', { type: 'button', class: 'btn btn--primary btn--large', onClick: run }, 'Plan the room'),
+        planButton,
         h('a', { class: 'btn btn--quiet btn--large', href: '#/new' }, 'Add someone new'),
       ),
       status,
@@ -160,6 +162,8 @@ export function roomView() {
     controller = new AbortController();
     const { signal } = controller;
     memory.programme = null;
+    // If "Try again" was pressed, it is about to disappear: keep the keyboard on the page.
+    if (resultHolder.contains(document.activeElement) && planButton) planButton.focus();
 
     const rows = chosen.map((p) => ({ person: p, state: 'Waiting', done: false, node: h('li', { class: 'progress-row' }) }));
     const draw = (row) => {
@@ -189,13 +193,13 @@ export function roomView() {
       resultHolder.replaceChildren(loadingBlock('Finding what the room shares...', 'Encore is scoring each suggestion against every person.'));
       const data = await api.call('room', { profiles: chosen.map((p) => p.profile), maps: chosen.map((p) => p.map) }, { signal });
       if (!alive) return;
-      memory.programme = data.programme;
+      memory.programme = readRoomAnswer(data);
       memory.names = new Map(chosen.map((p) => [p.id, p.input.nickname]));
       renderResult(true);
-      announce(`The programme is ready, with ${plural(data.programme.items.length, 'item', 'items')}.`);
+      announce(`The programme is ready, with ${plural(memory.programme.items.length, 'item', 'items')}.`);
     } catch (error) {
       if (!alive || api.isAborted(error)) return;
-      const detail = error instanceof api.ApiError ? api.plainError(error, 'plan the room') : `${error.message} Change their favourites and try again.`;
+      const detail = error instanceof FlowError ? error.message : api.plainError(error, 'plan the room');
       resultHolder.replaceChildren(errorBlock('The room could not be planned', detail, [retryButton('Try again', run)]));
     }
   }
@@ -215,7 +219,7 @@ export function roomView() {
       parts.push(h('section', { class: 'shared', 'aria-labelledby': 'shared-title' }, h('h3', { id: 'shared-title' }, 'What the room has in common'), h('ul', null, programme.sharedGround.map((s) => h('li', null, s)))));
     }
     if (programme.warnings && programme.warnings.length) {
-      parts.push(h('aside', { class: 'notice notice--soft', 'aria-label': 'Good to know' }, h('ul', null, programme.warnings.map((w) => h('li', null, w.message)))));
+      parts.push(h('section', { class: 'notice notice--soft', 'aria-label': 'Good to know' }, h('ul', null, programme.warnings.map((w) => h('li', null, w.message)))));
     }
 
     if (!programme.items || programme.items.length === 0) {

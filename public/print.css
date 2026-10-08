@@ -1,6 +1,8 @@
 /*
   Print: black on white, large type, no navigation. The session sheet is one page,
   with the fixed line at the foot. Other pages print plainly without the page chrome.
+  Sample data is always labelled on paper: the session sheet carries its own line,
+  and every other page keeps the sample banner.
 */
 
 @page {
@@ -35,7 +37,8 @@ body {
 
 .skip-link,
 #announcer,
-#sample-banner,
+#storage-note,
+.print-title,
 .site-header,
 .site-footer,
 .print-bar,
@@ -58,7 +61,34 @@ body {
   padding: 0;
 }
 
+/* The sample banner prints as a plain boxed line, except on the sheet, which has its own */
+
+#sample-banner {
+  margin: 0 0 8pt;
+  padding: 4pt 8pt;
+  border: 1.5pt solid #000 !important;
+  font-size: 12pt;
+}
+
+#sample-banner .banner-title,
+#sample-banner .banner-detail {
+  margin: 0;
+  font-size: 12pt;
+}
+
+body:has(.sheet) #sample-banner {
+  display: none !important;
+}
+
 /* The session sheet */
+
+.sheet-sample {
+  margin: 0 0 8pt;
+  padding: 3pt 8pt;
+  border: 1.5pt solid #000 !important;
+  font-size: 12pt;
+}
+
 
 .sheet {
   max-width: none;

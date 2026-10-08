@@ -1,5 +1,9 @@
 // Saved people live only in this browser. Every storage access is wrapped in
 // try/catch, and the app keeps working from memory when storage is blocked.
+// People saved by an older version are tidied on the way in (see shape.js), so
+// a missing field never breaks a page.
+
+import { normalisePerson } from './shape.js';
 
 const KEY = 'encore.people.v1';
 
@@ -14,7 +18,7 @@ function readStorage() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((p) => p && typeof p.id === 'string' && p.input && typeof p.input === 'object');
+    return parsed.map(normalisePerson).filter(Boolean);
   } catch {
     persistent = false;
     return [];

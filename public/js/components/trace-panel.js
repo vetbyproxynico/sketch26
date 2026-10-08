@@ -89,7 +89,16 @@ export function createTracePanel() {
     if (dialog.open) refresh();
   });
 
+  let opener = null;
+
+  // Native dialogs give focus back by themselves, but older browsers do not.
+  dialog.addEventListener('close', () => {
+    if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus();
+    opener = null;
+  });
+
   function open() {
+    opener = document.activeElement;
     refresh();
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');

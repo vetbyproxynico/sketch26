@@ -1,7 +1,7 @@
 import * as api from '../api.js';
 import { createTagInput } from '../components/tag-input.js';
 import { journey } from '../components/journey.js';
-import { announce, focusEl, h, uid } from '../dom.js';
+import { announce, focusEl, h, isBusy, setBusy, uid } from '../dom.js';
 import { COUNTRIES } from '../format.js';
 import { navigate } from '../router.js';
 import { createPerson, getPerson, savePerson } from '../store.js';
@@ -173,13 +173,14 @@ export function intakeView(editId) {
   }
 
   async function runDescribe() {
+    if (isBusy(describeButton)) return;
     const text = describeBox.value.trim();
     if (!text) {
       describeStatus.replaceChildren(h('p', { class: 'inline-message inline-message--warn' }, 'Write a sentence or two first, then press the button.'));
       describeBox.focus();
       return;
     }
-    describeButton.disabled = true;
+    setBusy(describeButton, true);
     describeStatus.replaceChildren(h('p', { class: 'inline-message' }, h('span', { class: 'spinner spinner--small', 'aria-hidden': 'true' }), 'Reading what you wrote...'));
     try {
       const data = await api.call('intake', { text: text.slice(0, MAX_INTAKE_TEXT) });
@@ -204,7 +205,7 @@ export function intakeView(editId) {
       if (api.isAborted(error)) return;
       describeStatus.replaceChildren(h('p', { class: 'inline-message inline-message--error', role: 'alert' }, `${api.plainError(error, 'read that description')} You can fill in the form by hand.`));
     } finally {
-      describeButton.disabled = false;
+      setBusy(describeButton, false);
     }
   }
 
