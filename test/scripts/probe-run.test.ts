@@ -127,6 +127,93 @@ describe('a complete run against the stand-in', () => {
   });
 });
 
+describe("the agent's moves", () => {
+  const withMove = (seen: { params: Record<string, string> }) => seen.params['feature.explainability'] === 'true' || seen.params['signal.interests.tags'] !== undefined;
+
+  it('makes each move once on top of the first call for a list, with exactly the parameters the move changes', async () => {
+    const { fake } = await run();
+    const films = fake.seen.filter((call) => call.params['filter.type'] === 'urn:entity:movie' && call.params['signal.demographics.age'] !== undefined && withMove(call));
+    // drop_country: no release country, the era filter still there.
+    expect(films.some((call) => call.params['filter.release_country'] === undefined && call.params['filter.release_year.min'] === '1942')).toBe(true);
+    // widen_years: five more years either side, the country still there.
+    expect(films.some((call) => call.params['filter.release_country'] === 'FR' && call.params['filter.release_year.min'] === '1937' && call.params['filter.release_year.max'] === '1967')).toBe(true);
+    // drop_age_signal: the first call without the age band.
+    expect(fake.seen.some((call) => call.params['filter.type'] === 'urn:entity:artist' && call.params['feature.explainability'] === 'true' && call.params['signal.demographics.age'] === undefined)).toBe(true);
+    // taste_tags: tags with the union operator, and neither entity signals nor explainability.
+    const tagged = fake.seen.filter((call) => call.params['signal.interests.tags'] !== undefined);
+    expect(tagged).toHaveLength(6);
+    for (const call of tagged) {
+      expect(call.params['operator.signal.interests.tags']).toBe('union');
+      expect(call.params).not.toHaveProperty('signal.interests.entities');
+      expect(call.params).not.toHaveProperty('feature.explainability');
+      expect(call.params['signal.interests.tags']).toContain(MARKER); // the tag IDs that taste analysis returned
+    }
+  });
+
+  it('makes the favourites moves with a real subset of the signals', async () => {
+    const { fake } = await run();
+    const full = (persona: string) => fake.seen.find((call) => call.params['filter.type'] === 'urn:entity:book' && call.params['feature.explainability'] === 'true' && call.params['filter.publication_year.min'] === persona)?.params['signal.interests.entities'] ?? '';
+    const all = full('1942').split(',');
+    expect(all.length).toBeGreaterThan(3);
+    const subsets = fake.seen
+      .filter((call) => call.params['filter.type'] === 'urn:entity:movie' && call.params['filter.release_year.min'] === '1942' && call.params['feature.explainability'] === 'true')
+      .map((call) => (call.params['signal.interests.entities'] ?? '').split(','))
+      .filter((ids) => ids.length < all.length);
+    // The same-kind call and the strongest-favourites call.
+    expect(subsets.length).toBeGreaterThanOrEqual(2);
+    for (const ids of subsets) {
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(all).toContain(id);
+    }
+  });
+
+  it('says for each move whether it was accepted and whether it changed the results, in counts only', async () => {
+    const { text } = await run();
+    expect(text).toContain("Do the agent's moves work?");
+    expect(text).toContain('French, born 1932, drop_country, films: accepted (HTTP 200). First call 16 results, after the move 16 results, 8 in both. The results changed: 8 not in the first call.');
+    // The stand-in answers the same whatever the years are, so widening shows as doing nothing.
+    expect(text).toContain('French, born 1932, widen_years, books: accepted (HTTP 200). First call 16 results, after the move 16 results, 16 in both. Identical results: the move changed NOTHING here');
+    for (const action of ['drop_country', 'widen_years', 'drop_age_signal', 'same_kind_favourites', 'strongest_favourites', 'taste_tags']) {
+      expect(text, `no summary line for ${action}`).toContain(`, ${action}, `);
+    }
+    expect(text).toContain('=== cultural map: films (taste words) (French, born 1932) ===');
+    expect(text).toContain('=== cultural map: music (strongest favourites) (British, born 1941) ===');
+    expect(text).not.toContain(MARKER);
+  });
+
+  it('reports a move whose parameters Qloo refuses', async () => {
+    const { text, outcome } = await run({ status: (seen) => (seen.params['signal.interests.tags'] !== undefined ? 400 : undefined) });
+    expect(outcome.exitCode).toBe(1);
+    expect(outcome.failed).toBe(6);
+    expect(text).toContain('French, born 1932, taste_tags, films: the call FAILED, so these parameters may not be accepted');
+    expect(text).toContain('HTTP 400, bad request: a parameter or its value was rejected');
+  });
+
+  it('reports a move that brings results where there were none, and one that leaves nothing', async () => {
+    const empty = { success: true, results: { entities: [] } };
+    const none = await run({ body: (seen) => (seen.params['filter.release_country'] !== undefined ? empty : undefined) });
+    expect(none.text).toContain('French, born 1932, drop_country, films: accepted (HTTP 200). First call 0 results, after the move 16 results, 0 in both. The move brought results where there were none.');
+    const nothing = await run({ body: (seen) => (seen.params['signal.interests.tags'] !== undefined ? empty : undefined) });
+    expect(nothing.text).toContain('After the move nothing came back');
+  });
+
+  it('says so when a move cannot be built from the earlier answers', async () => {
+    const { fake, text, outcome } = await run({
+      body: (seen) => {
+        if (seen.params['filter.type'] === 'urn:tag') return { success: true, results: { tags: [] } };
+        // Entities with no explainability, so no favourite is credited.
+        if (seen.path === '/v2/insights' && seen.params['filter.type']?.startsWith('urn:entity:')) return { results: { entities: [{ entity_id: `${MARKER}-x`, name: `${MARKER} x` }] } };
+        return undefined;
+      },
+    });
+    expect(outcome.exitCode).toBe(0);
+    expect(text).toContain('French, born 1932: no readable taste tag came back, so the taste-tags move was not tried.');
+    expect(text).toContain('French, born 1932: explainability credited none of the favourites, or all of them, so the strongest-favourites move was not tried.');
+    expect(fake.seen.some((call) => call.params['signal.interests.tags'] !== undefined)).toBe(false);
+    expect(text).not.toContain(MARKER);
+  });
+});
+
 describe('GitHub Actions mode', () => {
   it('wraps each call in a group and uses only known workflow commands', async () => {
     const { lines } = await run({}, { github: true });
@@ -163,8 +250,8 @@ describe('failures', () => {
   it('exits 1 for a 5xx but carries on with the other calls', async () => {
     const { fake, text, outcome } = await run({ status: (seen) => (seen.params['filter.type'] === 'urn:entity:book' ? 500 : undefined) });
     expect(outcome.exitCode).toBe(1);
-    expect(outcome.failed).toBe(9); // map, no filters and era filter only, for three personas; a 5xx is not retried
-    expect(fake.seen.filter((call) => call.params['filter.type'] === 'urn:entity:book')).toHaveLength(9);
+    expect(outcome.failed).toBe(12); // map, no filters, era filter only and wider years, for three personas; a 5xx is not retried
+    expect(fake.seen.filter((call) => call.params['filter.type'] === 'urn:entity:book')).toHaveLength(12);
     expect(fake.seen.some((call) => call.params['filter.type'] === 'urn:entity:brand')).toBe(true);
     expect(text).toContain('FAIL cultural map: books (French, born 1932): HTTP 500');
   });

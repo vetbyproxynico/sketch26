@@ -25,7 +25,7 @@
   // "Limits"). They are not set here, so these defaults apply; add any of them
   // below to change it. A value of 0 turns that limit off.
   //   RATE_LIMIT_GENERAL         "60"   requests per visitor per window, all POST routes
-  //   RATE_LIMIT_HEAVY           "20"   the same for /api/map, /api/feedback, /api/room
+  //   RATE_LIMIT_HEAVY           "20"   the same for /api/resolve, /api/map, /api/feedback, /api/room
   //   RATE_LIMIT_WINDOW_SECONDS  "600"  window length in seconds
   // Counts live in the CACHE namespace above when it is bound (one KV write per
   // allowed request), and in memory otherwise.

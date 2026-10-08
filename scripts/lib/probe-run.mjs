@@ -13,19 +13,25 @@
 // and are used only to build the follow-up requests. Error text from fetch or
 // JSON.parse is never printed either, because it can quote the body.
 
-import { evaluateReads, KIND_LABEL, entityListOf, normaliseName, printableType, readsFor, resultCount, rowAffinity, rowId, rowName, rowType } from './reads.mjs';
+import { evaluateReads, KIND_LABEL, entityListOf, normaliseName, printableType, readsFor, resultCount, rowAffinity, rowId, rowName, rowType, tagListOf } from './reads.mjs';
 import {
   DOMAIN_LABEL,
   DOMAIN_ORDER,
+  DOMAIN_TYPE,
+  MOVE_ACTION,
+  MOVE_DOMAINS,
   PERSONAS,
   SCORE_CANDIDATES,
   ageCheckStep,
   compareSteps,
   describeParams,
   explainStep,
+  moveSteps,
   personaSteps,
   scoreStep,
   searchSteps,
+  strongestSteps,
+  tasteTagSteps,
 } from './probe-plan.mjs';
 import { describeShape, renderShape, shapeSignature } from './shape.mjs';
 
@@ -132,6 +138,50 @@ function compareLists(first, second) {
     shared: first.filter((id) => inSecond.has(id)).length,
     identical: first.length === second.length && first.every((id, index) => id === second[index]),
   };
+}
+
+const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+const textOf = (value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined);
+
+/** Tag IDs of a taste-analysis answer (`id`, else `tag_id`), as adapter.ts reads them. INTERNAL: never print the result. */
+function tagIdsOf(body) {
+  const list = tagListOf(body);
+  if (!Array.isArray(list)) return [];
+  const ids = [];
+  for (const tag of list) {
+    const id = isObject(tag) ? (textOf(tag.id) ?? textOf(tag.tag_id)) : undefined;
+    if (id !== undefined && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * Adds the explainability scores of one answer to `totals`, by input entity ID,
+ * as adapter.ts reads them: `query.explainability` is a list of rows, or an
+ * object holding the rows in `entities` or `signals`; a row is
+ * { entity_id | id, score }. INTERNAL: the IDs are never printed.
+ */
+function addContributions(body, totals) {
+  for (const row of entityListOf(body) ?? []) {
+    const explain = isObject(row) && isObject(row.query) ? row.query.explainability : undefined;
+    const rows = Array.isArray(explain) ? explain : isObject(explain) ? (Array.isArray(explain.entities) ? explain.entities : Array.isArray(explain.signals) ? explain.signals : []) : [];
+    for (const entry of rows) {
+      if (!isObject(entry)) continue;
+      const id = textOf(entry.entity_id) ?? textOf(entry.id);
+      if (id === undefined || typeof entry.score !== 'number' || !Number.isFinite(entry.score)) continue;
+      totals.set(id, (totals.get(id) ?? 0) + Math.min(1, Math.max(0, entry.score)));
+    }
+  }
+}
+
+function moveLine(who, action, list, c) {
+  let verdict;
+  if (c.first === 0 && c.second === 0) verdict = 'Both empty: the move did not help';
+  else if (c.first === 0) verdict = 'The move brought results where there were none';
+  else if (c.second === 0) verdict = 'After the move nothing came back: the parameters were accepted but gave no results';
+  else if (c.identical) verdict = 'Identical results: the move changed NOTHING here (the parameter it drops or changes may be ignored)';
+  else verdict = `The results changed: ${c.second - c.shared} not in the first call`;
+  return `${who}, ${action}, ${list}: accepted (HTTP 200). First call ${plural(c.first, 'result')}, after the move ${plural(c.second, 'result')}, ${c.shared} in both. ${verdict}.`;
 }
 
 function effectLine(who, label, firstName, secondName, c) {
@@ -333,6 +383,9 @@ export async function runProbe(options) {
     const steps = searchSteps();
     const results = await runSteps(steps, { report: false });
     const signals = Object.fromEntries(PERSONAS.map((persona) => [persona.key, []]));
+    // Which of a persona's signals are of each list's own kind, for the same-kind move. Kept in memory only.
+    const kinds = Object.fromEntries(PERSONAS.map((persona) => [persona.key, {}]));
+    const domainOfType = new Map(DOMAIN_ORDER.map((domain) => [DOMAIN_TYPE[domain], domain]));
 
     open(`resolve favourites (${plural(steps.length, 'name')})`);
     out('endpoint: GET /search');
@@ -363,7 +416,11 @@ export async function runProbe(options) {
         if (rows.length > 0) stats.matched += 1;
         if (resolved) stats.resolved += 1;
         const id = rowId(top);
-        if (id !== undefined && !signals[step.persona].includes(id)) signals[step.persona].push(id);
+        if (id !== undefined && !signals[step.persona].includes(id)) {
+          signals[step.persona].push(id);
+          const kind = domainOfType.get((rowType(top) ?? '').toLowerCase());
+          if (kind !== undefined) kinds[step.persona][kind] = [...(kinds[step.persona][kind] ?? []), id];
+        }
         out(
           `${head}, matches ${rows.length}, top type ${rows.length > 0 ? printableType(rowType(top)) : 'none'}, ` +
             `top name equals the term: ${sameName ? 'yes' : 'no'}, Encore would resolve it: ${resolved ? 'yes' : 'no'}`,
@@ -381,7 +438,7 @@ export async function runProbe(options) {
       for (const result of reads) out(checkLine(result));
     }
     close();
-    return signals;
+    return { signals, kinds };
   }
 
   // ----- later phases -------------------------------------------------------
@@ -416,6 +473,25 @@ export async function runProbe(options) {
           if (first?.outcome !== 'ok' || second?.outcome !== 'ok') continue;
           const c = compareLists(idsOf(first.step.id), idsOf(second.step.id));
           lines.push(effectLine(persona.label, `${what}, ${DOMAIN_LABEL[domain]}`, firstName, secondName, c));
+        }
+      }
+    }
+    return lines;
+  }
+
+  /** One line for each move that was tried: was it accepted, and did it change what came back. */
+  function moveEffects() {
+    const lines = [];
+    for (const persona of PERSONAS) {
+      for (const [role, domains] of Object.entries(MOVE_DOMAINS)) {
+        for (const domain of domains) {
+          const first = byId.get(`${persona.key}:map:${domain}`);
+          const second = byId.get(`${persona.key}:${role}:${domain}`);
+          if (second === undefined || second.outcome === 'skipped') continue;
+          const head = `${persona.label}, ${MOVE_ACTION[role]}, ${DOMAIN_LABEL[domain]}`;
+          if (second.outcome !== 'ok') lines.push(`${head}: the call FAILED, so these parameters may not be accepted (see its group above).`);
+          else if (first?.outcome !== 'ok') lines.push(`${head}: accepted (HTTP 200), ${plural(resultCount(second.result.body), 'result')}. Encore's first call failed, so there is nothing to compare with.`);
+          else lines.push(moveLine(persona.label, MOVE_ACTION[role], DOMAIN_LABEL[domain], compareLists(idsOf(first.step.id), idsOf(second.step.id))));
         }
       }
     }
@@ -466,6 +542,13 @@ export async function runProbe(options) {
       out('');
       out('Do the era and country filters work? (counts of results and of results in both calls; no values)');
       for (const line of effectLines) out(`  ${line}`);
+    }
+
+    const moveLines = moveEffects();
+    if (moveLines.length > 0) {
+      out('');
+      out("Do the agent's moves work? (each move made once on top of Encore's first call for that list; counts only, no values)");
+      for (const line of moveLines) out(`  ${line}`);
     }
 
     out('');
@@ -524,7 +607,7 @@ export async function runProbe(options) {
   out(`Base URL ${baseUrl}. GET only, X-Api-Key header, at most ${concurrency} calls at once, ${timeoutMs / 1000} s timeout, one retry on HTTP 429.`);
   out('Only field names, JSON types, counts, statuses and our own labels are printed. No value from a Qloo answer is.');
 
-  const signals = await resolveNames();
+  const { signals, kinds } = await resolveNames();
   const active = PERSONAS.filter((persona) => signals[persona.key].length > 0);
   for (const persona of PERSONAS) {
     if (signals[persona.key].length === 0) notes.push(`No name resolved for ${persona.label}, so none of its later calls were made.`);
@@ -533,6 +616,7 @@ export async function runProbe(options) {
   if (!state.aborted && active.length > 0) {
     const phaseTwo = [
       ...active.flatMap((persona) => personaSteps(persona, signals[persona.key], currentYear)),
+      ...active.flatMap((persona) => moveSteps(persona, signals[persona.key], currentYear, kinds[persona.key])),
       explainStep(active[0], signals[active[0].key]),
       ...compareSteps(signals),
     ];
@@ -552,10 +636,26 @@ export async function runProbe(options) {
       else notes.push(`${persona.label}: no readable brand candidate came back, so the age check for brands was not tried.`);
       if (films.length > 0) phaseThree.push(scoreStep(persona, signals[persona.key], films));
       else notes.push(`${persona.label}: no film candidates came back, so candidate scoring was not tried for them.`);
+
+      // The two moves of the agent that are built from earlier answers.
+      const totals = new Map();
+      for (const domain of DOMAIN_ORDER) {
+        const entry = byId.get(`${persona.key}:map:${domain}`);
+        if (entry?.outcome === 'ok') addContributions(entry.result.body, totals);
+      }
+      const strongest = signals[persona.key].filter((id) => (totals.get(id) ?? 0) > 0).sort((a, b) => totals.get(b) - totals.get(a));
+      const strongestCalls = strongestSteps(persona, signals[persona.key], strongest, currentYear);
+      if (strongestCalls.length > 0) phaseThree.push(...strongestCalls);
+      else notes.push(`${persona.label}: explainability credited none of the favourites, or all of them, so the strongest-favourites move was not tried.`);
+
+      const taste = byId.get(`${persona.key}:taste`);
+      const tagCalls = tasteTagSteps(persona, signals[persona.key], taste?.outcome === 'ok' ? tagIdsOf(taste.result.body) : [], currentYear);
+      if (tagCalls.length > 0) phaseThree.push(...tagCalls);
+      else notes.push(`${persona.label}: no readable taste tag came back, so the taste-tags move was not tried.`);
     }
     if (!state.aborted && phaseThree.length > 0) {
       out('');
-      out(`Phase 3: ${plural(phaseThree.length, 'call')} that need candidates from phase 2 (age checks and scoring).`);
+      out(`Phase 3: ${plural(phaseThree.length, 'call')} that need answers from phase 2 (age checks, scoring, and the moves built from explainability and taste tags).`);
       await runSteps(phaseThree);
     }
   }

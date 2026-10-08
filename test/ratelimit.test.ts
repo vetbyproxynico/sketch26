@@ -134,9 +134,11 @@ describe('windowAt', () => {
 });
 
 describe('isHeavyPath', () => {
-  it('names the three expensive routes, with or without a trailing slash', () => {
-    for (const path of ['/api/map', '/api/feedback', '/api/room', '/api/map/']) expect(isHeavyPath(path)).toBe(true);
-    for (const path of ['/api/intake', '/api/resolve', '/api/plan', '/api/health', '/api/maps']) expect(isHeavyPath(path)).toBe(false);
+  it('names the four expensive routes, with or without a trailing slash', () => {
+    for (const path of ['/api/resolve', '/api/map', '/api/feedback', '/api/room', '/api/map/', '/api/resolve/']) {
+      expect(isHeavyPath(path)).toBe(true);
+    }
+    for (const path of ['/api/intake', '/api/plan', '/api/health', '/api/maps', '/api/resolved']) expect(isHeavyPath(path)).toBe(false);
   });
 });
 
@@ -241,13 +243,14 @@ describe('the middleware over the in-memory store', () => {
     expect((await h.call('/api/intake', { ip: ALICE, env })).status).toBe(200);
   });
 
-  it('holds map, feedback and room to the tighter heavy budget, shared between them', async () => {
+  it('holds resolve, map, feedback and room to the tighter heavy budget, shared between them', async () => {
     const h = harness(createRateLimiter({ now: clockAt('2026-10-08T12:00:00Z').now }));
-    const env = { RATE_LIMIT_HEAVY: '3' };
+    const env = { RATE_LIMIT_HEAVY: '4' };
+    expect((await h.call('/api/resolve', { env })).status).toBe(200);
     expect((await h.call('/api/map', { env })).status).toBe(200);
     expect((await h.call('/api/feedback', { env })).status).toBe(200);
     expect((await h.call('/api/room', { env })).status).toBe(200);
-    for (const path of ['/api/map', '/api/feedback', '/api/room']) {
+    for (const path of ['/api/resolve', '/api/map', '/api/feedback', '/api/room']) {
       expect((await h.call(path, { env })).status).toBe(429);
     }
     // The other routes only have the general budget.

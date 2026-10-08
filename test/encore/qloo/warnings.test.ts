@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { countryAdjective, countryName } from '../../../src/encore/qloo/countries';
-import { countryRelaxedWarning, scoringFailedWarning } from '../../../src/encore/qloo/warnings';
-import { MAP_WARNING_CODES } from '../../../src/encore/types';
+import { countryRelaxedWarning, nounFor, scoringFailedWarning, yearsWidenedWarning } from '../../../src/encore/qloo/warnings';
+import { DOMAINS, MAP_WARNING_CODES } from '../../../src/encore/types';
 import type { QlooErrorKind } from '../../../src/qloo/client';
 
 describe('countryRelaxedWarning', () => {
@@ -84,9 +84,76 @@ describe('scoringFailedWarning', () => {
 });
 
 describe('MAP_WARNING_CODES', () => {
-  it('includes country_relaxed and keeps the older codes', () => {
-    expect([...MAP_WARNING_CODES].sort()).toEqual(
-      ['country_relaxed', 'empty', 'no_birth_year', 'no_era_filter', 'qloo_error', 'unverified_shape'].sort(),
+  it('includes country_relaxed and years_widened, and keeps the older codes', () => {
+    // Other layers add codes of their own, so this asks for these and allows more.
+    expect([...MAP_WARNING_CODES]).toEqual(
+      expect.arrayContaining(['country_relaxed', 'years_widened', 'empty', 'no_birth_year', 'no_era_filter', 'qloo_error', 'unverified_shape']),
     );
+    expect(new Set(MAP_WARNING_CODES).size).toBe(MAP_WARNING_CODES.length);
+  });
+});
+
+describe('countryRelaxedWarning when the country gave a few', () => {
+  it('says how many were found and that the others are shown too', () => {
+    expect(countryRelaxedWarning('films', 'FR', 'film', true, 2)).toEqual({
+      domain: 'film',
+      code: 'country_relaxed',
+      message: 'Only 2 French films were found for those years, so films from other countries are shown too.',
+    });
+  });
+
+  it('uses the singular for one, and the country name when there is no adjective', () => {
+    expect(countryRelaxedWarning('television programmes', 'GB', 'tv', false, 1).message).toBe(
+      'Only 1 British television programme was found, so television programmes from other countries are shown too.',
+    );
+    expect(countryRelaxedWarning('films', 'LU', 'film', true, 3).message).toBe(
+      'Only 3 films from Luxembourg were found for those years, so films from other countries are shown too.',
+    );
+  });
+
+  it('reads as before when none were found', () => {
+    expect(countryRelaxedWarning('films', 'FR', 'film', true, 0)).toEqual(countryRelaxedWarning('films', 'FR', 'film', true));
+  });
+});
+
+describe('yearsWidenedWarning', () => {
+  const from = { fromYear: 1942, toYear: 1962 };
+  const to = { fromYear: 1937, toYear: 1967 };
+
+  it('uses the code years_widened and names the domain and both sets of years', () => {
+    expect(yearsWidenedWarning('book', 0, from, to)).toEqual({
+      domain: 'book',
+      code: 'years_widened',
+      message: 'No books were found from 1942 to 1962, so books from 1937 to 1967 are shown.',
+    });
+  });
+
+  it('says how many were found when there were a few', () => {
+    expect(yearsWidenedWarning('film', 3, from, to).message).toBe('Only 3 films were found from 1942 to 1962, so films from 1937 to 1967 are shown too.');
+    expect(yearsWidenedWarning('tv', 1, from, to).message).toBe(
+      'Only 1 television programme was found from 1942 to 1962, so television programmes from 1937 to 1967 are shown too.',
+    );
+  });
+
+  it('speaks of the years people were born', () => {
+    const born = { fromYear: 1887, toYear: 1937 };
+    const wider = { fromYear: 1882, toYear: 1942 };
+    expect(yearsWidenedWarning('person', 0, born, wider).message).toBe('No people born from 1887 to 1937 were found, so people born from 1882 to 1942 are shown.');
+    expect(yearsWidenedWarning('person', 1, born, wider).message).toBe(
+      'Only 1 person born from 1887 to 1937 was found, so people born from 1882 to 1942 are shown too.',
+    );
+  });
+});
+
+describe('nounFor', () => {
+  it('gives one or several of what each list holds', () => {
+    expect(DOMAINS.map((domain) => [nounFor(domain, 1), nounFor(domain, 0), nounFor(domain, 2)])).toEqual([
+      ['film', 'films', 'films'],
+      ['television programme', 'television programmes', 'television programmes'],
+      ['music suggestion', 'music suggestions', 'music suggestions'],
+      ['book', 'books', 'books'],
+      ['person', 'people', 'people'],
+      ['brand', 'brands', 'brands'],
+    ]);
   });
 });

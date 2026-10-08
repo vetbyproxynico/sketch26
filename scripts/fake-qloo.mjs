@@ -6,6 +6,16 @@
 // data, and the response shapes are the same unverified guesses the tests use.
 // It proves the page and the server agree with each other, not that either
 // agrees with the real service.
+//
+// Four lists answer thinly at first, on purpose, so that the agent loop has
+// something to decide and its reasoning shows in the trace panel:
+//   television  two programmes while a release country is asked for, six without
+//   books       two for a span of years of 20 or less, six for a wider one
+//   people      two at first, three for wider birth years, six once the query
+//               leans on taste tags or on only some of the favourites
+//   brands      none while the 55-and-older signal is sent (as if that signal
+//               were not valid for brands), six without it
+// These rules are made up for the demo. They say nothing about how Qloo behaves.
 
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -25,6 +35,7 @@ const BY_TYPE = {
   'urn:entity:brand': fixture('insights-brands'),
   'urn:tag': fixture('tags'),
 };
+const EXTRA = fixture('insights-extra');
 const OLDER = fixture('demographics-older');
 const YOUNGER = fixture('demographics-younger');
 const NO_DEMOGRAPHICS = fixture('demographics-none');
@@ -56,6 +67,35 @@ function demographicsAnswer(entityId) {
   return last % 3 === 0 ? YOUNGER : OLDER;
 }
 
+const listOf = (value) => (value ?? '').split(',').filter(Boolean);
+
+/** The fixture's entities followed by the invented extras, cut to `count`. */
+function upTo(base, more, count) {
+  return { ...base, results: { ...base.results, entities: [...base.results.entities, ...more].slice(0, count) } };
+}
+
+/** The four lists that answer thinly until the query is loosened. See the note at the top. */
+function insightsAnswer(type, params) {
+  const base = BY_TYPE[type];
+  if (type === 'urn:entity:tv_show') {
+    return upTo(base, EXTRA.tv, params.has('filter.release_country') ? 2 : 6);
+  }
+  if (type === 'urn:entity:book') {
+    const span = Number(params.get('filter.publication_year.max')) - Number(params.get('filter.publication_year.min'));
+    return upTo(base, EXTRA.books, Number.isFinite(span) && span <= 20 ? 2 : 6);
+  }
+  if (type === 'urn:entity:person') {
+    const fewerSignals = listOf(params.get('signal.interests.entities')).length < listOf(params.get('filter.exclude.entities')).length;
+    if (params.has('signal.interests.tags') || fewerSignals) return upTo(base, EXTRA.people, 6);
+    const span = Number((params.get('filter.date_of_birth.max') ?? '').slice(0, 4)) - Number((params.get('filter.date_of_birth.min') ?? '').slice(0, 4));
+    return upTo(base, EXTRA.people, Number.isFinite(span) && span > 50 ? 3 : 2);
+  }
+  if (type === 'urn:entity:brand') {
+    return upTo(base, EXTRA.brands, params.has('signal.demographics.age') ? 0 : 6);
+  }
+  return base;
+}
+
 function answer(url) {
   if (url.pathname === '/search') return searchAnswer(url.searchParams.get('query') ?? '');
   if (url.pathname === '/v2/analysis/compare') return COMPARE;
@@ -63,7 +103,7 @@ function answer(url) {
   if (url.pathname === '/v2/insights') {
     const type = url.searchParams.get('filter.type') ?? '';
     if (type === 'urn:demographics') return demographicsAnswer(url.searchParams.get('signal.interests.entities'));
-    return BY_TYPE[type];
+    return BY_TYPE[type] === undefined ? undefined : insightsAnswer(type, url.searchParams);
   }
   return undefined;
 }

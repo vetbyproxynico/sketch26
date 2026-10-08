@@ -90,7 +90,8 @@ sessions, and into one programme for a whole common room.
    what the room has in common.
 7. **Printed sheet.** Any day prints as one black-and-white page.
 8. **Trace.** A button on every page lists every question asked of Qloo, with
-   its endpoint, parameters, result count and time.
+   its endpoint, parameters, result count and time, and each decision the map
+   agent took between them, with its reason.
 
 People are saved only in the browser. The server keeps no accounts and no
 database. A judge can reach a full plan from an example person in three clicks:
@@ -121,9 +122,14 @@ page written in plain JavaScript modules. It has four parts:
 - **A browser page.** It keeps saved people in the browser and sends the server
   what each request needs.
 
-Encore is an agent in the sense that it works through several steps, plans,
-takes feedback and plans again. The steps are fixed in code. The model does not
-choose which Qloo calls to make.
+Encore is an agent in two places. When it builds a map, it looks at what each
+Qloo call returned and decides its next call: drop the country, widen the years,
+drop the older-audience signal, lean on a different set of favourites, start
+from taste tags, or stop. A model makes that choice when one is configured, from
+a closed set of moves, with every choice checked and a rule-based fallback; it
+is limited to eight extra calls and three rounds. Then it plans, takes feedback
+after each session and plans again. Every decision and its reason is shown in
+the trace.
 
 The tests run offline against hand-written fixtures with invented values. A
 stand-in Qloo server that serves those fixtures lets the page and the server run
@@ -164,8 +170,8 @@ person.
 `filter.date_of_birth.min` and `.max`).** These keep films, television, books and
 people inside the years the person was about 10 to 30, and films and television
 inside their country. People are limited by birth date to the stars of that
-time. If a country-limited list is empty, Encore asks again without the country
-and tells the carer. Without these filters the map would drift to recent titles.
+time. If a list is thin, Encore decides whether to drop the country or widen
+the years by five either side, and tells the carer what it relaxed. Without these filters the map would drift to recent titles.
 
 **Older-audience signal and age check (`signal.demographics.age=55_and_older`,
 and `filter.type=urn:demographics`).** The age band is sent with every map

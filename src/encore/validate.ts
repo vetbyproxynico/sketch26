@@ -204,6 +204,10 @@ function parseWarning(value: unknown, field: string): MapWarning {
   };
   const domain = optionalDomain(v['domain'], `${field}.domain`);
   if (domain !== undefined) warning.domain = domain;
+  const emptied = list(v['emptied'], `${field}.emptied`, DOMAINS.length).map((entry, i) =>
+    oneOf(entry, DOMAINS, `${field}.emptied[${i}]`),
+  );
+  if (emptied.length > 0) warning.emptied = emptied;
   return warning;
 }
 

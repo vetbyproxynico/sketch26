@@ -55,10 +55,10 @@ Locally, from a machine that can reach the API: `QLOO_API_KEY=... node
 scripts/live-probe.mjs`. Do not paste the output anywhere public without
 checking it first; it is designed to be safe, but it is your decision.
 
-The run makes about 90 calls (24 searches, then about 55 that need only the
-resolved favourites, then up to 9 that need candidates from the earlier ones),
+The run makes about 130 calls (24 searches, then up to 85 that need only the
+resolved favourites, then up to 21 that need answers from the earlier ones),
 three at a time, each with a 20 second timeout and one retry on HTTP 429. It
-takes well under a minute when the API is healthy.
+takes about a minute when the API is healthy.
 
 If the first calls return HTTP 401 the key or base URL is wrong; the probe
 stops and skips the rest.
@@ -119,6 +119,20 @@ Words used on the adapter lines:
 | `compare people` | `/v2/analysis/compare`, for each pair of personas | `shared.ts` |
 | `cultural map: age check` | `filter.type=urn:demographics` for the first music and brand result | `domain.ts` |
 | `score candidates` | `filter.results.entities` with the first films from the map | `score.ts` |
+| `cultural map: <list> (any country)` | The agent's move `drop_country`: the map call without `filter.release_country`, for films and television | `query.ts`, `loop.ts` |
+| `cultural map: <list> (wider years)` | `widen_years`: the map call with five more years each side of the date filter, for films, television, books and people | `query.ts`, `loop.ts` |
+| `cultural map: <list> (no over-55 lean)` | `drop_age_signal`: the map call without `signal.demographics.age`, for films and music | `query.ts`, `loop.ts` |
+| `cultural map: <list> (same-kind favourites)` | `same_kind_favourites`: the map call with only the signals whose top search result was of the list's own type, for films and music. Skipped when there are none, or when every signal is of that type | `query.ts`, `loop.ts` |
+| `cultural map: <list> (strongest favourites)` | `strongest_favourites`: the map call with only the signals that explainability credited most in the six map answers (at most three), for films and music. Skipped when none, or all, were credited | `observe.ts`, `query.ts` |
+| `cultural map: <list> (taste words)` | `taste_tags`: the map call with up to five tag IDs from the taste-word answer in `signal.interests.tags`, `operator.signal.interests.tags=union`, and no entity signals or explainability, for films and music | `query.ts`, `loop.ts` |
+
+Each of the agent's moves is made once, on top of Encore's own first call for
+that list, which is what the agent loop sends when it makes that move in its
+first round. The moves that only change signals are documented for every
+entity type, so they are tried on one list with a date filter (films) and one
+without (music) to keep the run short. The signal IDs, the tag IDs and which
+signals were chosen stay in memory: the log shows `signal.interests.tags[5]`,
+never a value.
 
 The "isolation" calls exist because the combined map calls carry many
 parameters at once. If a map call returns nothing, comparing it with the same
@@ -145,9 +159,24 @@ call with fewer parameters shows which parameter caused it.
   - "The filtered call returned nothing" means no data in that window, or a
     filter stricter than the data. Compare with the unfiltered count.
   - Country: if the combined film call returns nothing but "era filter only"
-    returns results, the release country is what removed them. Encore already
-    retries without the country in that case and shows a `country_relaxed`
-    warning.
+    returns results, the release country is what removed them. Encore's agent
+    loop drops the country in that case and shows a `country_relaxed` warning.
+- **Do the agent's moves work?** One line for each move, persona and list:
+  whether the call was accepted, how many results Encore's first call and the
+  call after the move returned, and how many appear in both.
+  - "the call FAILED" means Qloo refused those parameters (see the group of
+    that call for the status). That move must then be changed or removed in
+    `src/encore/qloo/query.ts`, and the rule order in
+    `src/encore/agent/rules.ts` with it.
+  - "Identical results: the move changed NOTHING" means the parameter the move
+    drops or changes has no effect for that list. The move is harmless but a
+    wasted call: move it to the end of the rule order, or remove it.
+  - "The move brought results where there were none" is the case the move
+    exists for.
+  - "After the move nothing came back" means the parameters were accepted but
+    gave nothing, for example tag signals that match nothing of that type.
+  - A note such as "the taste-tags move was not tried" means an earlier answer
+    did not hold what the move is built from (taste tags, or explainability).
 - **Adapter assumptions**: counts per kind of answer, then the list of those
   that `FAILED`, those that held only in some calls, and those that could not
   be tested.

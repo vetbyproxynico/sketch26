@@ -1,12 +1,26 @@
-import type { QlooParams } from '../../qloo/client';
-import { DOMAINS, type CulturalMap, type Domain, type MapItem, type MapWarning, type Profile, type TagRef } from '../types';
-import { AGE_55_PLUS, readTags } from './adapter';
-import { buildDateFilters, buildDomain } from './domain';
+import { ruleAdvisor } from '../agent/rules';
+import { DEFAULT_LIMITS, type Advisor, type AgentLimits } from '../agent/types';
+import { DOMAINS, type CulturalMap, type Domain, type MapItem, type MapWarning, type Profile, type TagRef, type YearWindow } from '../types';
+import { domainOfType, readTags } from './adapter';
+import { countryWords } from './countries';
+import { firstRound, shownItems, type DomainContext, type ListState } from './domain';
 import { recoverableFailure } from './faults';
+import { runLoop } from './loop';
+import { AGE_CHECKED, HAS_COUNTRY, type ListQuery } from './query';
 import { signalIds, signalNames, unique } from './signals';
 import type { TracedQloo } from './traced';
-import { NO_BIRTH_YEAR_WARNING, NO_SIGNALS_WARNING, TASTE_WORDS_LABEL, emptyWarning, qlooErrorWarning } from './warnings';
-import { eraWindow, usableBirthYear } from './window';
+import {
+  DOMAIN_LABEL,
+  NO_BIRTH_YEAR_WARNING,
+  NO_SIGNALS_WARNING,
+  TASTE_WORDS_LABEL,
+  countryRelaxedWarning,
+  emptyWarning,
+  noEraFilterWarning,
+  qlooErrorWarning,
+  yearsWidenedWarning,
+} from './warnings';
+import { eraWindow, personBirthWindow, usableBirthYear } from './window';
 
 export const DEFAULT_PER_DOMAIN = 8;
 /** Qloo returns at most 50 per call and each domain asks for twice what it keeps. */
@@ -16,6 +30,12 @@ const TASTE_WORD_COUNT = 12;
 export interface MapOptions {
   perDomain?: number;
   now: Date;
+  /** Chooses the next move for each thin list. Defaults to the fixed rules. */
+  advisor?: Advisor;
+  /** Overrides of the budget and stop rules. Anything left out keeps its default. */
+  limits?: Partial<AgentLimits>;
+  /** The time in milliseconds, for the wall-clock guard. Defaults to the real clock. */
+  clock?: () => number;
 }
 
 function emptyByDomain(): Record<Domain, MapItem[]> {
@@ -31,6 +51,16 @@ function clampPerDomain(requested: number | undefined): number {
 function usableCountry(country: string | undefined): string | undefined {
   const code = country?.trim().toUpperCase();
   return code !== undefined && /^[A-Z]{2}$/.test(code) ? code : undefined;
+}
+
+/** The Encore domain of each signal entity that has one. */
+function signalKinds(profile: Pick<Profile, 'favourites' | 'liked'>): Map<string, Domain> {
+  const kinds = new Map<string, Domain>();
+  for (const entity of [...profile.favourites, ...profile.liked]) {
+    const kind = entity.domain ?? domainOfType(entity.entityType);
+    if (kind !== undefined && !kinds.has(entity.id.trim())) kinds.set(entity.id.trim(), kind);
+  }
+  return kinds;
 }
 
 /** The person's taste in words. Failure or an empty answer becomes a warning, never an error. */
@@ -50,16 +80,48 @@ async function tasteWords(traced: TracedQloo, signals: readonly string[]): Promi
   }
 }
 
+/** What a list contributes to the finished map: its items, and what the carer should know about them. */
+function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; warnings: MapWarning[] } {
+  const domain = state.domain;
+  const label = DOMAIN_LABEL[domain];
+  if (state.status === 'failed') return { items: [], warnings: [qlooErrorWarning(label, state.failure ?? 'client_error', domain)] };
+
+  const items = shownItems(state, perDomain);
+  if (items.length === 0) return { items, warnings: [emptyWarning(label, state.status === 'unreadable', domain)] };
+
+  const warnings: MapWarning[] = [];
+  if (state.country !== undefined && state.country.added > 0) {
+    // "For those years" is said of the years the list began with.
+    const bounded = (state.years?.from ?? state.query.years) !== undefined;
+    warnings.push(countryRelaxedWarning(label, state.country.code, domain, bounded, state.country.before));
+  }
+  if (state.years !== undefined && state.years.added > 0) {
+    warnings.push(yearsWidenedWarning(domain, state.years.before, state.years.from, state.years.to));
+  }
+  if (state.noAgeCheck) warnings.push(noEraFilterWarning(label, domain));
+  return { items, warnings };
+}
+
 /**
  * Builds the cultural map for one person.
  *
- * Every domain is asked with the same signals (favourites and liked items, the
- * 55-and-older age band, explainability). Date filters bound films, television,
- * books and people to the years the person was about 10 to 30; music and brands
+ * First round: every list is asked for with the same signals (favourites and
+ * liked items, the 55-and-older age band, explainability). Date filters bound
+ * films, television, books and people to the years the person was about 10 to
+ * 30, and films and television to the country they grew up in; music and brands
  * have no such filter, so their top candidates are checked for age skew.
- * Domains run side by side; the trace wrapper keeps three calls in flight.
+ *
+ * Then the agent loop (`loop.ts`): each list that came back thin gets one move
+ * a round, chosen by the advisor from a closed set, until every list is good
+ * enough, the advisor accepts what there is, or the budget is spent. Every
+ * decision is recorded in the trace next to the call it led to, and the
+ * warnings say in the carer's words what was relaxed.
+ *
+ * Lists run side by side; the trace wrapper keeps three calls in flight.
  */
 export async function buildCulturalMap(traced: TracedQloo, profile: Profile, options: MapOptions): Promise<CulturalMap> {
+  const clock = options.clock ?? ((): number => Date.now());
+  const started = clock();
   const birthYear = usableBirthYear(profile.birthYear, options.now);
   const window = birthYear === undefined ? undefined : eraWindow(birthYear, options.now);
   const signals = signalIds(profile);
@@ -73,32 +135,58 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
   if (birthYear === undefined) map.warnings.push(NO_BIRTH_YEAR_WARNING);
 
   const perDomain = clampPerDomain(options.perDomain);
+  const limits: AgentLimits = { ...DEFAULT_LIMITS, ...options.limits };
   const excluded = unique([...profile.excludedEntityIds, ...signals]);
-  const shared: QlooParams = {
-    'signal.interests.entities': signals,
-    'signal.demographics.age': AGE_55_PLUS,
-    'feature.explainability': true,
-    take: perDomain * 2,
-    'filter.exclude.entities': excluded,
-    'filter.exclude.tags': unique(profile.excludedTagIds),
-  };
-  const ctx = {
+  const country = usableCountry(profile.country);
+  const ctx: DomainContext = {
     traced,
-    perDomain,
     names: signalNames(profile),
     excluded: new Set(excluded),
-    shared,
-    country: usableCountry(profile.country),
-    dateFilters: birthYear === undefined || window === undefined ? undefined : buildDateFilters(birthYear, window),
+    shared: { take: perDomain * 2, excludedIds: excluded, excludedTags: unique(profile.excludedTagIds) },
   };
 
-  const [outcomes, words] = await Promise.all([
-    Promise.all(DOMAINS.map((domain) => buildDomain(ctx, domain))),
+  /** The years a list's date filter starts at: birth years for people, none for music and brands. */
+  const firstYears = (domain: Domain): YearWindow | undefined => {
+    if (birthYear === undefined || AGE_CHECKED.has(domain)) return undefined;
+    return domain === 'person' ? personBirthWindow(birthYear) : window;
+  };
+
+  /** What each list is asked for first. */
+  const firstQuery = (domain: Domain): ListQuery => ({
+    country: HAS_COUNTRY.has(domain) ? country : undefined,
+    years: firstYears(domain),
+    widened: false,
+    ageSignal: true,
+    lens: 'all_favourites',
+    entities: signals,
+    tags: [],
+  });
+
+  const [states, words] = await Promise.all([
+    Promise.all(DOMAINS.map((domain) => firstRound(ctx, domain, firstQuery(domain)))),
     tasteWords(traced, signals),
   ]);
 
-  for (const outcome of outcomes) {
-    map.byDomain[outcome.domain] = outcome.items;
+  await runLoop({
+    ctx,
+    states,
+    facts: {
+      window,
+      country: country === undefined ? undefined : countryWords(country),
+      currentYear: options.now.getUTCFullYear(),
+      signals,
+      kindOf: signalKinds(profile),
+      tasteTags: words.tags.map((tag) => tag.id),
+      target: Math.min(Math.floor(limits.thinTarget), perDomain),
+    },
+    advisor: options.advisor ?? ruleAdvisor,
+    limits,
+    elapsed: () => clock() - started,
+  });
+
+  for (const state of states) {
+    const outcome = outcomeOf(state, perDomain);
+    map.byDomain[state.domain] = outcome.items;
     map.warnings.push(...outcome.warnings);
   }
   map.tasteWords = words.tags;

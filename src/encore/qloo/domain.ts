@@ -1,73 +1,100 @@
-import type { QlooParams } from '../../qloo/client';
-import {
-  DOMAIN_ENTITY_TYPE,
-  type Domain,
-  type EraCheck,
-  type MapItem,
-  type MapWarning,
-  type YearWindow,
-} from '../types';
+import type { QlooErrorKind, QlooParams } from '../../qloo/client';
+import type { AgentMove } from '../agent/types';
+import { DOMAIN_ENTITY_TYPE, type Domain, type MapItem, type YearWindow } from '../types';
 import { AGE_55_PLUS, readAgeBands, readEntities, type QlooEntity } from './adapter';
 import { recoverableFailure } from './faults';
-import type { TracedQloo } from './traced';
+import { AGE_CHECKED, dateParams, queryParams, type ListQuery, type SharedQuery } from './query';
+import type { DecisionNote, TracedQloo } from './traced';
 import { personBirthWindow } from './window';
-import { DOMAIN_LABEL, countryRelaxedWarning, emptyWarning, noEraFilterWarning, qlooErrorWarning } from './warnings';
+import { DOMAIN_LABEL } from './warnings';
 
 /** Candidates per domain that get a demographic age check. */
 export const AGE_CHECK_LIMIT = 6;
 
-/** No era filter exists for these, so their age skew is checked instead. */
-const AGE_CHECKED: ReadonlySet<Domain> = new Set<Domain>(['music', 'brand']);
-
-/** Release country is a documented filter for films and television only. */
-const HAS_COUNTRY: ReadonlySet<Domain> = new Set<Domain>(['film', 'tv']);
-
 export interface DomainContext {
   traced: TracedQloo;
-  perDomain: number;
   /** Signal entity names by ID. */
   names: ReadonlyMap<string, string>;
   /** Entity IDs that must never come back: the exclusions and the signals themselves. */
   excluded: ReadonlySet<string>;
-  /** Parameters every domain query shares: signals, age band, explainability, take, exclusions. */
-  shared: QlooParams;
-  /** Upper-case ISO country code, when the profile has a usable one. */
-  country: string | undefined;
-  /** Date filters by domain. Undefined when the profile has no usable birth year. */
-  dateFilters: Readonly<Partial<Record<Domain, QlooParams>>> | undefined;
+  /** Parameters every domain query shares: take and the exclusions. */
+  shared: SharedQuery;
 }
 
-export interface DomainOutcome {
+/** A relaxation that was made for a list, kept so the warnings can say what was relaxed. */
+export interface Relaxed {
+  /** How many suggestions counted when the move was made. */
+  before: number;
+  /** How many new suggestions the relaxed calls have added since. */
+  added: number;
+}
+
+/**
+ * Everything known about one list while its map is being built: what came back
+ * so far, what it is being asked for now, and what has been tried.
+ */
+export interface ListState {
   domain: Domain;
+  /**
+   * `failed`: the first call failed for a reason local to it. `unreadable`: it
+   * answered in a form the adapter could not read. Otherwise `ok`.
+   */
+  status: 'ok' | 'failed' | 'unreadable';
+  /** Why the first call failed. Set only when `status` is `failed`. */
+  failure?: QlooErrorKind;
+  /** Suggestions so far: each entity once, in the order the calls returned them. */
   items: MapItem[];
-  warnings: MapWarning[];
-}
-
-type DomainResult = Omit<DomainOutcome, 'domain'>;
-
-interface Page {
-  items: MapItem[];
-  unrecognised: boolean;
+  /** The query of the latest call, or of the first one when nothing more was asked. */
+  query: ListQuery;
+  /** Moves made for this list, oldest first. */
+  tried: AgentMove[];
+  /** True once an advisor chose to keep the list as it is. */
+  accepted: boolean;
+  /** Music and brands: true when no candidate's age skew could be read. */
+  noAgeCheck: boolean;
+  /** Set once the release country was dropped. `code` is the country that was asked for first. */
+  country?: Relaxed & { code: string };
+  /** Set once the years were widened, with the years before and after. */
+  years?: Relaxed & { from: YearWindow; to: YearWindow };
 }
 
 /** The Qloo date filters for each domain that has them. Music and brands have none. */
 export function buildDateFilters(birthYear: number, window: YearWindow): Partial<Record<Domain, QlooParams>> {
   const born = personBirthWindow(birthYear);
-  const releaseYears = { 'filter.release_year.min': window.fromYear, 'filter.release_year.max': window.toYear };
   return {
-    film: releaseYears,
-    tv: releaseYears,
-    book: { 'filter.publication_year.min': window.fromYear, 'filter.publication_year.max': window.toYear },
-    person: { 'filter.date_of_birth.min': `${born.fromYear}-01-01`, 'filter.date_of_birth.max': `${born.toYear}-12-31` },
+    film: dateParams('film', window),
+    tv: dateParams('tv', window),
+    book: dateParams('book', window),
+    person: dateParams('person', born),
   };
 }
 
-function toItem(entity: QlooEntity, domain: Domain): MapItem {
+/**
+ * True when an item is tied to the person's era: a date filter bounded it, or
+ * the demographic check found that people over 55 favour it.
+ */
+export function inEra(item: MapItem): boolean {
+  return item.eraCheck === 'filter' || (item.eraCheck === 'age_skew' && (item.ageSkew55Plus ?? 0) > 0);
+}
+
+/**
+ * How an item returned by a query with a date filter is marked. Qloo ignores
+ * parameters it does not accept without saying so, so an item whose own year
+ * lies outside the years asked for is not counted as filtered. An item with no
+ * year is taken on trust.
+ */
+function eraCheckOf(entity: QlooEntity, years: YearWindow | undefined): MapItem['eraCheck'] {
+  if (years === undefined) return 'unchecked';
+  const year = entity.ref.year;
+  return year === undefined || (year >= years.fromYear && year <= years.toYear) ? 'filter' : 'unchecked';
+}
+
+function toItem(entity: QlooEntity, domain: Domain, years: YearWindow | undefined): MapItem {
   const item: MapItem = {
     entity: { ...entity.ref, domain },
     domain,
     contributions: entity.contributions,
-    eraCheck: 'unchecked',
+    eraCheck: eraCheckOf(entity, years),
     tags: entity.tags,
   };
   if (entity.affinity !== undefined) item.affinity = entity.affinity;
@@ -75,10 +102,22 @@ function toItem(entity: QlooEntity, domain: Domain): MapItem {
   return item;
 }
 
-async function fetchPage(ctx: DomainContext, domain: Domain, step: string, extra: QlooParams): Promise<Page> {
-  const type = DOMAIN_ENTITY_TYPE[domain];
-  const response = await ctx.traced.insights(step, { ...ctx.shared, ...extra, 'filter.type': type });
-  const page = readEntities(response.data, { fallbackType: type, names: ctx.names });
+export interface Page {
+  items: MapItem[];
+  /** True when the answer held no entity list the adapter could read. */
+  unrecognised: boolean;
+}
+
+/** One `/v2/insights` call for a list. Favourites and exclusions are dropped from the answer, and each entity is kept once. */
+export async function fetchPage(
+  ctx: DomainContext,
+  domain: Domain,
+  step: string,
+  query: ListQuery,
+  ledBy?: DecisionNote,
+): Promise<Page> {
+  const response = await ctx.traced.insights(step, queryParams(ctx.shared, domain, query), ledBy);
+  const page = readEntities(response.data, { fallbackType: DOMAIN_ENTITY_TYPE[domain], names: ctx.names });
 
   // Qloo is asked to exclude these, but a suggestion of a favourite is the one
   // mistake the carer would notice at once, so the answer is checked too.
@@ -88,30 +127,9 @@ async function fetchPage(ctx: DomainContext, domain: Domain, step: string, extra
     const id = entity.ref.id;
     if (ctx.excluded.has(id) || seen.has(id)) continue;
     seen.add(id);
-    items.push(toItem(entity, domain));
+    items.push(toItem(entity, domain, query.years));
   }
   return { items, unrecognised: page.unrecognised };
-}
-
-/** Films, television, books and people: bounded by a Qloo date filter when there is a birth year. */
-async function datedDomain(ctx: DomainContext, domain: Domain): Promise<DomainResult> {
-  const label = DOMAIN_LABEL[domain];
-  const step = `cultural map: ${label}`;
-  const dates = ctx.dateFilters?.[domain];
-  const country = HAS_COUNTRY.has(domain) ? ctx.country : undefined;
-  const warnings: MapWarning[] = [];
-
-  let page = await fetchPage(ctx, domain, step, { ...dates, 'filter.release_country': country });
-  if (country !== undefined && page.items.length === 0) {
-    const retry = await fetchPage(ctx, domain, `${step} (any country)`, { ...dates });
-    if (retry.items.length > 0) warnings.push(countryRelaxedWarning(label, country, domain, dates !== undefined));
-    page = retry;
-  }
-
-  const eraCheck: EraCheck = dates === undefined ? 'unchecked' : 'filter';
-  const items = page.items.slice(0, ctx.perDomain).map((item): MapItem => ({ ...item, eraCheck }));
-  if (items.length === 0) warnings.push(emptyWarning(label, page.unrecognised, domain));
-  return { items, warnings };
 }
 
 /** The 55-and-older affinity of one entity, or undefined when Qloo gave none. */
@@ -128,38 +146,75 @@ async function ageSkewOf(ctx: DomainContext, label: string, entityId: string): P
   }
 }
 
-const skewsOlder = (item: MapItem): boolean => (item.ageSkew55Plus ?? 0) > 0;
-
-/** Music and brands: matched by affinity, then the top few are checked for how much older people favour them. */
-async function ageCheckedDomain(ctx: DomainContext, domain: Domain): Promise<DomainResult> {
+/** Music and brands: the top few candidates are checked for how much older people favour them. */
+async function withAgeSkew(ctx: DomainContext, domain: Domain, items: readonly MapItem[]): Promise<{ items: MapItem[]; noAgeCheck: boolean }> {
   const label = DOMAIN_LABEL[domain];
-  const page = await fetchPage(ctx, domain, `cultural map: ${label}`, {});
-  const top = page.items.slice(0, AGE_CHECK_LIMIT);
-  const skews = await Promise.all(top.map((item) => ageSkewOf(ctx, label, item.entity.id)));
-
-  const checked = page.items.map((item, index): MapItem => {
+  const skews = await Promise.all(items.slice(0, AGE_CHECK_LIMIT).map((item) => ageSkewOf(ctx, label, item.entity.id)));
+  const checked = items.map((item, index): MapItem => {
     const skew = skews[index];
     return skew === undefined ? item : { ...item, eraCheck: 'age_skew', ageSkew55Plus: skew };
   });
-  const items = [...checked.filter(skewsOlder), ...checked.filter((item) => !skewsOlder(item))].slice(0, ctx.perDomain);
-
-  const warnings: MapWarning[] = [];
-  if (items.length === 0) warnings.push(emptyWarning(label, page.unrecognised, domain));
-  else if (skews.every((skew) => skew === undefined)) warnings.push(noEraFilterWarning(label, domain));
-  return { items, warnings };
+  return { items: checked, noAgeCheck: skews.every((skew) => skew === undefined) };
 }
 
 /**
- * Builds one domain of the cultural map. A recoverable Qloo failure becomes an
- * empty list and a `qloo_error` warning; a fatal one (no key, key refused) is
- * thrown because no other domain can succeed either.
+ * The first call for one list, as every map makes it: films, television, books
+ * and people bounded by a date filter when there is a birth year, music and
+ * brands matched by affinity and then checked for age skew. A recoverable Qloo
+ * failure gives a `failed` list; a fatal one (no key, key refused) is thrown
+ * because no other list can succeed either.
  */
-export async function buildDomain(ctx: DomainContext, domain: Domain): Promise<DomainOutcome> {
+export async function firstRound(ctx: DomainContext, domain: Domain, query: ListQuery): Promise<ListState> {
+  const state: ListState = { domain, status: 'ok', items: [], query, tried: [], accepted: false, noAgeCheck: false };
   try {
-    const result = AGE_CHECKED.has(domain) ? await ageCheckedDomain(ctx, domain) : await datedDomain(ctx, domain);
-    return { domain, ...result };
+    const page = await fetchPage(ctx, domain, `cultural map: ${DOMAIN_LABEL[domain]}`, query);
+    if (page.unrecognised) state.status = 'unreadable';
+    if (AGE_CHECKED.has(domain)) {
+      const checked = await withAgeSkew(ctx, domain, page.items);
+      state.items = checked.items;
+      state.noAgeCheck = checked.noAgeCheck;
+    } else {
+      state.items = page.items;
+    }
   } catch (error) {
-    const failure = recoverableFailure(error);
-    return { domain, items: [], warnings: [qlooErrorWarning(DOMAIN_LABEL[domain], failure.kind, domain)] };
+    state.status = 'failed';
+    state.failure = recoverableFailure(error).kind;
   }
+  return state;
+}
+
+/**
+ * Adds the suggestions of a later call to a list. An entity already in the list
+ * keeps its place and its first details; new ones go after it in the order they
+ * came. Returns how many were new (`added`).
+ *
+ * One detail of an entity already there can change: when it first came back
+ * with a year outside the years asked for, and comes back again inside years
+ * that have since been widened, it is now marked as bounded by the date filter.
+ * `remarked` is how many were.
+ */
+export function mergeItems(state: ListState, incoming: readonly MapItem[]): { added: number; remarked: number } {
+  const have = new Map(state.items.map((item, index) => [item.entity.id, index]));
+  let added = 0;
+  let remarked = 0;
+  for (const item of incoming) {
+    const at = have.get(item.entity.id);
+    if (at === undefined) {
+      have.set(item.entity.id, state.items.length);
+      state.items.push(item);
+      added += 1;
+      continue;
+    }
+    const kept = state.items[at];
+    if (kept !== undefined && kept.eraCheck === 'unchecked' && item.eraCheck === 'filter') {
+      state.items[at] = { ...kept, eraCheck: 'filter' };
+      remarked += 1;
+    }
+  }
+  return { added, remarked };
+}
+
+/** The list as the map shows it: suggestions tied to the era first, each group in the order it arrived, cut to `perDomain`. */
+export function shownItems(state: ListState, perDomain: number): MapItem[] {
+  return [...state.items.filter(inEra), ...state.items.filter((item) => !inEra(item))].slice(0, perDomain);
 }

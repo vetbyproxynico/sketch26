@@ -28,7 +28,7 @@ export interface TasteSource {
   scoreForPerson(profile: Profile, candidates: readonly EntityRef[]): Promise<Record<string, number | null>>;
   /** What two people's tastes share, as tags. */
   sharedGround(a: Profile, b: Profile): Promise<TagRef[]>;
-  /** Every call made through this instance so far, oldest first. */
+  /** Every call made through this instance so far, and each decision the map agent took between them, oldest first. */
   trace(): TraceEntry[];
 }
 

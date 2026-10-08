@@ -6,7 +6,7 @@ import { allPeople, clearEverything, isPersistent, onChange, removePerson, stage
 
 export function peopleView() {
   const holder = h('div', { class: 'holder' });
-  const el = h('div', { class: 'page' }, h('header', { class: 'page-head' }, h('h1', null, 'People saved in this browser'), h('p', { class: 'lede' }, 'Everyone you add is kept only on this device, in this browser. Nothing is sent to an account, and nobody else can see it.')), holder);
+  const el = h('div', { class: 'page' }, h('header', { class: 'page-head' }, h('h1', null, 'People saved in this browser'), h('p', { class: 'lede' }, 'Everyone you add is saved only on this device, in this browser. There are no accounts. Each time Encore plans, it sends the service what it needs for that request, as the note on the details page explains.')), holder);
 
   function render() {
     const people = allPeople().sort((a, b) => b.updatedAt - a.updatedAt);

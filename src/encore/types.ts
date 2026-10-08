@@ -129,19 +129,28 @@ export interface MapItem {
  * Why a map or programme carries a warning:
  * - `empty`: Qloo had nothing to suggest;
  * - `no_era_filter`: the list could not be tied to the person's years;
+ * - `years_widened`: too little came back for the person's years, so the list
+ *   was asked for again with five more years either side and shows those too;
  * - `qloo_error`: a Qloo call failed and its result is missing or replaced;
  * - `unverified_shape`: Qloo answered in a form this app could not read;
  * - `no_birth_year`: no birth year, so no era window;
  * - `country_relaxed`: nothing came back for the person's country, so the list
- *   was asked for again without the country and shows items from anywhere.
+ *   was asked for again without the country and shows items from anywhere;
+ * - `avoided`: suggestions were left out because of the carer's avoid list. The
+ *   message gives a count and the carer's own words, never the titles;
+ * - `gentle`: suggestions were left out by Gentle mode. The message gives a
+ *   count and the kinds of theme, never the titles.
  */
 export const MAP_WARNING_CODES = [
   'empty',
   'no_era_filter',
+  'years_widened',
   'qloo_error',
   'unverified_shape',
   'no_birth_year',
   'country_relaxed',
+  'avoided',
+  'gentle',
 ] as const;
 
 export type MapWarningCode = (typeof MAP_WARNING_CODES)[number];
@@ -151,6 +160,12 @@ export interface MapWarning {
   code: MapWarningCode;
   /** Plain words for the carer. */
   message: string;
+  /**
+   * On `avoided` and `gentle` warnings of a map: the groups that had
+   * suggestions before this filter ran and have none now. Absent when no group
+   * was emptied by it.
+   */
+  emptied?: Domain[];
 }
 
 export interface YearWindow {
@@ -168,20 +183,71 @@ export interface CulturalMap {
   warnings: MapWarning[];
 }
 
-/** One Qloo call, for the trace panel. Never contains response data or the key. */
+/**
+ * The closed set of moves the map builder can make for a list that came back
+ * thin. Each one maps to documented Qloo parameters (see `src/encore/qloo/query.ts`);
+ * nothing outside this list can be asked for, by the rules or by a model.
+ * - `drop_country`: ask again without the release country;
+ * - `widen_years`: ask again with five more years either side;
+ * - `drop_age_signal`: ask again without the 55-and-older audience signal;
+ * - `same_kind_favourites`: ask again with only the favourites of the list's own kind as signals;
+ * - `strongest_favourites`: ask again with only the favourites that have led to the most suggestions so far;
+ * - `taste_tags`: ask again with the person's taste tags as signals in place of the favourites;
+ * - `accept`: keep the list as it is and ask nothing more for it.
+ */
+export const AGENT_ACTIONS = [
+  'drop_country',
+  'widen_years',
+  'drop_age_signal',
+  'same_kind_favourites',
+  'strongest_favourites',
+  'taste_tags',
+  'accept',
+] as const;
+
+export type AgentAction = (typeof AGENT_ACTIONS)[number];
+
+/**
+ * One line of the trace panel: a Qloo call, or a decision the map builder made
+ * between calls. Never contains response data or the key.
+ *
+ * A decision (`kind: 'decision'`) sends nothing, so its `endpoint` is empty, its
+ * `params` are empty, its `status` is 0 and `cached` is false. When it led to a
+ * call, that call is the next entry in the list.
+ */
 export interface TraceEntry {
-  /** What the agent was doing, e.g. "cultural map: films". */
+  /** What the agent was doing, e.g. "cultural map: films" or "decision: films from any country". */
   step: string;
-  /** Path only, e.g. `/v2/insights`. */
+  /** Path only, e.g. `/v2/insights`. Empty for a decision. */
   endpoint: string;
-  /** The query parameters sent. */
+  /** The query parameters sent. Empty for a decision. */
   params: Record<string, string>;
-  /** HTTP status, or 0 when no response arrived. */
+  /** HTTP status, or 0 when no response arrived. Always 0 for a decision. */
   status: number;
-  /** Number of entities or tags returned. */
+  /**
+   * Number of entities or tags returned. For a decision: how many suggestions
+   * the list held when it was made (all lists together for a decision to stop).
+   */
   count: number;
+  /** Time the call took. For a decision: how long the advisor took to answer. */
   ms: number;
   cached: boolean;
+  /** Absent on a call, so a missing value means `call`. */
+  kind?: 'call' | 'decision';
+  /**
+   * Decision only. What the map builder saw, then what it chose and why, in
+   * plain words: "Only 2 French films from 1942 to 1962. Trying films from any
+   * country." The first sentence is always written by code from the counts.
+   */
+  reason?: string;
+  /** Decision only. Who chose: the fixed rules, or the language model picking from `AGENT_ACTIONS`. */
+  decidedBy?: 'rules' | 'model';
+  /** Decision only. The move chosen, or `stop` for the decision that ends the building of a map. */
+  action?: AgentAction | 'stop';
+  /** Decision only. The list it is about. Absent for `stop`. */
+  domain?: Domain;
+  /** Decision only. The round it was made in, from 1. */
+  round?: number;
 }
 
 export interface SessionItem {

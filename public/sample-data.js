@@ -102,6 +102,29 @@ function trace(step, endpoint, params, count) {
   return { step, endpoint, params, status: 200, count, ms: 0, cached: false };
 }
 
+/**
+ * A decision of the map builder, in the shape the live API sends it: it asks
+ * nothing, so it has no endpoint and no parameters. Every sample reason starts
+ * with "Sample:", because nothing was really seen or decided.
+ */
+function decision(step, action, round, count, reason, domain) {
+  return {
+    step,
+    endpoint: '',
+    params: {},
+    status: 0,
+    count,
+    ms: 0,
+    cached: false,
+    kind: 'decision',
+    reason,
+    decidedBy: 'rules',
+    action,
+    round,
+    ...(domain ? { domain } : {}),
+  };
+}
+
 // ---------------------------------------------------------------- intake
 
 const COUNTRY_WORDS = [
@@ -204,6 +227,7 @@ function sampleMap(profile) {
   const favourites = Array.isArray(p.favourites) ? p.favourites : [];
   const byDomain = {};
   const traceEntries = [];
+  const followUps = [];
 
   for (const domain of DOMAINS) {
     const items = [];
@@ -223,14 +247,55 @@ function sampleMap(profile) {
     if (window && domain === 'book') Object.assign(params, { 'filter.publication_year.min': String(window.fromYear), 'filter.publication_year.max': String(window.toYear) });
     if (window && domain === 'person') Object.assign(params, { 'filter.date_of_birth.min': String(window.fromYear - 40), 'filter.date_of_birth.max': String(window.fromYear - 10) });
     if (p.country && (domain === 'film' || domain === 'tv')) params['filter.release_country'] = p.country;
-    traceEntries.push(trace(`cultural map: ${HEADING[domain]}`, '/v2/insights', params, items.length));
+    // Two lists pretend to come back short at first, so the sample trace can show what a decision looks like.
+    const dropsCountry = domain === 'tv' && Boolean(p.country) && items.length > 1;
+    const widensYears = domain === 'book' && Boolean(window) && items.length > 1;
+    const firstCount = dropsCountry || widensYears ? 1 : items.length;
+    traceEntries.push(trace(`cultural map: ${HEADING[domain]}`, '/v2/insights', params, firstCount));
     if (domain === 'music' || domain === 'brand') {
       traceEntries.push(
         trace(`age check: ${HEADING[domain]}`, '/v2/insights', { 'filter.type': 'urn:demographics', 'signal.interests.entities': items.map((i) => i.entity.id).join(',') }, items.length),
       );
     }
+    if (dropsCountry) {
+      const { 'filter.release_country': _country, ...anyCountry } = params;
+      followUps.push(
+        decision(
+          'decision: television from any country',
+          'drop_country',
+          1,
+          1,
+          `Sample: only 1 television programme from their country${window ? ` from ${window.fromYear} to ${window.toYear}` : ''}. Trying television from any country.`,
+          'tv',
+        ),
+        trace('cultural map: television (any country)', '/v2/insights', anyCountry, items.length),
+      );
+    }
+    if (widensYears) {
+      const wider = { ...params, 'filter.publication_year.min': String(window.fromYear - 5), 'filter.publication_year.max': String(window.toYear + 5) };
+      followUps.push(
+        decision(
+          'decision: books from 5 more years either side',
+          'widen_years',
+          1,
+          1,
+          `Sample: only 1 book from ${window.fromYear} to ${window.toYear}. Trying 5 more years either side, from ${window.fromYear - 5} to ${window.toYear + 5}.`,
+          'book',
+        ),
+        trace('cultural map: books (wider years)', '/v2/insights', wider, items.length),
+      );
+    }
   }
   traceEntries.push(trace('taste in words', '/v2/insights', { 'filter.type': 'urn:tag', 'signal.interests.entities': favourites.map((f) => f.id).join(',') }, TASTE_WORDS.length));
+  // As in a live map: the first questions, then each decision directly before the question it led to, then the decision to stop.
+  if (followUps.length > 0) {
+    const asked = followUps.length / 2;
+    const total = DOMAINS.reduce((sum, domain) => sum + byDomain[domain].length, 0);
+    traceEntries.push(
+      ...followUps,
+      decision('decision: stop asking', 'stop', 1, total, `Sample: stopped after ${asked} extra ${asked === 1 ? 'question' : 'questions'}. Nothing more was needed.`),
+    );
+  }
 
   const warnings = [];
   if (!birth) {

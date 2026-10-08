@@ -1,4 +1,4 @@
-import { createTasteSource } from '../../../src/encore/qloo';
+import { createTasteSource, type TasteSourceOptions } from '../../../src/encore/qloo';
 import type { EntityRef, Profile } from '../../../src/encore/types';
 import { QlooClient, type QlooClientOptions, type QlooResponse } from '../../../src/qloo/client';
 import type { FetchLike } from '../../../src/util';
@@ -10,6 +10,7 @@ import demographicsYounger from '../../fixtures/encore/qloo/demographics-younger
 import artists from '../../fixtures/encore/qloo/insights-artists.json';
 import books from '../../fixtures/encore/qloo/insights-books.json';
 import brands from '../../fixtures/encore/qloo/insights-brands.json';
+import extra from '../../fixtures/encore/qloo/insights-extra.json';
 import films from '../../fixtures/encore/qloo/insights-films.json';
 import people from '../../fixtures/encore/qloo/insights-people.json';
 import tv from '../../fixtures/encore/qloo/insights-tv.json';
@@ -65,10 +66,10 @@ export function failingClient(error: Error): QlooClient {
   return new FailingClient({ apiKey: TEST_KEY });
 }
 
-/** A taste source over a routed stub, with the clock fixed at NOW. */
-export function makeSource(handler: Handler) {
+/** A taste source over a routed stub, with the clock fixed at NOW. `options` reach the taste source as given. */
+export function makeSource(handler: Handler, options: Omit<TasteSourceOptions, 'now'> = {}) {
   const net = routed(handler);
-  const source = createTasteSource(makeClient(net.fetch), { now: () => NOW });
+  const source = createTasteSource(makeClient(net.fetch), { now: () => NOW, ...options });
   return { ...net, source };
 }
 
@@ -115,18 +116,27 @@ const DEMOGRAPHICS: Readonly<Record<string, unknown>> = {
   'BRAND-3': demographicsOlder,
 };
 
+/** An insights answer with more invented entities after the ones of a fixture. */
+function toppedUp(body: { results: { entities: unknown[] } }, more: readonly unknown[]): unknown {
+  return { ...body, results: { ...body.results, entities: [...body.results.entities, ...more] } };
+}
+
 /**
  * A handler that answers every call the cultural map makes from fixtures.
  * `overrides` replaces the answer for one `filter.type` value.
+ *
+ * Every list it gives is full enough (at least six items), so a map built from
+ * it needs no further question and its trace holds calls only. The agent loop
+ * is tested with handlers that answer some calls thinly on purpose.
  */
 export function mapHandler(overrides: Readonly<Record<string, Handler>> = {}): Handler {
   const byType: Readonly<Record<string, unknown>> = {
     'urn:entity:movie': films,
-    'urn:entity:tv_show': tv,
-    'urn:entity:book': books,
-    'urn:entity:person': people,
+    'urn:entity:tv_show': toppedUp(tv, extra.tv),
+    'urn:entity:book': toppedUp(books, extra.books),
+    'urn:entity:person': toppedUp(people, extra.people),
     'urn:entity:artist': artists,
-    'urn:entity:brand': brands,
+    'urn:entity:brand': toppedUp(brands, extra.brands),
     'urn:tag': tags,
   };
   return (call) => {

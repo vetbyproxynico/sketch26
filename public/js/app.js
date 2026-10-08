@@ -49,7 +49,8 @@ function updateStorageNote() {
 }
 
 function updateTraceButton() {
-  const n = api.getTrace().length;
+  // Decisions are the agent's reasoning, not questions asked of Qloo.
+  const n = api.getTrace().filter((entry) => entry.kind !== 'decision').length;
   traceCount.textContent = String(n);
   traceButton.setAttribute('aria-label', `Trace, ${n} ${n === 1 ? 'question' : 'questions'} so far`);
 }

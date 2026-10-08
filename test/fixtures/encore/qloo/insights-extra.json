@@ -1,0 +1,26 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. These entries top up the short television, book, people and brand fixtures, so that the default answers of the test helper describe a person every list is full enough for.",
+  "tv": [
+    { "entity_id": "EX-TV-203", "name": "Example Series Three", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1955 }, "query": { "affinity": 0.6 } },
+    { "entity_id": "EX-TV-204", "name": "Example Series Four", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1958 }, "query": { "affinity": 0.55 } },
+    { "entity_id": "EX-TV-205", "name": "Example Series Five", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1961 }, "query": { "affinity": 0.5 } },
+    { "entity_id": "EX-TV-206", "name": "Example Series Six", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1964 }, "query": { "affinity": 0.45 } }
+  ],
+  "books": [
+    { "entity_id": "EX-BOOK-303", "name": "Example Novel Three", "subtype": "urn:entity:book", "properties": { "publication_year": 1952 }, "query": { "affinity": 0.55 } },
+    { "entity_id": "EX-BOOK-304", "name": "Example Novel Four", "subtype": "urn:entity:book", "properties": { "publication_year": 1955 }, "query": { "affinity": 0.5 } },
+    { "entity_id": "EX-BOOK-305", "name": "Example Novel Five", "subtype": "urn:entity:book", "properties": { "publication_year": 1960 }, "query": { "affinity": 0.45 } },
+    { "entity_id": "EX-BOOK-306", "name": "Example Novel Six", "subtype": "urn:entity:book", "properties": { "publication_year": 1963 }, "query": { "affinity": 0.4 } }
+  ],
+  "people": [
+    { "entity_id": "EX-PERSON-403", "name": "Example Actor Three", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1915-02-03" }, "query": { "affinity": 0.52 } },
+    { "entity_id": "EX-PERSON-404", "name": "Example Singer Four", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1928-07-21" }, "query": { "affinity": 0.48 } },
+    { "entity_id": "EX-PERSON-405", "name": "Example Presenter Five", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1930-01-15" }, "query": { "affinity": 0.44 } },
+    { "entity_id": "EX-PERSON-406", "name": "Example Actor Six", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1938-09-09" }, "query": { "affinity": 0.4 } }
+  ],
+  "brands": [
+    { "entity_id": "BRAND-4", "name": "Example Tea", "subtype": "urn:entity:brand", "query": { "affinity": 0.45 } },
+    { "entity_id": "BRAND-5", "name": "Example Polish", "subtype": "urn:entity:brand", "query": { "affinity": 0.4 } },
+    { "entity_id": "BRAND-6", "name": "Example Bicycles", "subtype": "urn:entity:brand", "query": { "affinity": 0.35 } }
+  ]
+}

@@ -1,6 +1,7 @@
 import type { CulturalMap, Domain, MapItem, Profile, RoomProgrammeItem, RoomScore } from '../types';
 import { DOMAINS } from '../types';
 import { byAffinity } from './affinity';
+import { filterFor, isLeftOut } from './filters';
 
 const DEFAULT_PER_PERSON = 6;
 const DEFAULT_PROGRAMME_SIZE = 4;
@@ -113,7 +114,9 @@ function mapFor(profile: Profile, index: number, maps: readonly CulturalMap[]): 
  * items while other choices remain. `leftOut` lists the people whose affinity
  * for an item is missing or below `leftOutBelow` (default 0.25), and each of
  * them gets a companion: the best item from their own map that is not in the
- * programme and has not already been offered to them as a companion.
+ * programme and has not already been offered to them as a companion. Nothing
+ * that anybody in the room asked to avoid, or that Gentle mode leaves out when
+ * it is on for anybody, is chosen, either as a programme item or a companion.
  */
 export function chooseProgramme(
   profiles: readonly Profile[],
@@ -125,7 +128,11 @@ export function chooseProgramme(
   const size = Number.isFinite(opts.size) ? Math.max(0, Math.floor(opts.size as number)) : DEFAULT_PROGRAMME_SIZE;
   const leftOutBelow = opts.leftOutBelow ?? DEFAULT_LEFT_OUT_BELOW;
 
-  const selected = selectWithDomainCap(rank(candidates, roomScores), size);
+  // The programme is shown to the whole room, so nothing that one resident must avoid is chosen,
+  // whether as a programme item or as a companion.
+  const filters = profiles.map(filterFor);
+  const allowed = candidates.filter((candidate) => !isLeftOut(filters, candidate));
+  const selected = selectWithDomainCap(rank(allowed, roomScores), size);
   const inProgramme = new Set(selected.map(({ item }) => item.entity.id));
 
   const companionPools = new Map<string, MapItem[]>();
@@ -133,7 +140,9 @@ export function chooseProgramme(
     const map = mapFor(profile, index, maps);
     const excluded = new Set(profile.excludedEntityIds);
     const pool = map
-      ? allItems(map).filter((item) => !inProgramme.has(item.entity.id) && !excluded.has(item.entity.id))
+      ? allItems(map).filter(
+          (item) => !inProgramme.has(item.entity.id) && !excluded.has(item.entity.id) && !isLeftOut(filters, item),
+        )
       : [];
     companionPools.set(profile.id, pool);
   });

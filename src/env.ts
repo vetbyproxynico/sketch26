@@ -49,8 +49,9 @@ export interface Env {
    */
   RATE_LIMIT_GENERAL?: string;
   /**
-   * Var. Requests one visitor may make to /api/map, /api/feedback and /api/room
-   * per window, the routes that cost the most. Default 20. 0 turns this limit off.
+   * Var. Requests one visitor may make to /api/resolve, /api/map, /api/feedback
+   * and /api/room per window, the routes that call Qloo. Default 20. 0 turns
+   * this limit off.
    */
   RATE_LIMIT_HEAVY?: string;
   /** Var. Length of the rate-limit window in seconds. Default 600. */

@@ -31,7 +31,7 @@ export function intakeView(editId) {
     class: 'textarea',
     rows: '5',
     maxlength: String(MAX_INTAKE_TEXT),
-    'aria-describedby': `${ids.describe}-hint ${ids.describe}-count`,
+    'aria-describedby': `${ids.describe}-hint ${ids.describe}-privacy ${ids.describe}-count`,
   });
   const describeCount = h('p', { class: 'tag-count', id: `${ids.describe}-count` }, `0 of ${MAX_INTAKE_TEXT} characters`);
   const describeStatus = h('div', { class: 'inline-status', role: 'status' });
@@ -88,7 +88,7 @@ export function intakeView(editId) {
   favourites.setValues(initial.favourites);
   const avoid = createTagInput({
     label: 'Things to avoid',
-    hint: 'Anything that would upset them or that they do not enjoy, such as a kind of film. Encore takes these into account when it plans. Optional.',
+    hint: 'Anything that would upset them or that they do not enjoy, such as war or westerns. Short phrases work best. Encore leaves out any suggestion whose title, description or themes match what you type here. It also checks a few related words, so "war" covers wartime, soldiers and battles. It can only check what it can see, so it cannot know everything about a film. Please still look over each plan. Optional.',
     max: MAX_FAVOURITES,
     placeholder: 'For example: war films',
     noun: 'thing to avoid',
@@ -132,7 +132,7 @@ export function intakeView(editId) {
       'div',
       { class: 'field field--switch' },
       h('label', { class: 'switch', for: ids.gentle }, gentle, h('span', { class: 'switch-track', 'aria-hidden': 'true' }, h('span', { class: 'switch-thumb' })), h('span', { class: 'switch-text' }, 'Gentle mode'), gentleState),
-      h('p', { class: 'hint', id: `${ids.gentle}-hint` }, 'Leaves out themes that can be upsetting, such as war and loss. Keep it on if you are not sure.'),
+      h('p', { class: 'hint', id: `${ids.gentle}-hint` }, 'When this is on, Encore leaves out suggestions with upsetting themes: war and combat, graphic violence, horror, murder and true crime, abuse, disaster, terminal illness and suicide. It looks at each suggestion\'s themes, and at its title and description for strong words only. It can miss something, and it can leave out an item that is harmless. When it is off, only the things to avoid are left out. Keep it on if you are not sure.'),
     ),
     h(
       'div',
@@ -157,6 +157,7 @@ export function intakeView(editId) {
       { class: 'panel panel--helper', 'aria-labelledby': 'describe-title' },
       h('h2', { id: 'describe-title' }, 'Describe them in your own words'),
       h('p', { class: 'hint', id: `${ids.describe}-hint` }, 'Write a few sentences about them, such as where they grew up and what they loved. Encore fills in the form below for you to check. Please leave out real names and addresses.'),
+      h('p', { class: 'hint', id: `${ids.describe}-privacy` }, 'What you write here is sent to a language model, exactly as you typed it. Later, when Encore plans the sessions, the model is also sent the nickname and the things to avoid, as typed, words that describe their taste, and the name, kind, year, description and themes of each suggestion. A note you write after a session is sent as typed too. The model is not sent the favourites, the birth year, the country or the town. Encore cannot tell whether a real name has been typed, so please keep real names out of the nickname, the things to avoid and the notes.'),
       h('label', { for: ids.describe, class: 'visually-hidden' }, 'Describe them in your own words'),
       describeBox,
       describeCount,

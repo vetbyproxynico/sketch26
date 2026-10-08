@@ -1,3 +1,4 @@
+import { avoidMentionedIn, compileAvoidNotes, whyLeftOut, type AvoidRule } from '../avoid';
 import type { SessionDraft, Wordsmith } from '../ports';
 import { DOMAINS } from '../types';
 import type { CulturalMap, Domain, MapItem, Plan, Profile, Session } from '../types';
@@ -70,10 +71,16 @@ function isExcluded(item: MapItem, excludedIds: ReadonlySet<string>, excludedTag
   return (item.tags ?? []).some((tag) => excludedTags.has(tag.id));
 }
 
-/** Every usable item in the map, once, best affinity first. */
+/**
+ * Every usable item in the map, once, best affinity first. Items the profile
+ * has ruled out, and items its avoid list or Gentle mode leave out, are not
+ * used. A map comes back from the browser, so it is never trusted to be clean
+ * already, even though the routes filter it first.
+ */
 function eligibleItems(profile: Profile, map: CulturalMap): MapItem[] {
   const excludedIds = new Set(profile.excludedEntityIds);
   const excludedTags = new Set(profile.excludedTagIds);
+  const rules = compileAvoidNotes(profile.avoidNotes);
   const seen = new Set<string>();
   const items: MapItem[] = [];
 
@@ -81,7 +88,9 @@ function eligibleItems(profile: Profile, map: CulturalMap): MapItem[] {
     for (const item of map.byDomain[domain] ?? []) {
       if (seen.has(item.entity.id)) continue;
       seen.add(item.entity.id);
-      if (!isExcluded(item, excludedIds, excludedTags)) items.push(item);
+      if (isExcluded(item, excludedIds, excludedTags)) continue;
+      if (whyLeftOut(rules, profile.gentle, item) !== undefined) continue;
+      items.push(item);
     }
   }
   return byAffinity(items);
@@ -133,7 +142,7 @@ function pickNext(
  *
  * - `days` defaults to 5 and is kept between 1 and 7; `itemsPerSession` is a
  *   ceiling and defaults to 3.
- * - No item appears twice, and nothing the profile excludes is used.
+ * - No item appears twice, and nothing the profile excludes or avoids is used.
  * - Higher affinity comes first (a missing affinity counts as 0), but each
  *   session mixes domains where it can and domains are spread over the week.
  * - When the items run out, fewer sessions are returned, and the items are
@@ -186,11 +195,19 @@ function isDressing(entry: unknown): entry is Dressing {
   );
 }
 
+/** True when a theme, an opening line or a question brings up something the carer asked to avoid. */
+function mentionsAvoided(rules: readonly AvoidRule[], dressing: Dressing): boolean {
+  if (rules.length === 0) return false;
+  const texts = [dressing.theme, dressing.opener ?? '', ...dressing.prompts];
+  return texts.some((text) => avoidMentionedIn(rules, text) !== undefined);
+}
+
 /**
  * Drafts the sessions, asks the wordsmith to name them and write their
  * prompts, and stamps the plan. Wherever the wordsmith gives nothing usable
- * for a session (too few entries, a malformed entry, or a failed call) that
- * session gets the deterministic fallback, so a plan is always returned.
+ * for a session (too few entries, a malformed entry, a failed call, or words
+ * that bring up something on the avoid list) that session gets the
+ * deterministic fallback, so a plan is always returned.
  */
 export async function buildPlan(
   profile: Profile,
@@ -214,9 +231,10 @@ export async function buildPlan(
     }
   }
 
+  const rules = compileAvoidNotes(profile.avoidNotes);
   const sessions: Session[] = drafts.map((draft, index) => {
     const entry = dressed[index];
-    const words = isDressing(entry) ? entry : fallbackDressing(draft);
+    const words = isDressing(entry) && !mentionsAvoided(rules, entry) ? entry : fallbackDressing(draft);
     const session: Session = { ...draft, theme: words.theme, prompts: [...words.prompts] };
     if (words.opener !== undefined && words.opener.trim() !== '') session.opener = words.opener;
     return session;

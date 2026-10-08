@@ -1,5 +1,5 @@
 import type { QlooErrorKind } from '../../qloo/client';
-import type { Domain, MapWarning, MapWarningCode } from '../types';
+import type { Domain, MapWarning, MapWarningCode, YearWindow } from '../types';
 import { countryAdjective, countryName } from './countries';
 
 /** How each domain reads inside a sentence for the carer. */
@@ -11,6 +11,21 @@ export const DOMAIN_LABEL: Readonly<Record<Domain, string>> = {
   person: 'people',
   brand: 'brands',
 };
+
+/** One and several of what each list holds, for a sentence that counts them. */
+export const DOMAIN_NOUN: Readonly<Record<Domain, readonly [one: string, many: string]>> = {
+  film: ['film', 'films'],
+  tv: ['television programme', 'television programmes'],
+  music: ['music suggestion', 'music suggestions'],
+  book: ['book', 'books'],
+  person: ['person', 'people'],
+  brand: ['brand', 'brands'],
+};
+
+/** "film" for one, "films" for none or several. */
+export function nounFor(domain: Domain, count: number): string {
+  return DOMAIN_NOUN[domain][count === 1 ? 0 : 1];
+}
 
 /** The taste words are not a domain, so they have a label of their own. */
 export const TASTE_WORDS_LABEL = 'taste words';
@@ -64,14 +79,44 @@ export function emptyWarning(subject: string, unrecognised: boolean, domain?: Do
 
 /**
  * Warning for a list that was asked for again without the release country,
- * because nothing came back for it. `bounded` is true when the list is also
- * limited to the person's years.
+ * because too little came back for it. `bounded` is true when the list is also
+ * limited to the person's years. `found` is how many suggestions the country
+ * gave; with none, the list shows only items from elsewhere.
  */
-export function countryRelaxedWarning(subject: string, country: string, domain: Domain, bounded: boolean): MapWarning {
+export function countryRelaxedWarning(subject: string, country: string, domain: Domain, bounded: boolean, found = 0): MapWarning {
   const adjective = countryAdjective(country);
-  const missing = adjective === undefined ? `${subject} from ${countryName(country)}` : `${adjective} ${subject}`;
+  const of = (noun: string): string => (adjective === undefined ? `${noun} from ${countryName(country)}` : `${adjective} ${noun}`);
   const years = bounded ? ' for those years' : '';
-  return warn('country_relaxed', `No ${missing} were found${years}, so ${subject} from other countries are shown.`, domain);
+  if (found <= 0) {
+    return warn('country_relaxed', `No ${of(subject)} were found${years}, so ${subject} from other countries are shown.`, domain);
+  }
+  return warn(
+    'country_relaxed',
+    `Only ${found} ${of(nounFor(domain, found))} ${found === 1 ? 'was' : 'were'} found${years}, so ${subject} from other countries are shown too.`,
+    domain,
+  );
+}
+
+/**
+ * Warning for a list that was asked for again with more years either side,
+ * because too little came back for the person's own years. `found` is how many
+ * suggestions the list had before the years were widened.
+ */
+export function yearsWidenedWarning(domain: Domain, found: number, from: YearWindow, to: YearWindow): MapWarning {
+  const many = nounFor(domain, 2);
+  // People are bounded by the year they were born, everything else by the year it came out.
+  const born = domain === 'person' ? ' born' : '';
+  const first = `${born} from ${from.fromYear} to ${from.toYear}`;
+  const wider = `${many}${born} from ${to.fromYear} to ${to.toYear}`;
+  const message =
+    found <= 0
+      ? domain === 'person'
+        ? `No ${many}${first} were found, so ${wider} are shown.`
+        : `No ${many} were found${first}, so ${wider} are shown.`
+      : domain === 'person'
+        ? `Only ${found} ${nounFor(domain, found)}${first} ${found === 1 ? 'was' : 'were'} found, so ${wider} are shown too.`
+        : `Only ${found} ${nounFor(domain, found)} ${found === 1 ? 'was' : 'were'} found${first}, so ${wider} are shown too.`;
+  return warn('years_widened', message, domain);
 }
 
 export function noEraFilterWarning(subject: string, domain: Domain): MapWarning {

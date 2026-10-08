@@ -222,7 +222,10 @@ export function roomView() {
       parts.push(h('section', { class: 'notice notice--soft', 'aria-label': 'Good to know' }, h('ul', null, programme.warnings.map((w) => h('li', null, w.message)))));
     }
 
-    if (!programme.items || programme.items.length === 0) {
+    const filtered = (programme.warnings || []).some((w) => w.code === 'avoided' || w.code === 'gentle');
+    if ((!programme.items || programme.items.length === 0) && filtered) {
+      parts.push(emptyBlock('Your filters left nothing for the room', 'Everything Encore found for these people matched something one of them asked to avoid, or gentle mode. To see more, change the things to avoid, or turn gentle mode off, on the details page of the person named above.'));
+    } else if (!programme.items || programme.items.length === 0) {
       parts.push(emptyBlock('No programme could be made', 'There was nothing the room shared. Try different people, or add more favourites.'));
     } else {
       parts.push(

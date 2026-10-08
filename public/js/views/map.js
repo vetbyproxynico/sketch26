@@ -91,6 +91,10 @@ export function mapView(id) {
       );
     }
 
+    // Warnings that say suggestions were left out because of the avoid list or gentle mode.
+    const filterWarnings = (map.warnings || []).filter((w) => w.code === 'avoided' || w.code === 'gentle');
+    const emptiedByFilters = new Set(filterWarnings.flatMap((w) => (Array.isArray(w.emptied) ? w.emptied : [])));
+
     const notes = noteNames(person);
     const messages = (map.warnings || []).map((w) => w.message);
     if (notes.length) messages.push(`${notes.join(', ')} could not be matched, so ${notes.length === 1 ? 'it was' : 'they were'} kept as ${notes.length === 1 ? 'a note' : 'notes'} and not used.`);
@@ -98,6 +102,17 @@ export function mapView(id) {
       parts.push(
         h('section', { class: 'notice notice--soft', 'aria-labelledby': 'good-to-know' }, h('h2', { id: 'good-to-know', class: 'notice-title' }, 'Good to know'), h('ul', null, messages.map((m) => h('li', null, m)))),
       );
+    }
+
+    if (nothingFound && filterWarnings.length) {
+      // Something was found, and the filters left out all of it.
+      parts.push(
+        emptyBlock('Your filters left nothing to show', 'Everything Encore found matched something you asked to avoid, or gentle mode. To see more, change the things to avoid, or turn gentle mode off, on the details page.', [
+          h('a', { class: 'btn btn--primary', href: `#/edit/${encodeURIComponent(person.id)}` }, 'Change the details'),
+        ]),
+      );
+      holder.replaceChildren(...parts);
+      return;
     }
 
     if (nothingFound) {
@@ -156,7 +171,9 @@ export function mapView(id) {
         warn.map((w) => h('p', { class: 'hint' }, w.message)),
         items.length
           ? h('ul', { class: 'entries' }, items.map((item) => h('li', null, entry(item, { headingLevel: 3, nickname: person.input.nickname }))))
-          : emptyBlock(DOMAIN_EMPTY[domain], 'The taste service had nothing to suggest here. The other groups are not affected.'),
+          : emptiedByFilters.has(domain)
+            ? emptyBlock('Nothing is left here after your filters', 'Everything Encore found in this group matched something you asked to avoid, or gentle mode. The other groups are not affected. To see more, change the things to avoid, or turn gentle mode off, on the details page.')
+            : emptyBlock(DOMAIN_EMPTY[domain], 'The taste service had nothing to suggest here. The other groups are not affected.'),
       );
       sections.push(section);
       jump.appendChild(

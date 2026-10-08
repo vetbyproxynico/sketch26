@@ -24,8 +24,12 @@ export const DEFAULT_HEAVY_LIMIT = 20;
 /** Default window length: ten minutes. */
 export const DEFAULT_WINDOW_SECONDS = 600;
 
-/** The routes that fan out into many Qloo calls. They also count against the general budget. */
-const HEAVY_PATHS: ReadonlySet<string> = new Set(['/api/map', '/api/feedback', '/api/room']);
+/**
+ * The routes that fan out into many Qloo calls: a map is eight or more, and
+ * `/api/resolve` makes up to twelve searches. They also count against the
+ * general budget.
+ */
+const HEAVY_PATHS: ReadonlySet<string> = new Set(['/api/resolve', '/api/map', '/api/feedback', '/api/room']);
 
 const KEY_PREFIX = 'rate:v1:';
 /** Cloudflare KV rejects an expirationTtl below 60 seconds. */

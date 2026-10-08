@@ -116,7 +116,15 @@ export function planView(id) {
       );
     }
 
-    if (!plan.sessions || plan.sessions.length === 0) {
+    const filtered = ((person.map && person.map.warnings) || []).some((w) => w.code === 'avoided' || w.code === 'gentle');
+    if ((!plan.sessions || plan.sessions.length === 0) && filtered) {
+      parts.push(
+        emptyBlock('Your filters left nothing to plan from', 'Everything Encore found matched something you asked to avoid, or gentle mode. To see more, change the things to avoid, or turn gentle mode off, on the details page.', [
+          h('a', { class: 'btn btn--primary', href: `#/edit/${encodeURIComponent(person.id)}` }, 'Change the details'),
+          h('a', { class: 'btn btn--secondary', href: `#/person/${encodeURIComponent(person.id)}/map` }, 'Back to the map'),
+        ]),
+      );
+    } else if (!plan.sessions || plan.sessions.length === 0) {
       parts.push(emptyBlock('The plan has no sessions', 'The map may be too small to plan from. Go back to the map and try again.', [h('a', { class: 'btn btn--primary', href: `#/person/${encodeURIComponent(person.id)}/map` }, 'Back to the map')]));
     } else {
       parts.push(h('p', { class: 'lede' }, 'Each day has a theme, a few things to bring and questions to ask. After a session, mark how each item went and update the plan.'));

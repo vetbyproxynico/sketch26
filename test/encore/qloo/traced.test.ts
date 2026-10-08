@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createLimiter } from '../../../src/encore/qloo/limiter';
-import { createTraced } from '../../../src/encore/qloo/traced';
+import { createTraced, type DecisionNote } from '../../../src/encore/qloo/traced';
 import { QlooError } from '../../../src/qloo/client';
 import { MemoryKv, TEST_KEY, jsonResponse } from '../../helpers';
 import { failingClient, makeClient, routed, status } from './helpers';
@@ -111,6 +111,95 @@ describe('a failed call', () => {
     const traced = createTraced(failingClient(new RangeError('boom')));
     await expect(traced.insights('x', { 'filter.type': 'urn:entity:movie' })).rejects.toThrow('boom');
     expect(traced.trace()[0]).toMatchObject({ status: 0, count: 0 });
+  });
+});
+
+describe('decisions in the trace', () => {
+  const note = (action: 'drop_country' | 'accept' | 'stop', extra: Partial<DecisionNote> = {}): DecisionNote => ({
+    step: `decision: ${action}`,
+    reason: 'Only 2 films. Trying something.',
+    decidedBy: 'rules',
+    action,
+    round: 1,
+    count: 2,
+    ms: 3,
+    ...extra,
+  });
+
+  it('records a decision on its own as an entry that sent nothing', () => {
+    const { traced, calls } = setup();
+    traced.decide(note('accept', { domain: 'film' }));
+    expect(calls).toHaveLength(0);
+    expect(traced.trace()).toEqual([
+      {
+        step: 'decision: accept',
+        endpoint: '',
+        params: {},
+        status: 0,
+        count: 2,
+        ms: 3,
+        cached: false,
+        kind: 'decision',
+        reason: 'Only 2 films. Trying something.',
+        decidedBy: 'rules',
+        action: 'accept',
+        round: 1,
+        domain: 'film',
+      },
+    ]);
+  });
+
+  it('leaves the domain out of a decision about the whole map', () => {
+    const { traced } = setup();
+    traced.decide(note('stop'));
+    expect(traced.trace()[0]).not.toHaveProperty('domain');
+  });
+
+  it('records the decision that led to a call directly before it, when the call finishes', async () => {
+    const { traced } = setup();
+    const slow = traced.insights('cultural map: films (any country)', { 'filter.type': 'urn:entity:movie', take: 1 }, note('drop_country', { domain: 'film' }));
+    traced.decide(note('accept', { domain: 'book' }));
+    await slow;
+    expect(traced.trace().map((entry) => [entry.kind ?? 'call', entry.action ?? entry.step])).toEqual([
+      ['decision', 'accept'],
+      ['decision', 'drop_country'],
+      ['call', 'cultural map: films (any country)'],
+    ]);
+  });
+
+  it('keeps each decision next to its own call when several calls overlap', async () => {
+    const { traced } = setup();
+    await Promise.all(
+      ['film', 'tv', 'book', 'person', 'brand'].map((domain) =>
+        traced.insights(`call for ${domain}`, { 'filter.type': 'urn:entity:movie', take: domain.length }, note('drop_country', { step: `decision for ${domain}` })),
+      ),
+    );
+    const trace = traced.trace();
+    expect(trace).toHaveLength(10);
+    for (let index = 0; index < trace.length; index += 2) {
+      expect(trace[index]?.kind).toBe('decision');
+      expect(trace[index + 1]?.kind).toBeUndefined();
+      expect(trace[index + 1]?.step).toBe(trace[index]?.step.replace('decision', 'call'));
+    }
+  });
+
+  it('records the decision before a call that fails, too', async () => {
+    const { traced } = setup(() => status(503));
+    await expect(traced.insights('cultural map: films (any country)', { 'filter.type': 'urn:entity:movie' }, note('drop_country'))).rejects.toMatchObject({
+      kind: 'server_error',
+    });
+    expect(traced.trace().map((entry) => [entry.kind ?? 'call', entry.status])).toEqual([
+      ['decision', 0],
+      ['call', 503],
+    ]);
+  });
+
+  it('hands out copies of decisions as well', () => {
+    const { traced } = setup();
+    traced.decide(note('stop'));
+    const copy = traced.trace();
+    if (copy[0] !== undefined) copy[0].reason = 'tampered';
+    expect(traced.trace()[0]?.reason).toBe('Only 2 films. Trying something.');
   });
 });
 

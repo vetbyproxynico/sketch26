@@ -35,3 +35,6 @@ Thumbs.db
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# Local agent worktrees
+.claude/worktrees/

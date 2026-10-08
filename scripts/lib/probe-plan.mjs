@@ -5,7 +5,9 @@
 // A step is { id, who, step, role, kind, domain?, term?, endpoint, params }:
 //   step      the label Encore gives the call (or "isolation: ..." for extra calls)
 //   role      what the call is for: search, map (Encore's own domain call), control,
-//             era, era-country, explain, taste, age, score, compare
+//             era, era-country, explain, taste, age, score, compare, or one of the
+//             agent's moves (any-country, wider-years, no-age, same-kind,
+//             strongest, taste-tags)
 //   kind      which set of adapter reads applies (see reads.mjs)
 //   params    the query-string parameters, in the form src/qloo/query.ts takes
 
@@ -20,6 +22,10 @@ export const AGE_BAND = '55_and_older'; // AGE_55_PLUS in adapter.ts
 export const SCORE_CANDIDATES = 10;
 /** Signals sent per persona: Encore accepts at most 12 favourites. */
 export const MAX_SIGNALS = 12;
+/** The agent's moves (src/encore/agent/types.ts). */
+export const YEAR_STEP = 5; // years widen_years adds to each side
+export const STRONGEST_FAVOURITES = 3; // most favourites strongest_favourites leans on
+export const MAX_TAG_SIGNALS = 5; // most taste tags taste_tags sends
 
 export const DOMAIN_TYPE = Object.freeze({
   film: 'urn:entity:movie',
@@ -134,6 +140,28 @@ export function dateParams(domain, birthYear, currentYear) {
   }
 }
 
+/** The window widen_years moves to (query.ts widerYears): YEAR_STEP more years each side, never past `currentYear`. */
+export function widerYears(years, currentYear = new Date().getUTCFullYear()) {
+  return { fromYear: years.fromYear - YEAR_STEP, toYear: Math.max(years.toYear, Math.min(years.toYear + YEAR_STEP, currentYear)) };
+}
+
+/** The date filter of a domain after widen_years. Music and brands have none. */
+export function widerDateParams(domain, birthYear, currentYear) {
+  const era = widerYears(eraYears(birthYear, currentYear), currentYear);
+  const born = widerYears(personBirthYears(birthYear), currentYear);
+  switch (domain) {
+    case 'film':
+    case 'tv':
+      return { 'filter.release_year.min': era.fromYear, 'filter.release_year.max': era.toYear };
+    case 'book':
+      return { 'filter.publication_year.min': era.fromYear, 'filter.publication_year.max': era.toYear };
+    case 'person':
+      return { 'filter.date_of_birth.min': `${born.fromYear}-01-01`, 'filter.date_of_birth.max': `${born.toYear}-12-31` };
+    default:
+      return {};
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Printing parameters
 // ---------------------------------------------------------------------------
@@ -157,6 +185,7 @@ export const PRINTABLE_PARAMS = Object.freeze(
     'filter.date_of_birth.min',
     'filter.date_of_birth.max',
     'filter.release_country',
+    'operator.signal.interests.tags',
   ]),
 );
 
@@ -212,6 +241,19 @@ function insights(persona, domain, role, step, params) {
   };
 }
 
+/** The parameters of Encore's first call for one list (map.ts, query.ts), without `filter.type`. */
+function mapParams(persona, domain, ids, currentYear) {
+  return {
+    'signal.interests.entities': ids,
+    'signal.demographics.age': AGE_BAND,
+    'feature.explainability': true,
+    take: MAP_TAKE,
+    'filter.exclude.entities': ids,
+    ...dateParams(domain, persona.birthYear, currentYear),
+    ...(domain === 'film' || domain === 'tv' ? { 'filter.release_country': persona.country } : {}),
+  };
+}
+
 /**
  * The calls for one persona that need only its signals (the IDs of the
  * favourites that resolved):
@@ -225,19 +267,10 @@ function insights(persona, domain, role, step, params) {
  */
 export function personaSteps(persona, signals, currentYear) {
   const ids = signals.slice(0, MAX_SIGNALS);
-  const shared = {
-    'signal.interests.entities': ids,
-    'signal.demographics.age': AGE_BAND,
-    'feature.explainability': true,
-    take: MAP_TAKE,
-    'filter.exclude.entities': ids,
-  };
   const steps = [];
 
   for (const domain of DOMAIN_ORDER) {
-    const dates = dateParams(domain, persona.birthYear, currentYear);
-    const country = domain === 'film' || domain === 'tv' ? { 'filter.release_country': persona.country } : {};
-    steps.push(insights(persona, domain, 'map', `cultural map: ${DOMAIN_LABEL[domain]}`, { ...shared, ...dates, ...country }));
+    steps.push(insights(persona, domain, 'map', `cultural map: ${DOMAIN_LABEL[domain]}`, mapParams(persona, domain, ids, currentYear)));
   }
 
   const base = { 'signal.interests.entities': ids, take: MAP_TAKE };
@@ -268,6 +301,114 @@ export function personaSteps(persona, signals, currentYear) {
     params: { 'filter.type': 'urn:tag', 'signal.interests.entities': ids, take: TASTE_WORD_TAKE },
   });
   return steps;
+}
+
+// ---------------------------------------------------------------------------
+// The agent's moves (src/encore/qloo/query.ts)
+// ---------------------------------------------------------------------------
+
+/** The label Encore puts after the list's own label on the call a move leads to (narrate.ts). */
+export const MOVE_SUFFIX = Object.freeze({
+  'any-country': 'any country',
+  'wider-years': 'wider years',
+  'no-age': 'no over-55 lean',
+  'same-kind': 'same-kind favourites',
+  strongest: 'strongest favourites',
+  'taste-tags': 'taste words',
+});
+
+/** The move of the agent each probe role stands for. */
+export const MOVE_ACTION = Object.freeze({
+  'any-country': 'drop_country',
+  'wider-years': 'widen_years',
+  'no-age': 'drop_age_signal',
+  'same-kind': 'same_kind_favourites',
+  strongest: 'strongest_favourites',
+  'taste-tags': 'taste_tags',
+});
+
+/**
+ * The lists each move is tried on. The country and the years exist only for
+ * some lists, so those moves are tried on every list that has them. The signal
+ * moves are documented for every entity type, so they are tried on one list
+ * with a date filter (films) and one without (music), to keep the run short.
+ */
+export const MOVE_DOMAINS = Object.freeze({
+  'any-country': Object.freeze(['film', 'tv']),
+  'wider-years': Object.freeze(['film', 'tv', 'book', 'person']),
+  'no-age': Object.freeze(['film', 'music']),
+  'same-kind': Object.freeze(['film', 'music']),
+  strongest: Object.freeze(['film', 'music']),
+  'taste-tags': Object.freeze(['film', 'music']),
+});
+
+function move(persona, domain, role, params) {
+  return insights(persona, domain, role, `cultural map: ${DOMAIN_LABEL[domain]} (${MOVE_SUFFIX[role]})`, params);
+}
+
+function without(params, ...names) {
+  return Object.fromEntries(Object.entries(params).filter(([name]) => !names.includes(name)));
+}
+
+/**
+ * The moves that need only the signals, each made once on top of Encore's first
+ * call for that list (the `map` step), exactly as the agent loop sends it in its
+ * first round:
+ *   any-country   drop_country: the map call without filter.release_country
+ *   wider-years   widen_years: the map call with YEAR_STEP more years each side
+ *   no-age        drop_age_signal: the map call without signal.demographics.age
+ *   same-kind     same_kind_favourites: the map call with only the signals of
+ *                 the list's own kind (skipped when there are none, or when
+ *                 every signal is of that kind)
+ * `kinds` maps a domain to the signal IDs of that kind.
+ */
+export function moveSteps(persona, signals, currentYear, kinds = {}) {
+  const ids = signals.slice(0, MAX_SIGNALS);
+  const base = (domain) => mapParams(persona, domain, ids, currentYear);
+  const steps = [];
+  for (const domain of MOVE_DOMAINS['any-country']) steps.push(move(persona, domain, 'any-country', without(base(domain), 'filter.release_country')));
+  for (const domain of MOVE_DOMAINS['wider-years']) {
+    steps.push(move(persona, domain, 'wider-years', { ...base(domain), ...widerDateParams(domain, persona.birthYear, currentYear) }));
+  }
+  for (const domain of MOVE_DOMAINS['no-age']) steps.push(move(persona, domain, 'no-age', without(base(domain), 'signal.demographics.age')));
+  for (const domain of MOVE_DOMAINS['same-kind']) {
+    const own = ids.filter((id) => (kinds[domain] ?? []).includes(id));
+    if (own.length > 0 && own.length < ids.length) steps.push(move(persona, domain, 'same-kind', { ...base(domain), 'signal.interests.entities': own }));
+  }
+  return steps;
+}
+
+/**
+ * strongest_favourites: the map call with only the signals that explainability
+ * credits most, strongest first. `strongestIds` comes from the answers to the
+ * map calls, so this runs in a later phase. Returns no step when the subset
+ * would be empty or would leave no signal out, as in the app.
+ */
+export function strongestSteps(persona, signals, strongestIds, currentYear) {
+  const ids = signals.slice(0, MAX_SIGNALS);
+  const lead = strongestIds.filter((id) => ids.includes(id)).slice(0, STRONGEST_FAVOURITES);
+  if (lead.length === 0 || lead.length >= ids.length) return [];
+  return MOVE_DOMAINS.strongest.map((domain) =>
+    move(persona, domain, 'strongest', { ...mapParams(persona, domain, ids, currentYear), 'signal.interests.entities': lead }),
+  );
+}
+
+/**
+ * taste_tags: the map call with the taste tags as signals (union) in place of
+ * the entity signals, and without explainability. `tagIds` comes from the
+ * answer to the taste-word call, so this runs in a later phase.
+ */
+export function tasteTagSteps(persona, signals, tagIds, currentYear) {
+  const ids = signals.slice(0, MAX_SIGNALS);
+  const tags = tagIds.slice(0, MAX_TAG_SIGNALS);
+  if (tags.length === 0) return [];
+  return MOVE_DOMAINS['taste-tags'].map((domain) =>
+    move(persona, domain, 'taste-tags', {
+      ...without(mapParams(persona, domain, ids, currentYear), 'signal.interests.entities', 'feature.explainability'),
+      'signal.interests.tags': tags,
+      'operator.signal.interests.tags': 'union',
+    }),
+  );
 }
 
 /** Explainability on its own: signals and the feature flag, nothing else. Run once. */
@@ -348,16 +489,21 @@ export function compareSteps(signalsByPersona) {
  */
 export function planPreview(currentYear) {
   const signals = Object.fromEntries(PERSONAS.map((persona) => [persona.key, ['invented-signal-1', 'invented-signal-2']]));
+  // One invented signal is a film and the other is music, so every move has something to send.
+  const kinds = { film: ['invented-signal-1'], music: ['invented-signal-2'] };
   const first = PERSONAS[0];
   return [
     ...searchSteps(),
     ...PERSONAS.flatMap((persona) => personaSteps(persona, signals[persona.key], currentYear)),
+    ...PERSONAS.flatMap((persona) => moveSteps(persona, signals[persona.key], currentYear, kinds)),
     explainStep(first, signals[first.key]),
     ...compareSteps(signals),
     ...PERSONAS.flatMap((persona) => [
       ageCheckStep(persona, 'music', 'invented-candidate-1'),
       ageCheckStep(persona, 'brand', 'invented-candidate-2'),
       scoreStep(persona, signals[persona.key], ['invented-candidate-1', 'invented-candidate-2']),
+      ...strongestSteps(persona, signals[persona.key], ['invented-signal-2'], currentYear),
+      ...tasteTagSteps(persona, signals[persona.key], ['invented-tag-1', 'invented-tag-2'], currentYear),
     ]),
   ];
 }

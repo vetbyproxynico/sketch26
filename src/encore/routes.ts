@@ -6,7 +6,8 @@ import { createLlmProvider } from '../llm/factory';
 import { createQlooClient } from '../qloo/from-env';
 import { rateLimit } from '../ratelimit';
 import { isRecord } from '../util';
-import { applyFeedback, buildPlan, candidatePool, chooseProgramme, scoreRoom } from './plan';
+import { createModelAdvisor } from './agent';
+import { applyFeedback, buildPlan, candidatePool, chooseProgramme, filterMap, filterRoom, filterTags, scoreRoom } from './plan';
 import type { TasteSource, Wordsmith } from './ports';
 import { createTasteSource } from './qloo';
 import { scoreRoomMembers } from './room-scoring';
@@ -47,9 +48,19 @@ function wordsmithFor(env: Env): Wordsmith {
   }
 }
 
-/** One taste source per request, so its trace covers just this request. */
+/**
+ * One taste source per request, so its trace covers just this request. When a
+ * model is configured it advises the map builder on its next question; with no
+ * model the builder decides by its fixed rules.
+ */
 function tasteFor(env: Env): TasteSource {
-  return createTasteSource(createQlooClient(env));
+  const client = createQlooClient(env);
+  try {
+    return createTasteSource(client, { advisor: createModelAdvisor(createLlmProvider(env)) });
+  } catch {
+    // No model configured: the rule advisor, which is the default.
+    return createTasteSource(client);
+  }
 }
 
 async function body(request: { json(): Promise<unknown> }): Promise<Record<string, unknown>> {
@@ -119,17 +130,19 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
   app.post('/api/map', async (c) => {
     const profile = parseProfile((await body(c.req))['profile']);
     const taste = tasteFor(c.env);
-    const map = await taste.culturalMap(profile);
+    // Avoided items never reach the map: the filter runs on what Qloo returned.
+    const { map } = filterMap(await taste.culturalMap(profile), profile);
     return c.json({ map, trace: taste.trace() });
   });
 
   app.post('/api/plan', async (c) => {
     const request = await body(c.req);
     const profile = parseProfile(request['profile']);
-    const map = parseCulturalMap(request['map']);
     const days = parseDays(request['days']);
+    // The map came from the browser, so it is filtered again rather than trusted to be clean.
+    const { map, warnings } = filterMap(parseCulturalMap(request['map']), profile);
     const plan = await buildPlan(profile, map, wordsmithFor(c.env), days === undefined ? {} : { days });
-    return c.json({ plan });
+    return c.json({ plan, warnings });
   });
 
   app.post('/api/feedback', async (c) => {
@@ -151,21 +164,26 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
             session.items.map(({ item }) => item),
           );
 
+    // The note may have added to the avoid list, so the new map is filtered with the updated profile.
     const outcome = applyFeedback(profile, plan, feedback, noted.avoidNotes);
-    const map = await taste.culturalMap(outcome.profile);
+    const { map } = filterMap(await taste.culturalMap(outcome.profile), outcome.profile);
     const next = await buildPlan(outcome.profile, map, wordsmith, { days: Math.max(1, plan.sessions.length) });
     return c.json({ profile: outcome.profile, map, plan: next, changes: outcome.changes, trace: taste.trace() });
   });
 
   app.post('/api/room', async (c) => {
     const request = await body(c.req);
-    const { profiles, maps } = parseRoom(request['profiles'], request['maps']);
+    const parsed = parseRoom(request['profiles'], request['maps']);
+    const { profiles } = parsed;
     const taste = tasteFor(c.env);
     const wordsmith = wordsmithFor(c.env);
 
+    // Whatever any resident must avoid is left out for the whole room, whatever the maps say.
+    const left = filterRoom(profiles, parsed.maps);
+    const maps = left.maps;
     const candidates = candidatePool(maps);
-    const warnings: MapWarning[] = [];
-    if (candidates.length === 0) {
+    const warnings: MapWarning[] = [...left.warnings];
+    if (candidates.length === 0 && left.warnings.length === 0) {
       warnings.push({ code: 'empty', message: 'There is nothing to choose from yet: build a map for each person first.' });
     }
 
@@ -178,7 +196,7 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
     const programme: RoomProgramme = {
       items: chooseProgramme(profiles, maps, candidates, roomScores),
       sharedGround: await wordsmith.describeSharedGround(
-        tags,
+        filterTags(profiles, tags),
         profiles.map((profile) => profile.nickname),
       ),
       warnings,

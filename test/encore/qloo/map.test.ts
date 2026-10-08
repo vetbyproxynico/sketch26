@@ -242,7 +242,12 @@ describe('the window', () => {
   });
 });
 
-describe('the country retry', () => {
+/*
+ * Until the agent loop existed, a country that returned nothing was retried once
+ * by hand in domain.ts. Dropping the country is now the first move of the rules
+ * (see loop.test.ts for the loop itself); these tests keep what the carer sees.
+ */
+describe('dropping the country', () => {
   const noFilmsFromCountry = (call: RecordedCall) =>
     call.params['filter.release_country'] === undefined ? jsonResponse(films) : emptyEntities();
 
@@ -303,24 +308,32 @@ describe('the country retry', () => {
     );
   });
 
-  it('retries television too, and records the retry step in the trace', async () => {
+  it('drops the country for television too, and records that call in the trace', async () => {
     const { source } = makeSource(mapHandler({ 'urn:entity:tv_show': noFilmsFromCountry }));
     await source.culturalMap(makeProfile());
     expect(source.trace().map((t) => t.step)).toContain('cultural map: television programmes (any country)');
   });
 
-  it('does not retry when there is no country, and never for books or people', async () => {
+  it('never drops a country that was not asked for, and asks once for the lists that are full', async () => {
     const { source, calls } = makeSource(mapHandler({ 'urn:entity:movie': () => emptyEntities() }));
     await source.culturalMap(makeProfile({ country: undefined }));
-    expect(ofType(calls, 'urn:entity:movie')).toHaveLength(1);
+    const film = ofType(calls, 'urn:entity:movie');
+    // The films are still empty, so other moves are tried; none of them can be about a country.
+    expect(film.length).toBeGreaterThan(1);
+    expect(film.every((call) => call.params['filter.release_country'] === undefined)).toBe(true);
+    expect(source.trace().some((t) => t.step.includes('any country') || t.action === 'drop_country')).toBe(false);
     expect(ofType(calls, 'urn:entity:book')).toHaveLength(1);
     expect(ofType(calls, 'urn:entity:person')).toHaveLength(1);
   });
 
-  it('gives a single empty warning, and no country warning, when the retry is empty too', async () => {
+  it('gives a single empty warning, and no country warning, when nothing comes back without the country either', async () => {
     const { source, calls } = makeSource(mapHandler({ 'urn:entity:movie': () => emptyEntities() }));
     const map = await source.culturalMap(makeProfile());
-    expect(ofType(calls, 'urn:entity:movie')).toHaveLength(2);
+    const film = ofType(calls, 'urn:entity:movie');
+    // The first call, then one move in each of the three rounds, the country first.
+    expect(film).toHaveLength(4);
+    expect(film[0]?.params['filter.release_country']).toBe('GB');
+    expect(film.slice(1).every((call) => call.params['filter.release_country'] === undefined)).toBe(true);
     expect(map.byDomain.film).toEqual([]);
     expect(map.warnings).toHaveLength(1);
     expect(map.warnings[0]).toMatchObject({ domain: 'film', code: 'empty' });
@@ -340,7 +353,10 @@ describe('music and brands: the age-skew path', () => {
     const { calls } = await artists();
     const demographics = ofType(calls, 'urn:demographics');
     const ids = demographics.map((c) => c.params['signal.interests.entities']).sort();
-    expect(ids).toEqual(['ARTIST-1', 'ARTIST-2', 'ARTIST-3', 'ARTIST-4', 'ARTIST-5', 'ARTIST-6', 'BRAND-1', 'BRAND-2', 'BRAND-3']);
+    expect(ids).toEqual([
+      'ARTIST-1', 'ARTIST-2', 'ARTIST-3', 'ARTIST-4', 'ARTIST-5', 'ARTIST-6',
+      'BRAND-1', 'BRAND-2', 'BRAND-3', 'BRAND-4', 'BRAND-5', 'BRAND-6',
+    ]);
     for (const call of demographics) {
       expect(call.path).toBe('/v2/insights');
       expect(Object.keys(call.params).sort()).toEqual(['filter.type', 'signal.interests.entities']);
@@ -388,6 +404,10 @@ describe('music and brands: the age-skew path', () => {
       ['BRAND-1', 'age_skew', 0.35],
       ['BRAND-2', 'age_skew', 0.35],
       ['BRAND-3', 'age_skew', 0.35],
+      // The helper tops the brand fixture up with three more, which have no demographic answer.
+      ['BRAND-4', 'unchecked', undefined],
+      ['BRAND-5', 'unchecked', undefined],
+      ['BRAND-6', 'unchecked', undefined],
     ]);
   });
 
@@ -458,8 +478,8 @@ describe('a domain that fails or comes back empty', () => {
     expect(map.byDomain.book).toEqual([]);
     expect(map.warnings).toEqual([{ domain: 'book', code: 'qloo_error', message: expect.stringContaining('books') }]);
     expect(map.byDomain.film).toHaveLength(5);
-    expect(map.byDomain.tv).toHaveLength(2);
-    expect(map.byDomain.person).toHaveLength(2);
+    expect(map.byDomain.tv).toHaveLength(6);
+    expect(map.byDomain.person).toHaveLength(6);
     expect(map.byDomain.music).toHaveLength(8);
     expect(map.tasteWords).toHaveLength(3);
   });
@@ -591,7 +611,7 @@ describe('call volume and concurrency', () => {
   it('makes 7 map calls plus one age check per top music and brand candidate', async () => {
     const { source, calls } = makeSource(mapHandler());
     await source.culturalMap(makeProfile());
-    expect(calls).toHaveLength(7 + 6 + 3);
+    expect(calls).toHaveLength(7 + 6 + 6);
   });
 
   it('never has more than three calls in flight, across all domains and age checks', async () => {

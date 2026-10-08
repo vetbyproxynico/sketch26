@@ -62,3 +62,9 @@ export function countryName(code: string): string {
     return code;
   }
 }
+
+/** The words a sentence may use for a country. `code` is upper case. */
+export function countryWords(code: string): { code: string; adjective?: string; name: string } {
+  const adjective = countryAdjective(code);
+  return adjective === undefined ? { code, name: countryName(code) } : { code, adjective, name: countryName(code) };
+}
