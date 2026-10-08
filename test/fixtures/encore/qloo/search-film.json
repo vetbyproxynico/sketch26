@@ -1,0 +1,28 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "results": [
+    {
+      "entity_id": "EX-FILM-1",
+      "name": "Example Film One",
+      "subtype": "urn:entity:movie",
+      "types": ["urn:entity:movie"],
+      "properties": {
+        "release_year": 1958,
+        "short_description": "An invented film used only in tests.",
+        "image": { "url": "https://example.invalid/film-one.jpg" }
+      }
+    },
+    {
+      "entity_id": "EX-FILM-2",
+      "name": "Example Film One Returns",
+      "subtype": "urn:entity:movie",
+      "properties": { "release_year": 1961 }
+    },
+    {
+      "entity_id": "EX-FILM-3",
+      "name": "Example Film Uno",
+      "subtype": "urn:entity:movie",
+      "properties": { "release_year": 1974 }
+    }
+  ]
+}

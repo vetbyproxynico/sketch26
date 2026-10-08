@@ -1,0 +1,16 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "entities": [
+      { "entity_id": "ARTIST-1", "name": "Example Band One", "subtype": "urn:entity:artist", "query": { "affinity": 0.95 } },
+      { "entity_id": "ARTIST-2", "name": "Example Band Two", "subtype": "urn:entity:artist", "query": { "affinity": 0.9 } },
+      { "entity_id": "ARTIST-3", "name": "Example Band Three", "subtype": "urn:entity:artist", "query": { "affinity": 0.85 } },
+      { "entity_id": "ARTIST-4", "name": "Example Band Four", "subtype": "urn:entity:artist", "query": { "affinity": 0.8 } },
+      { "entity_id": "ARTIST-5", "name": "Example Band Five", "subtype": "urn:entity:artist", "query": { "affinity": 0.75 } },
+      { "entity_id": "ARTIST-6", "name": "Example Band Six", "subtype": "urn:entity:artist", "query": { "affinity": 0.7 } },
+      { "entity_id": "ARTIST-7", "name": "Example Band Seven", "subtype": "urn:entity:artist", "query": { "affinity": 0.65 } },
+      { "entity_id": "ARTIST-8", "name": "Example Band Eight", "subtype": "urn:entity:artist", "query": { "affinity": 0.6 } }
+    ]
+  }
+}

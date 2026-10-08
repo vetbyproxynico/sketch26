@@ -1,0 +1,9 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "demographics": [
+      { "entity_id": "EXAMPLE", "query": { "age": { "24_and_younger": 0.5, "55_and_older": -0.2 } } }
+    ]
+  }
+}

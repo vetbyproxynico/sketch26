@@ -1,0 +1,11 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "tags": [
+      { "id": "urn:tag:genre:media:example-drama", "name": "Example Drama", "type": "urn:tag:genre:media" },
+      { "id": "urn:tag:keyword:media:example-sea", "name": "Example Sea", "type": "urn:tag:keyword:media" },
+      { "id": "urn:tag:genre:media:example-comedy", "name": "Example Comedy" }
+    ]
+  }
+}

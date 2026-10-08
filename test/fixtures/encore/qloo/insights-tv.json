@@ -1,0 +1,10 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "entities": [
+      { "entity_id": "EX-TV-201", "name": "Example Series One", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1963 }, "query": { "affinity": 0.88 } },
+      { "entity_id": "EX-TV-202", "name": "Example Series Two", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1969 }, "query": { "affinity": 0.66 } }
+    ]
+  }
+}

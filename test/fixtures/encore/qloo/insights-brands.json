@@ -1,0 +1,11 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "entities": [
+      { "entity_id": "BRAND-1", "name": "Example Biscuits", "subtype": "urn:entity:brand", "query": { "affinity": 0.7 } },
+      { "entity_id": "BRAND-2", "name": "Example Soap", "subtype": "urn:entity:brand", "query": { "affinity": 0.6 } },
+      { "entity_id": "BRAND-3", "name": "Example Radios", "subtype": "urn:entity:brand", "query": { "affinity": 0.5 } }
+    ]
+  }
+}
