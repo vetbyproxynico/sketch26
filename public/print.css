@@ -1,0 +1,134 @@
+/*
+  Print: black on white, large type, no navigation. The session sheet is one page,
+  with the fixed line at the foot. Other pages print plainly without the page chrome.
+*/
+
+@page {
+  margin: 16mm 18mm 24mm;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  font-size: 14pt;
+  background: #fff !important;
+}
+
+*,
+*::before,
+*::after {
+  background: transparent !important;
+  color: #000 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+body {
+  background: #fff !important;
+  display: block;
+  min-height: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.45;
+}
+
+.skip-link,
+#announcer,
+#sample-banner,
+.site-header,
+.site-footer,
+.print-bar,
+.journey,
+.actions,
+.trace-dialog,
+.feedback,
+.reactions,
+.jump-wrap,
+.btn {
+  display: none !important;
+}
+
+.wrap {
+  width: auto;
+  margin: 0;
+}
+
+.page {
+  padding: 0;
+}
+
+/* The session sheet */
+
+.sheet {
+  max-width: none;
+  margin: 0;
+  padding: 0 0 18mm;
+  border: 0;
+  font-size: 14pt;
+}
+
+.sheet-for {
+  font-size: 13pt;
+}
+
+.sheet-title {
+  font-size: 26pt;
+  line-height: 1.15;
+  margin-bottom: 8pt;
+}
+
+.sheet-sub {
+  font-size: 15pt;
+  margin: 16pt 0 6pt;
+  break-after: avoid;
+}
+
+.sheet-item-name,
+.sheet-prompts li {
+  font-size: 16pt;
+}
+
+.sheet-items li,
+.sheet-prompts li {
+  break-inside: avoid;
+}
+
+.sheet-lines {
+  gap: 22pt;
+}
+
+.sheet-lines span {
+  border-bottom: 1pt solid #000 !important;
+}
+
+.sheet-foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding-top: 6pt;
+  border-top: 1pt solid #000 !important;
+  font-size: 12pt;
+  text-align: center;
+}
+
+/* Any other page, printed plainly */
+
+a {
+  text-decoration: none;
+}
+
+.entry,
+.session,
+.fav,
+.person-row,
+.trace-entry {
+  break-inside: avoid;
+  border: 1pt solid #000 !important;
+}
+
+.stamp {
+  border: 1pt solid #000 !important;
+}
