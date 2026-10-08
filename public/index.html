@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rung | Books a reluctant reader might finish</title>
+    <meta name="description" content="Rung turns the games, programmes, films and music a reluctant reader already loves into a short ladder of books, with a reason for each pick." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="print.css" media="print" />
+    <script type="module" src="js/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the main content</a>
+
+    <div id="sample-banner" class="sample-banner" role="note" aria-label="Sample data" hidden></div>
+
+    <header class="masthead">
+      <div class="masthead__inner">
+        <a class="wordmark" href="#/" aria-label="Rung, home">
+          <svg class="wordmark__glyph" viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" focusable="false">
+            <path d="M5 2v24M23 2v24" stroke="currentColor" stroke-width="3" fill="none" />
+            <path d="M5 8h18" stroke="currentColor" stroke-width="3" />
+            <rect x="9" y="12.5" width="10" height="4" fill="#ffd43b" />
+            <path d="M5 21h18" stroke="currentColor" stroke-width="3" />
+          </svg>
+          <span class="wordmark__text">RUNG</span>
+        </a>
+        <nav class="site-nav" aria-label="Main">
+          <ul id="site-nav" class="site-nav__list">
+            <li><a href="#/reader/new">One reader</a></li>
+            <li><a href="#/group/new">A group</a></li>
+            <li id="nav-saved" hidden><a href="#/saved">Saved</a></li>
+            <li><a href="#/about">About</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <div id="notices" class="notices"></div>
+
+    <main id="main" class="main" tabindex="-1" aria-busy="true">
+      <noscript>
+        <div class="page prose">
+          <h1 class="page-title">Rung needs JavaScript</h1>
+          <p>Rung runs in your browser and needs JavaScript switched on. Nothing is sent anywhere without it.</p>
+        </div>
+      </noscript>
+      <p class="boot">Starting Rung.</p>
+    </main>
+
+    <footer class="site-footer">
+      <p class="fixed-line">Rung matches taste. It does not check age suitability or reading level. You decide what they read.</p>
+      <p class="site-footer__links"><a href="#/about">About Rung</a> <span aria-hidden="true">/</span> <a href="#/saved">Saved on this device</a> <span aria-hidden="true">/</span> Open source, MIT licence</p>
+    </footer>
+
+    <div id="live-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="live-alert" class="sr-only" role="alert" aria-atomic="true"></div>
+  </body>
+</html>
