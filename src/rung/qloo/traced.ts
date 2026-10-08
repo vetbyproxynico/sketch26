@@ -21,6 +21,8 @@ import { QLOO_CONCURRENCY, createLimiter } from './limiter';
 export interface TracedQloo {
   /** GET /search. The searched text is recorded as the `query` parameter. */
   search(step: string, name: string, params?: QlooParams): Promise<QlooResponse>;
+  /** GET /v2/tags. */
+  tags(step: string, params: QlooParams): Promise<QlooResponse>;
   /** GET /v2/insights. */
   insights(step: string, params: InsightsParams): Promise<QlooResponse>;
   /** Any other GET, e.g. `/v2/analysis/compare`. */
@@ -73,6 +75,7 @@ export function createTraced(client: QlooClient, maxConcurrent: number = QLOO_CO
   return {
     search: (step, name, params = {}) =>
       call(step, '/search', { ...params, query: name }, () => client.search(name, { params })),
+    tags: (step, params) => call(step, '/v2/tags', params, () => client.tags({ params })),
     insights: (step, params) => call(step, '/v2/insights', params, () => client.insights(params)),
     get: (step, path, params) => call(step, path, params, () => client.get(path, params)),
     trace: () => entries.map((entry) => ({ ...entry, params: { ...entry.params } })),
