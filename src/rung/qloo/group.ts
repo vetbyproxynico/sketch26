@@ -1,7 +1,8 @@
 import type { InsightsParams } from '../../qloo/client';
 import type { GroupPoolRequest, GroupPooling, SignalSource } from '../ports';
+import { commonLoves, SHARED_LOVES } from '../rows';
 import type { Switches } from '../switches';
-import type { Book, GroupRow, Love } from '../types';
+import type { Book, Love } from '../types';
 import { readBooks, type ReadBook } from './adapter';
 import { recoverableFailure } from './faults';
 import { FULL_NARROWING, isAllowed, poolInsights, type PoolFilter } from './pool';
@@ -16,28 +17,7 @@ export const SHARED_POOL_TAKE = 30;
 export const MAX_CANDIDATES = 40;
 /** Books from the group-wide pool that lead the candidates; the rest are taken from the rows in turn. */
 export const SHARED_CANDIDATES = 20;
-/** Loves in the group-wide call: the most common across the rows. */
-export const SHARED_LOVES = 12;
-
-/**
- * The most common loves across the rows, weighted by headcount: a love counts
- * once per row it is in, for the headcount of that row. Ties keep the order in
- * which the loves first appear.
- */
-export function commonLoves(rows: readonly GroupRow[], limit: number = SHARED_LOVES): Love[] {
-  const tally = new Map<string, { love: Love; weight: number; first: number }>();
-  for (const row of rows) {
-    for (const love of new Map(row.loves.map((l) => [l.id, l])).values()) {
-      const entry = tally.get(love.id) ?? { love, weight: 0, first: tally.size };
-      entry.weight += Math.max(1, row.headcount);
-      tally.set(love.id, entry);
-    }
-  }
-  return [...tally.values()]
-    .sort((a, b) => b.weight - a.weight || a.first - b.first)
-    .slice(0, limit)
-    .map((entry) => entry.love);
-}
+export { commonLoves, SHARED_LOVES };
 
 /**
  * The candidates to score: the top of the group-wide pool first, then one book

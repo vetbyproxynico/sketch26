@@ -103,7 +103,7 @@ describe('one valid value of every domain type', () => {
     flags: [],
     why: ['This title leans towards example one.'],
   };
-  const split: Split = { first: volumeOne, second: book('EX-B2'), assignment: [0, 1, 1], coldRows: [] };
+  const split: Split = { first: volumeOne, second: book('EX-B2'), assignment: [0, 1, 1], coldRows: [], better: true };
   const companion: Companion = { row: 2, book: book('EX-B3') };
   const board: Board = { total: 7, titles: [boardTitle], split, companions: [companion], checked: boardTitle, noSingleBook: false, tasteWords: [tag('urn:tag:example:one')], notes: [] };
   const note: Note = { code: 'relaxed', message: 'Widened the years.' };

@@ -219,6 +219,7 @@ export interface Note {
     | 'stopped'
     | 'back_to_base'
     | 'qloo_partial'
+    | 'order_only'
     | 'age_filter_off'
     | 'no_young_tags'
     | 'other';
@@ -340,11 +341,14 @@ export interface Split {
   second: Book;
   /** For each row, 0 for the first book and 1 for the second. */
   assignment: Array<0 | 1>;
-  /** Rows left cold by both books. */
+  /** Rows left cold by both books (row numbers from 0, in the order the rows were sent). */
   coldRows: number[];
+  /** True when the pair leaves fewer readers cold than the best single title does. */
+  better: boolean;
 }
 
 export interface Companion {
+  /** Row number from 0, in the order the rows were sent. */
   row: number;
   book: Book;
 }
