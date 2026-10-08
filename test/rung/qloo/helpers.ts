@@ -1,4 +1,6 @@
 import { QlooClient, type QlooClientOptions, type QlooResponse } from '../../../src/qloo/client';
+import { DEFAULT_SWITCHES, type KindRoute, type Switches } from '../../../src/rung/switches';
+import type { Kind } from '../../../src/rung/types';
 import type { FetchLike } from '../../../src/util';
 import { TEST_KEY, jsonResponse } from '../../helpers';
 
@@ -60,6 +62,14 @@ export function failingClient(error: Error): QlooClient {
 
 export function status(code: number): Response {
   return new Response(null, { status: code });
+}
+
+/** The default switches with some changed. `kindRoutes` may name only the kinds that change. */
+export type SwitchOverrides = Partial<Omit<Switches, 'kindRoutes'>> & { kindRoutes?: Partial<Record<Kind, KindRoute>> };
+
+export function withSwitches(overrides: SwitchOverrides = {}): Switches {
+  const { kindRoutes, ...rest } = overrides;
+  return { ...DEFAULT_SWITCHES, ...rest, kindRoutes: { ...DEFAULT_SWITCHES.kindRoutes, ...kindRoutes } };
 }
 
 export { jsonResponse };

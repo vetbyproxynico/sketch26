@@ -155,6 +155,7 @@ describe('one valid value of every port type', () => {
     thin: false,
     partial: [],
     explainabilityWarning: false,
+    unusedKinds: [],
   };
   const score: ScoreRequest = { sources, ids: ['EX-B1'], explain: true, step: 'score' };
   const bookScore: BookScore = { closeness: 0.5, contributions: [] };

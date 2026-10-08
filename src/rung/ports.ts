@@ -32,6 +32,14 @@ export interface SignalSource {
   origin: 'love' | 'proven';
 }
 
+/** A contribution to a book, named by one of the reader's own loves or loved books. */
+export interface Attribution extends Contribution {
+  /** The kind of the love or book that contributed. */
+  kind: Kind;
+  /** The intermediate programme or tag when the link ran through one (OQ2, fallbacks a and b). */
+  via?: string;
+}
+
 /** Where a book in the pool came from. */
 export type PoolOrigin = 'main' | 'kind' | 'theme' | 'audience' | 'short';
 
@@ -44,7 +52,7 @@ export interface PoolBook {
    */
   closeness: number | null;
   /** Which signals contributed and by how much, strongest first. Named by the reader's own loves and books. */
-  contributions: Array<Contribution & { kind: Kind; via?: string }>;
+  contributions: Attribution[];
   origins: PoolOrigin[];
   /** Preference lists the book is on: books from the audience-tag and short-format calls win ties. */
   preferred: Array<'audience' | 'short'>;
@@ -91,6 +99,12 @@ export interface Gathering {
   partial: string[];
   /** True when Qloo reported that explainability could not be computed. */
   explainabilityWarning: boolean;
+  /**
+   * Kinds of love that were accepted but are not used: their route is off, the
+   * hop found nothing (OQ2), or books are not signals (OQ10). The page says
+   * "no reading link found" for each.
+   */
+  unusedKinds: Kind[];
 }
 
 export interface ScoreRequest {
@@ -105,7 +119,7 @@ export interface ScoreRequest {
 
 export interface BookScore {
   closeness: number | null;
-  contributions: Array<Contribution & { kind: Kind; via?: string }>;
+  contributions: Attribution[];
 }
 
 /** The result of the adult-skew check for one book. */
