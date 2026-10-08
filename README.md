@@ -54,8 +54,10 @@ npm run typecheck
 npm test
 ```
 
-No test calls the network. Tests use hand-written fixtures with invented values;
-none of them is Qloo data.
+No test reaches an outside network. Tests use hand-written fixtures with invented
+values; none of them is Qloo data. A few start the stand-in Qloo server on the
+loopback address (127.0.0.1) and run the whole Worker against it. At the last
+commit of this stage: 40 test files, 1033 tests, and `npm run typecheck` clean.
 
 ## Running it locally with no key
 
@@ -64,9 +66,10 @@ npm run fake-qloo   # stand-in Qloo server on 127.0.0.1:8799, invented data only
 npm run dev:fake    # the Worker, pointed at the stand-in
 ```
 
-The stand-in answers with obviously invented names. It shows that the server
-and the stand-in agree with each other, not that either agrees with the real
-service. There is no page yet; use the routes in `docs/API.md`.
+The stand-in answers with obviously invented names ("Specimen Title 12", IDs
+that start with `EX-`), and a name you search for comes back as itself. It shows
+that the server and the stand-in agree with each other, not that either agrees
+with the real service. There is no page yet; use the routes in `docs/API.md`.
 
 ## Documents
 
