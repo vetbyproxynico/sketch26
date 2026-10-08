@@ -190,7 +190,7 @@ export interface Rung {
 }
 
 /**
- * - `ready`: three or more rungs;
+ * - `ready`: at least one rung (three to five when the ladder is new, fewer as the reader climbs);
  * - `short`: fewer than six matches, so a short list and not a ladder;
  * - `done`: the reader has climbed past the last band;
  * - `empty`: nothing came back.

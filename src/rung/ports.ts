@@ -176,8 +176,12 @@ export interface TasteSource {
    * the books the reader loved). Undefined when Qloo gave no scores. (C8)
    */
   chain(anchors: readonly SignalSource[], ids: readonly string[]): Promise<Record<string, number | null> | undefined>;
-  /** Whether Qloo's data says the book is liked mostly by adults. (C9) */
-  skew(bookId: string): Promise<Skew>;
+  /**
+   * Whether Qloo's data says the book is liked mostly by adults. (C9) `rung` is the
+   * book's place on the ladder, 1-based: with the OQ16 fallback only rung 1 is
+   * checked and every other rung comes back `unknown` without a call.
+   */
+  skew(bookId: string, rung?: number): Promise<Skew>;
   /** Pools for a group: one per row, one shared. (G-a) */
   groupPool(request: GroupPoolRequest): Promise<GroupPooling>;
   /** What separates two groups of loves. (G-c) */
