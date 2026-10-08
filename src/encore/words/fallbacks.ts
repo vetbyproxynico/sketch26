@@ -47,22 +47,75 @@ export function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-/**
- * Intake without a model: the nickname is "the resident" and the favourites
- * are the text split on commas, semicolons and line breaks, within the limits
- * the API allows. Nothing else is guessed.
- */
-export function fallbackIntake(text: string): PersonInput {
-  const parts = capText(text, MAX_INTAKE_CHARS)
-    .split(/[,;\r\n]+/)
+/** Words that show the note is written as sentences, not as a plain list. */
+const PROSE_MARKERS =
+  /\b(?:born|loved?s?|adored?s?|liked?s?|enjoy(?:s|ed)?|favourites?|fan of|fond of|listen(?:s|ed)? to|watch(?:es|ed)?|avoid|hate[sd]?|dislike[sd]?|nothing about|upset)\b/i;
+const LOVED =
+  /\b(?:loved?s?|adored?s?|liked?s?|enjoy(?:s|ed)?|favourites? (?:is|are|was|were|include[sd]?)|(?:a |an )?(?:big |great |huge )?fan of|fond of|listen(?:s|ed)? to|watch(?:es|ed)?)\b[:\s]+([^.!?\n]+)/gi;
+const AVOIDED =
+  /\b(?:nothing about|no mention of|avoid(?:s|ing)?|hate[sd]?|dislike[sd]?|(?:does|did)(?:n't| not) (?:like|enjoy)|(?:is |was |gets |got )?upset by|not keen on)\b[:\s]+([^.!?\n]+)/gi;
+/** A clause that turns the sentence around ends the list it follows. */
+const TURN = /\s+(?:but|although|though|except|however)\b.*$/i;
+const BORN = /\bborn\b[^.!?\n]{0,40}?\b(19\d\d|20[01]\d)\b/i;
+
+/** "A, B and C" becomes three names; "A and B" becomes two. */
+function splitNames(list: string): string[] {
+  const parts = list.replace(TURN, '').split(/[,;]+/);
+  const last = parts.pop() ?? '';
+  return [...parts, ...last.split(/\s+(?:and|&)\s+/i)]
+    .map((part) => cleanLine(part).replace(/^(?:and|to|also|especially)\s+/i, '').replace(/[\s,]*\bplease$/i, ''))
     .map((part) => capText(cleanLine(part), MAX_NAME_CHARS))
     .filter((part) => part !== '');
-  return {
+}
+
+function collect(text: string, pattern: RegExp): string[] {
+  const found: string[] = [];
+  for (const match of text.matchAll(pattern)) found.push(...splitNames(match[1] ?? ''));
+  return uniqueCaseless(found);
+}
+
+/**
+ * Intake without a model. Nothing is guessed: only what the note states in so
+ * many words is read.
+ *
+ * - A plain list ("Frank Sinatra, Casablanca") is split on commas, semicolons
+ *   and line breaks.
+ * - A note written as sentences gives the names that follow "loved", "liked",
+ *   "enjoyed" and similar words, the things that follow "nothing about",
+ *   "hated" and similar words, and the year that follows "born".
+ *
+ * The nickname is always "the resident": a name in the note may be a real
+ * name, and the carer is asked for a nickname on the form.
+ */
+export function fallbackIntake(text: string): PersonInput {
+  const capped = capText(text, MAX_INTAKE_CHARS);
+
+  if (!PROSE_MARKERS.test(capped)) {
+    const parts = capped
+      .split(/[,;\r\n]+/)
+      .map((part) => capText(cleanLine(part), MAX_NAME_CHARS))
+      .filter((part) => part !== '');
+    return {
+      nickname: DEFAULT_NICKNAME,
+      favourites: uniqueCaseless(parts).slice(0, MAX_FAVOURITES),
+      avoid: [],
+      gentle: true,
+    };
+  }
+
+  const avoid = collect(capped, AVOIDED);
+  const avoided = new Set(avoid.map((entry) => entry.toLowerCase()));
+  const input: PersonInput = {
     nickname: DEFAULT_NICKNAME,
-    favourites: uniqueCaseless(parts).slice(0, MAX_FAVOURITES),
-    avoid: [],
+    favourites: collect(capped, LOVED)
+      .filter((entry) => !avoided.has(entry.toLowerCase()))
+      .slice(0, MAX_FAVOURITES),
+    avoid: avoid.slice(0, MAX_FAVOURITES),
     gentle: true,
   };
+  const born = BORN.exec(capped);
+  if (born?.[1] !== undefined) input.birthYear = Number(born[1]);
+  return input;
 }
 
 interface DomainWords {

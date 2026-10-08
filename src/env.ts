@@ -36,6 +36,11 @@ export interface Env {
   WORKERS_AI_MODEL?: string;
   /** Var. Anthropic model id. */
   ANTHROPIC_MODEL?: string;
+  /**
+   * Var. Overrides the Qloo address. Leave unset in production: it exists so
+   * `npm run dev:fake` can point the app at the local stand-in server.
+   */
+  QLOO_BASE_URL?: string;
   /** Var. Cache lifetime for Qloo responses, in seconds. */
   QLOO_CACHE_TTL_SECONDS?: string;
 }

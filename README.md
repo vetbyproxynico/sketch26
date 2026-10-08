@@ -20,7 +20,9 @@ Requires Node 22.
 npm install
 npm run typecheck
 npm test            # offline unit tests with hand-written fixtures
-npm run dev:local   # local server without Cloudflare credentials
+npm run dev:local   # local server without Cloudflare credentials; the page runs on sample data
+npm run fake-qloo   # stand-in Qloo server on port 8799, serving invented test fixtures
+npm run dev:fake    # local server pointed at the stand-in, so every server route runs for real
 npm run dev         # local server with the Workers AI binding (needs a Cloudflare login)
 ```
 

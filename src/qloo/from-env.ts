@@ -9,6 +9,7 @@ import { DEFAULT_CACHE_TTL_SECONDS, QlooClient } from './client';
 export function createQlooClient(env: Env): QlooClient {
   return new QlooClient({
     apiKey: configured(env.QLOO_API_KEY) ?? '',
+    baseUrl: configured(env.QLOO_BASE_URL),
     cache: env.CACHE,
     cacheTtlSeconds: positiveInt(env.QLOO_CACHE_TTL_SECONDS, DEFAULT_CACHE_TTL_SECONDS),
   });

@@ -51,11 +51,58 @@ describe('fallbackIntake', () => {
     expect(fallbackIntake('   \n ').favourites).toEqual([]);
   });
 
-  it('never invents a birth year, country or place', () => {
+  it('never guesses a country or a place', () => {
     const result = fallbackIntake('Born in 1941 in Leeds, loves Sinatra');
-    expect(result).not.toHaveProperty('birthYear');
     expect(result).not.toHaveProperty('country');
     expect(result).not.toHaveProperty('place');
+  });
+});
+
+describe('fallbackIntake on a note written as sentences', () => {
+  const note =
+    "My dad Bernard was born in 1938 in Glasgow. He loved Frank Sinatra, The Great Escape and Hancock's Half Hour. Nothing about the war please.";
+
+  it('reads the favourites that follow "loved"', () => {
+    expect(fallbackIntake(note).favourites).toEqual(['Frank Sinatra', 'The Great Escape', "Hancock's Half Hour"]);
+  });
+
+  it('reads the year that follows "born"', () => {
+    expect(fallbackIntake(note).birthYear).toBe(1938);
+    expect(fallbackIntake('Born in 1941 in Leeds, loves Sinatra').birthYear).toBe(1941);
+  });
+
+  it('does not take a year that is not a birth year', () => {
+    expect(fallbackIntake('She loved the 1966 World Cup')).not.toHaveProperty('birthYear');
+    expect(fallbackIntake('Born in Leeds. She moved in 1960 and loved dancing.')).not.toHaveProperty('birthYear');
+  });
+
+  it('reads the things to avoid and drops a trailing "please"', () => {
+    expect(fallbackIntake(note).avoid).toEqual(['the war']);
+    expect(fallbackIntake('She likes Vera Lynn. She hated westerns and boxing.').avoid).toEqual(['westerns', 'boxing']);
+  });
+
+  it('never puts a real name in the nickname', () => {
+    expect(fallbackIntake(note).nickname).toBe('the resident');
+  });
+
+  it('stops a list at "but"', () => {
+    const result = fallbackIntake('He loved Frank Sinatra and Dean Martin but hated westerns.');
+    expect(result.favourites).toEqual(['Frank Sinatra', 'Dean Martin']);
+    expect(result.avoid).toEqual(['westerns']);
+  });
+
+  it('gathers favourites from several sentences without repeats', () => {
+    const result = fallbackIntake('Mum enjoyed Coronation Street. She was a big fan of Cliff Richard. She loved coronation street.');
+    expect(result.favourites).toEqual(['Coronation Street', 'Cliff Richard']);
+  });
+
+  it('returns no favourites when the note names none, and never the whole sentence', () => {
+    expect(fallbackIntake('She was born in 1930, in the countryside.').favourites).toEqual([]);
+  });
+
+  it('keeps at most 12 favourites', () => {
+    const many = Array.from({ length: 20 }, (_, n) => `Singer ${n}`).join(', ');
+    expect(fallbackIntake(`He loved ${many}.`).favourites).toHaveLength(12);
   });
 });
 
