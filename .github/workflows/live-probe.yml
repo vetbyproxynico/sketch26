@@ -1,0 +1,27 @@
+name: Live probe
+
+# Manual only. Calls the real Qloo API, which the cloud build workspace cannot
+# reach, using the QLOO_API_KEY repository secret. It makes every kind of call
+# Encore makes and reports whether the response fields the adapter reads exist.
+# The log is public once the repository is, and Qloo response data must not be
+# published, so the output is limited to field names, JSON types, counts,
+# statuses and timings. See docs/LIVE_PROBE.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Qloo live probe
+        env:
+          QLOO_API_KEY: ${{ secrets.QLOO_API_KEY }}
+        run: node scripts/live-probe.mjs
