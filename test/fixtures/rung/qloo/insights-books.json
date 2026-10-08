@@ -1,0 +1,75 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors the response shape that src/rung/qloo/adapter.ts assumes (per-result explainability, top-level averages in several window spellings, authors as text or a list) and is not Qloo data. Book 3 has no tags, no author and no explainability; book 4 has no name and cannot be read.",
+  "success": true,
+  "results": {
+    "duration": 12,
+    "entities": [
+      {
+        "entity_id": "EX-BOOK-1",
+        "name": "Specimen Book: The Quibbling Heron",
+        "subtype": "urn:entity:book",
+        "properties": {
+          "publication_year": 2012,
+          "author": "A. Example",
+          "short_description": "An invented description of an invented book.",
+          "image": { "url": "https://example.invalid/covers/ex-book-1.jpg" },
+          "series": "Specimen Series"
+        },
+        "tags": [
+          { "id": "urn:tag:example:adventure", "name": "Example adventure", "type": "urn:tag:genre:example" },
+          { "tag_id": "urn:tag:example:young", "name": "Example young readers", "type": "urn:tag:audience:example" },
+          { "id": "urn:tag:example:adventure", "name": "Example adventure again" }
+        ],
+        "query": {
+          "affinity": 0.82,
+          "explainability": [
+            { "entity_id": "EX-GAME-1", "name": "Example Blocks Game", "score": 0.41 },
+            { "entity_id": "EX-SHOW-1", "score": 0.12 },
+            { "entity_id": "EX-SHOW-1", "score": 0.3 },
+            { "entity_id": "EX-UNKNOWN", "score": 0.5 },
+            { "entity_id": "EX-GAME-2", "name": "Example Raid Game", "score": 7 }
+          ]
+        }
+      },
+      {
+        "entity_id": "EX-BOOK-2",
+        "name": "Specimen Book: The Lantern Pie",
+        "type": "urn:entity:book",
+        "properties": {
+          "release_year": "2004-06-01",
+          "authors": ["A. Example", { "name": "B. Sample" }, "C. Third", "D. Fourth"],
+          "description": "A second invented description.",
+          "series": { "name": "Specimen Series Two" }
+        },
+        "tags": [{ "id": "urn:tag:example:mystery", "name": "Example mystery", "type": "urn:tag:genre:example" }],
+        "query": {
+          "affinity": 0.55,
+          "explainability": { "entities": [{ "entity_id": "EX-GAME-1", "name": "Example Blocks Game", "score": 0.22 }] }
+        }
+      },
+      {
+        "entity_id": "EX-BOOK-3",
+        "name": "Specimen Book: The Quiet Kettle",
+        "types": ["urn:entity:book"],
+        "affinity": 0.31
+      },
+      {
+        "entity_id": "EX-BOOK-4",
+        "subtype": "urn:entity:book",
+        "properties": { "publication_year": 2015 }
+      },
+      "not an entity"
+    ]
+  },
+  "query": {
+    "explainability": {
+      "top_3": [
+        { "entity_id": "EX-GAME-1", "score": 0.4 },
+        { "entity_id": "EX-SHOW-1", "score": 0.1 }
+      ],
+      "top5": { "EX-GAME-1": 0.35, "EX-SHOW-1": 0.12 },
+      "top-10": [{ "id": "EX-GAME-1", "average": 0.3 }],
+      "all_results": [{ "entity_id": "EX-GAME-1", "influence": 0.2 }, { "entity_id": "EX-SHOW-1", "influence": 4 }]
+    }
+  }
+}

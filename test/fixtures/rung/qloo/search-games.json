@@ -1,0 +1,9 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors the response shape that src/rung/qloo/adapter.ts assumes and is not Qloo data. The games spell the video game type differently on purpose (OQ1).",
+  "success": true,
+  "results": [
+    { "entity_id": "EX-GAME-1", "name": "Example Blocks Game", "subtype": "urn:entity:videogame", "types": ["urn:entity:videogame"], "properties": { "release_year": 2011, "image": { "url": "https://example.invalid/covers/ex-game-1.jpg" } } },
+    { "entity_id": "EX-GAME-2", "name": "Example Raid Game", "types": ["urn:entity:video_game"], "properties": { "release_year": 2017 } },
+    { "entity_id": "EX-GAME-3", "name": "Example Racing Game", "type": "urn:entity:video_game" }
+  ]
+}

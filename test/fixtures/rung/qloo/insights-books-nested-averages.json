@@ -1,0 +1,5 @@
+{
+  "_comment": "Hand-written fixture with invented values. The top-level averages inside an 'averages' object.",
+  "results": { "entities": [{ "entity_id": "EX-BOOK-1", "name": "Specimen Book: The Quibbling Heron", "subtype": "urn:entity:book" }] },
+  "query": { "explainability": { "averages": { "top_3": { "EX-GAME-1": 0.25 }, "all": { "EX-GAME-1": 0.1 } } } }
+}

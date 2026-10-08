@@ -1,0 +1,12 @@
+{
+  "_comment": "Hand-written fixture with invented values. A search with no types: one entity of each type Rung uses, and one it does not (a place).",
+  "success": true,
+  "results": [
+    { "entity_id": "EX-SHOW-1", "name": "Example Show One", "subtype": "urn:entity:tv_show", "properties": { "release_year": 2022 } },
+    { "entity_id": "EX-FILM-1", "name": "Example Film One", "subtype": "urn:entity:movie", "properties": { "release_year": 2018 } },
+    { "entity_id": "EX-ARTIST-1", "name": "Example Singer One", "subtype": "urn:entity:artist" },
+    { "entity_id": "EX-PERSON-1", "name": "Example Streamer One", "subtype": "urn:entity:person" },
+    { "entity_id": "EX-BOOK-9", "name": "Specimen Book: The Finished One", "subtype": "urn:entity:book", "properties": { "publication_year": 2009 } },
+    { "entity_id": "EX-PLACE-1", "name": "Example Place One", "subtype": "urn:entity:place" }
+  ]
+}

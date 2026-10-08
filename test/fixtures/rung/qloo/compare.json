@@ -1,0 +1,11 @@
+{
+  "_comment": "Hand-written fixture with invented values. The compare endpoint's response is unknown (OQ14); this is the shape the adapter assumes: a tag list, with a side on some tags.",
+  "success": true,
+  "results": {
+    "tags": [
+      { "id": "urn:tag:example:fantasy", "name": "Example fantasy", "type": "urn:tag:genre:example", "group": "a" },
+      { "id": "urn:tag:example:sport", "name": "Example sport", "type": "urn:tag:genre:example", "side": "B" },
+      { "id": "urn:tag:example:comedy", "name": "Example comedy", "type": "urn:tag:genre:example" }
+    ]
+  }
+}

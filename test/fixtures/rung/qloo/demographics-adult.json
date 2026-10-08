@@ -1,0 +1,4 @@
+{
+  "_comment": "Hand-written fixture with invented values. Age-band affinities on the first entity: a book that skews to adults.",
+  "results": { "entities": [{ "entity_id": "EX-BOOK-1", "name": "Specimen Book: The Quibbling Heron", "query": { "age": { "24_and_younger": -0.3, "25_to_29": 0.05, "30_to_34": 0.1, "35_to_44": 0.4, "45_to_54": 0.2, "55_and_older": 0.1 } } }] }
+}

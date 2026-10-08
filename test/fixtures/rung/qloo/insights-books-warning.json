@@ -1,0 +1,5 @@
+{
+  "_comment": "Hand-written fixture with invented values. Explainability could not be computed: a warning, and results still return.",
+  "results": { "entities": [{ "entity_id": "EX-BOOK-1", "name": "Specimen Book: The Quibbling Heron", "subtype": "urn:entity:book", "query": { "affinity": 0.5 } }] },
+  "query": { "explainability": { "warning": "Explainability is not available for this request." } }
+}

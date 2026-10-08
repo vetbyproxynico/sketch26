@@ -1,0 +1,13 @@
+{
+  "_comment": "Hand-written fixture with invented values. Tag lists as the adapter assumes them: results.tags, each with an id or tag_id and a name. One has no name and one repeats an ID.",
+  "success": true,
+  "results": {
+    "tags": [
+      { "id": "urn:tag:example:horror", "name": "Example horror", "type": "urn:tag:genre:example" },
+      { "tag_id": "urn:tag:example:horror-comedy", "name": "Example horror comedy", "type": "urn:tag:genre:example" },
+      { "id": "urn:tag:example:space-war", "name": "Example space war", "type": "urn:tag:genre:example" },
+      { "id": "urn:tag:example:no-name" },
+      { "id": "urn:tag:example:horror", "name": "Example horror duplicate" }
+    ]
+  }
+}

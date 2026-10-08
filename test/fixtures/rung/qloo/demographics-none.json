@@ -1,0 +1,4 @@
+{
+  "_comment": "Hand-written fixture with invented values. An answer with no age bands in it.",
+  "results": { "entities": [{ "entity_id": "EX-BOOK-1", "name": "Specimen Book: The Quibbling Heron" }] }
+}

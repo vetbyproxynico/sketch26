@@ -1,0 +1,4 @@
+{
+  "_comment": "Hand-written fixture with invented values. Entities that are not books, to show that a book reader drops them.",
+  "results": { "entities": [{ "entity_id": "EX-FILM-1", "name": "Example Film One", "subtype": "urn:entity:movie" }] }
+}
