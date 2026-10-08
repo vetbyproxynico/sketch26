@@ -1,0 +1,29 @@
+{
+  "name": "sketch26",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Entry for the Qloo Agentic Hackathon: a Cloudflare Worker serving a taste-aware AI agent.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:local": "wrangler dev -c wrangler.local.jsonc",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke": "node scripts/live-smoke.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261008.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.148.0"
+  }
+}

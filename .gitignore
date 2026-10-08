@@ -30,3 +30,8 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# Cloudflare local state and dev secrets
+.wrangler/
+.dev.vars
+.dev.vars.*

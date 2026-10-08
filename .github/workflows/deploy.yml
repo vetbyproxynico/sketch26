@@ -1,0 +1,52 @@
+name: Deploy
+
+# Deploys the Worker to Cloudflare on every push to main, but only once the
+# repository owner has added the CLOUDFLARE_API_TOKEN secret. Without it the job
+# succeeds and says so. Runtime secrets (QLOO_API_KEY, ANTHROPIC_API_KEY) live
+# in Cloudflare, not here.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check for Cloudflare credentials
+        id: gate
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice title=Deploy skipped::CLOUDFLARE_API_TOKEN is not set as a repository secret, so nothing was deployed."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install, check and test
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+      - name: Deploy with wrangler
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          # An empty account id would be passed to the API as-is, so drop it.
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || unset CLOUDFLARE_ACCOUNT_ID
+          npx wrangler deploy

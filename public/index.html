@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>sketch26</title>
+  <style>
+    :root {
+      --bg: #f7f6f2;
+      --surface: #ffffff;
+      --text: #1c1b19;
+      --muted: #5c5a55;
+      --border: #dcd9d0;
+      --accent: #2b4acb;
+      --ok: #0b6b3a;
+      --warn: #8a4b00;
+      --bad: #a3202a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14130f;
+        --surface: #1f1e19;
+        --text: #f1efe8;
+        --muted: #a9a69c;
+        --border: #3a382f;
+        --accent: #8ea2ff;
+        --ok: #5fd08f;
+        --warn: #f0b35c;
+        --bad: #ff8a92;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 2rem 1rem 3rem;
+    }
+    h1 { font-size: 1.75rem; margin: 0 0 0.25rem; letter-spacing: -0.01em; }
+    .lede { margin: 0 0 1.5rem; color: var(--muted); }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem 1.25rem;
+    }
+    h2 { font-size: 1.05rem; margin: 0 0 0.75rem; }
+    #summary { margin: 0 0 1rem; font-weight: 600; }
+    #summary[data-state="ok"] { color: var(--ok); }
+    #summary[data-state="warn"] { color: var(--warn); }
+    #summary[data-state="error"] { color: var(--bad); }
+    dl { margin: 0 0 1rem; display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; }
+    dt { color: var(--muted); }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    button {
+      min-height: 2.75rem;
+      padding: 0.5rem 1.25rem;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: 0;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+    @media (prefers-color-scheme: dark) { button { color: #0b0c14; } }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+    @media (max-width: 26rem) {
+      dl { grid-template-columns: 1fr; gap: 0.1rem; }
+      dd { margin-bottom: 0.6rem; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>sketch26</h1>
+    <p class="lede">An entry for the Qloo Agentic Hackathon. The product is being built; this page checks that the foundation is running.</p>
+
+    <section aria-labelledby="status-heading">
+      <h2 id="status-heading">System status</h2>
+      <p id="summary" role="status" aria-live="polite" data-state="loading">Checking...</p>
+      <dl>
+        <dt>Version</dt><dd id="version">-</dd>
+        <dt>AI model provider</dt><dd id="llm">-</dd>
+        <dt>Qloo API key</dt><dd id="qloo">-</dd>
+        <dt>Response cache</dt><dd id="cache">-</dd>
+      </dl>
+      <button type="button" id="recheck">Check again</button>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var summary = document.getElementById('summary');
+      var button = document.getElementById('recheck');
+      var fields = {
+        version: document.getElementById('version'),
+        llm: document.getElementById('llm'),
+        qloo: document.getElementById('qloo'),
+        cache: document.getElementById('cache')
+      };
+      var PROVIDERS = { 'anthropic': 'Anthropic', 'workers-ai': 'Workers AI', 'none': 'None configured' };
+
+      function show(state, text) {
+        summary.setAttribute('data-state', state);
+        summary.textContent = text;
+      }
+
+      function reset() {
+        Object.keys(fields).forEach(function (key) { fields[key].textContent = '-'; });
+      }
+
+      function render(health) {
+        fields.version.textContent = health.version;
+        fields.llm.textContent = PROVIDERS[health.llmProvider] || health.llmProvider;
+        fields.qloo.textContent = health.qlooConfigured ? 'Configured' : 'Not configured';
+        fields.cache.textContent = health.cacheEnabled ? 'Enabled' : 'Not enabled';
+        if (health.qlooConfigured && health.llmProvider !== 'none') {
+          show('ok', 'The service is running and fully configured.');
+        } else {
+          show('warn', 'The service is running, but configuration is incomplete.');
+        }
+      }
+
+      function check() {
+        button.disabled = true;
+        reset();
+        show('loading', 'Checking...');
+        fetch('/api/health', { headers: { Accept: 'application/json' } })
+          .then(function (response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+          })
+          .then(render)
+          .catch(function () {
+            show('error', 'Could not reach the service. Try again in a moment.');
+          })
+          .then(function () { button.disabled = false; });
+      }
+
+      button.addEventListener('click', check);
+      check();
+    })();
+  </script>
+</body>
+</html>

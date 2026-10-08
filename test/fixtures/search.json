@@ -1,0 +1,7 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "results": [
+    { "entity_id": "EXAMPLE-0001", "name": "Example Place Alpha", "types": ["urn:entity:place"], "popularity": 0.5 },
+    { "entity_id": "EXAMPLE-0002", "name": "Example Place Beta", "types": ["urn:entity:place"], "popularity": 0.25 }
+  ]
+}

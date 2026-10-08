@@ -1,0 +1,11 @@
+{
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "success": true,
+  "results": {
+    "entities": [
+      { "entity_id": "EXAMPLE-1001", "name": "Example Film One", "type": "urn:entity:movie", "query": { "affinity": 0.75 } },
+      { "entity_id": "EXAMPLE-1002", "name": "Example Film Two", "type": "urn:entity:movie", "query": { "affinity": 0.5 } },
+      { "entity_id": "EXAMPLE-1003", "name": "Example Film Three", "type": "urn:entity:movie", "query": { "affinity": 0.25 } }
+    ]
+  }
+}

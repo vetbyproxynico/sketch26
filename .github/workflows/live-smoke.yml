@@ -1,0 +1,23 @@
+name: Live smoke
+
+# Manual only. Calls the real Qloo API, which the cloud build workspace cannot
+# reach, using the QLOO_API_KEY repository secret. Output is limited to status
+# codes, timings and result counts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Qloo search and insights
+        env:
+          QLOO_API_KEY: ${{ secrets.QLOO_API_KEY }}
+        run: node scripts/live-smoke.mjs

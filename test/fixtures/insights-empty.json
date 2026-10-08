@@ -1,0 +1,5 @@
+{
+  "_comment": "Hand-written fixture with invented values: the 200-with-empty-entities case.",
+  "success": true,
+  "results": { "entities": [] }
+}

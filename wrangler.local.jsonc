@@ -1,0 +1,17 @@
+{
+  // Offline variant of wrangler.jsonc for `npm run dev:local`.
+  // `wrangler dev` always talks to the real Workers AI service for an AI
+  // binding, which needs Cloudflare credentials. This config omits that binding
+  // so the page and the API routes can run with no Cloudflare access at all.
+  // Everything else mirrors wrangler.jsonc; vars fall back to the code defaults.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sketch26-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "kv_namespaces": [{ "binding": "CACHE" }]
+}
