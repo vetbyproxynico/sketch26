@@ -1,4 +1,5 @@
 import type { Gathering, InputAverages } from '../ports';
+import { joinNames, numberWord } from '../text';
 import type { LinkStrength, Love, Note, ReadingLink } from '../types';
 import { LINK_FLOOR, STRONG_AT } from './ladder';
 
@@ -44,23 +45,12 @@ export function readingLinks(
   });
 }
 
-const NUMBER_WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-
-function numberWord(count: number): string {
-  return NUMBER_WORDS[count] ?? String(count);
-}
-
-function joined(names: readonly string[]): string {
-  if (names.length <= 1) return names.join('');
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-}
-
 /** One plain note saying which loves have no reading link, and what the ladder leans on instead. Empty when every love has one. */
 export function readingLinkNotes(links: readonly ReadingLink[]): Note[] {
   const none = links.filter((link) => link.strength === 'none');
   if (none.length === 0) return [];
   const rest = links.length - none.length;
-  const names = joined(none.map((link) => link.name));
+  const names = joinNames(none.map((link) => link.name));
   const message =
     rest === 0
       ? `Qloo found no reading link for ${names}, so there is nothing for the ladder to lean on.`

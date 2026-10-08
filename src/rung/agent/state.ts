@@ -69,6 +69,16 @@ export function normaliseState(state: ReaderState): ReaderState {
 }
 
 /**
+ * "Start the next ladder": one generation on, from band 1 at the usual stride. What
+ * the reader has done, loved and ruled out is kept. The next ladder leads with the
+ * books the reader loved (see `signalSources`).
+ */
+export function nextGeneration(state: ReaderState): ReaderState {
+  const { strikeLoves: _ended, focusKind: _focus, ...rest } = state;
+  return { ...rest, generation: state.generation + 1, band: 1, stride: 1, giveUpsInRow: 0, minLinkedLoves: 0 };
+}
+
+/**
  * The signals for Qloo, in order: loved books first, then the loves. The later
  * a ladder (the reader's own books are what the work is for), the more of the
  * list the books take and the fewer of the original loves stay as support. A

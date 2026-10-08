@@ -1,5 +1,5 @@
-import { rowWeight, totalReaders } from '../rows';
-import type { BoardTitle, Book, Companion, GroupRow, Split, Tier } from '../types';
+import { commonLoves, rowWeight, SHARED_LOVES, totalReaders } from '../rows';
+import type { BoardTitle, Book, Companion, GroupRow, Love, Split, Tier } from '../types';
 
 /*
  * The table behind the group board (docs/SPEC.md, 3.4, "Choosing the shared
@@ -234,4 +234,38 @@ function bestSplit(
     if (a.tier === 'cold' && b.tier === 'cold') coldRows.push(r);
   });
   return { first: first.title.book, second: second.title.book, assignment, coldRows, better: winner.cold < bestSingleCold };
+}
+
+/** The two sides of one compare call (G-c). */
+export interface CompareSides {
+  /** Loves of the readers the title works best for, most common first. */
+  warm: Love[];
+  /** Loves of the readers it leaves cold, most common first. */
+  cold: Love[];
+  warmReaders: number;
+  coldReaders: number;
+}
+
+/**
+ * Who to compare for one title (docs/SPEC.md, G-c): the loves of the readers who
+ * are warm for it (lukewarm, when nobody is warm) against the loves of those it
+ * leaves cold. A love on both sides says nothing about why one side is cold, so
+ * it is left out of both. Undefined when either side is empty, because there is
+ * then nothing to compare.
+ */
+export function compareSides(rows: readonly GroupRow[], tiers: readonly Tier[]): CompareSides | undefined {
+  const coldRows = rows.filter((_, index) => tiers[index] === 'cold');
+  let warmRows = rows.filter((_, index) => tiers[index] === 'warm');
+  if (warmRows.length === 0) warmRows = rows.filter((_, index) => tiers[index] === 'lukewarm');
+  if (coldRows.length === 0 || warmRows.length === 0) return undefined;
+
+  const idsOf = (list: readonly GroupRow[]): Set<string> => new Set(list.flatMap((row) => row.loves.map((l) => l.id)));
+  const warmIds = idsOf(warmRows);
+  const coldIds = idsOf(coldRows);
+  const without = (list: readonly GroupRow[], others: ReadonlySet<string>): GroupRow[] =>
+    list.map((row) => ({ ...row, loves: row.loves.filter((l) => !others.has(l.id)) }));
+  const warm = commonLoves(without(warmRows, coldIds), SHARED_LOVES);
+  const cold = commonLoves(without(coldRows, warmIds), SHARED_LOVES);
+  if (warm.length === 0 || cold.length === 0) return undefined;
+  return { warm, cold, warmReaders: totalReaders(warmRows), coldReaders: totalReaders(coldRows) };
 }

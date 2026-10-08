@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickBoard, SHARED_READS, SPLIT_FROM, tierForRank, type BoardInput } from '../../../src/rung/agent/group';
+import { compareSides, pickBoard, SHARED_READS, SPLIT_FROM, tierForRank, type BoardInput } from '../../../src/rung/agent/group';
 import { commonLoves, rowWeight, totalReaders } from '../../../src/rung/rows';
 import type { GroupRow, Tier } from '../../../src/rung/types';
 import { book, love } from '../builders';
@@ -364,6 +364,55 @@ describe('edge cases', () => {
     const board = pickBoard({ rows: [row(1)], books: books.slice(0, 3), candidateIds: [id(1), id(2), id(3)], scores: [{ [id(1)]: 0.3, [id(2)]: 0.2, [id(3)]: 0.1 }], rowPools: [[]] });
     expect(board.titles.map((title) => title.book.id)).toEqual([id(1), id(2), id(3)]);
     expect(board.titles[0]?.counts).toEqual({ warm: 1, lukewarm: 0, cold: 0 });
+  });
+});
+
+describe('compareSides', () => {
+  const g = love('EX-G1', 'Example Game One');
+  const t = love('EX-T1', 'Example Show One', 'tv');
+  const m = love('EX-M1', 'Example Band', 'music');
+  const f = love('EX-F1', 'Example Film', 'film');
+  const rows: GroupRow[] = [
+    { loves: [g, t], headcount: 3 },
+    { loves: [m, g], headcount: 2 },
+    { loves: [f], headcount: 1 },
+    { loves: [t, f], headcount: 4 },
+  ];
+
+  it('sets the loves of the warm rows against the loves of the cold rows, with readers counted by headcount', () => {
+    const sides = compareSides(rows, tiers('WCWL'));
+    // Rows 1 and 3 are warm, row 2 is cold. EX-G1 is on both sides, so it is left out of both.
+    expect(sides?.warm.map((l) => l.id)).toEqual(['EX-T1', 'EX-F1']);
+    expect(sides?.cold.map((l) => l.id)).toEqual(['EX-M1']);
+    expect(sides?.warmReaders).toBe(4);
+    expect(sides?.coldReaders).toBe(2);
+  });
+
+  it('uses the lukewarm rows when nobody is warm', () => {
+    const sides = compareSides(rows, tiers('CCLL'));
+    // EX-T1 is in a cold row and a lukewarm row, so it is left out; the heavier cold love (EX-G1, 5 readers) leads.
+    expect(sides?.warm.map((l) => l.id)).toEqual(['EX-F1']);
+    expect(sides?.cold.map((l) => l.id)).toEqual(['EX-G1', 'EX-M1']);
+    expect(sides?.warmReaders).toBe(5);
+    expect(sides?.coldReaders).toBe(5);
+  });
+
+  it('has nothing to compare when nobody is cold, or nobody is warm or lukewarm', () => {
+    expect(compareSides(rows, tiers('WWLL'))).toBeUndefined();
+    expect(compareSides(rows, tiers('CCCC'))).toBeUndefined();
+  });
+
+  it('has nothing to compare when a side has no love that is not also on the other', () => {
+    const same: GroupRow[] = [{ loves: [g], headcount: 1 }, { loves: [g], headcount: 1 }];
+    expect(compareSides(same, tiers('WC'))).toBeUndefined();
+  });
+
+  it('takes at most twelve loves a side, the most common first', () => {
+    const many = Array.from({ length: 15 }, (_, i) => love(`EX-L${i}`, `Example Love ${i}`));
+    const wide: GroupRow[] = [{ loves: many, headcount: 1 }, { loves: [m], headcount: 1 }];
+    const sides = compareSides(wide, tiers('WC'));
+    expect(sides?.warm).toHaveLength(12);
+    expect(sides?.warm[0]?.id).toBe('EX-L0');
   });
 });
 

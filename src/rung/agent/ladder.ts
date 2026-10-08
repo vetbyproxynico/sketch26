@@ -1,5 +1,5 @@
 import type { Attribution, PoolBook, SignalSource } from '../ports';
-import type { Book, Ladder, LoveLink, Note, ReaderState, Rung, RungFlag, Strength, TagRef } from '../types';
+import { RUNG_FLAGS, type Book, type Ladder, type LoveLink, type Note, type ReaderState, type Rung, type RungFlag, type Strength, type TagRef } from '../types';
 import { excludedEntityIds } from './state';
 
 /*
@@ -137,6 +137,11 @@ export function flagsFor(book: Book, context: FlagContext): RungFlag[] {
   if (book.series !== undefined || hasVolumeMarker(book.name)) flags.push('series');
   if (context.checkLength) flags.push('check_length');
   return flags;
+}
+
+/** The flags with `adult_skew` added, in its place in the order of `RUNG_FLAGS`. Flags already there are not repeated. */
+export function withAdultSkew(flags: readonly RungFlag[]): RungFlag[] {
+  return RUNG_FLAGS.filter((flag) => flag === 'adult_skew' || flags.includes(flag));
 }
 
 /* ------------------------------------------------------------------ choosing */
