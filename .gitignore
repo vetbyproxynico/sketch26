@@ -1,0 +1,37 @@
+# Secrets: never commit keys
+.env
+.env.*
+!.env.example
+*.pem
+
+# Qloo API responses must not be stored in a public repository
+.cache/
+qloo-cache/
+fixtures/qloo-live/
+*.qloo.json
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+coverage/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Cloudflare local state and dev secrets
+.wrangler/
+.dev.vars
+.dev.vars.*

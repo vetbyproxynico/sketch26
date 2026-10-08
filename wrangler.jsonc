@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rung",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+
+  // Static frontend from public/. Only /api/* runs the Worker first; everything
+  // else is served straight from the assets store.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Workers AI, used when ANTHROPIC_API_KEY is not set.
+  "ai": { "binding": "AI" },
+
+  // Private server-side cache for Qloo responses. The code works without it.
+  "kv_namespaces": [{ "binding": "CACHE" }],
+
+  // Non-secret configuration. Secrets (QLOO_API_KEY, ANTHROPIC_API_KEY) are
+  // never written here: set them with `wrangler secret put` or in the dashboard.
+  //
+  // Optional per-visitor rate limits on the POST /api routes (see docs/API.md,
+  // "Limits"). They are not set here, so these defaults apply; add any of them
+  // below to change it. A value of 0 turns that limit off.
+  //   RATE_LIMIT_GENERAL         "60"   requests per visitor per window, all POST routes
+  //   RATE_LIMIT_HEAVY           "40"   the same for /api/ladder, /api/verdict, /api/check and /api/group/*
+  //   RATE_LIMIT_WINDOW_SECONDS  "600"  window length in seconds
+  // Counts live in the CACHE namespace above when it is bound (one KV write per
+  // allowed request), and in memory otherwise.
+  //
+  // Optional RUNG_SWITCHES: a JSON object that flips the open-question switches
+  // in src/rung/switches.ts without a code change, for example
+  //   {"themePool": false, "adultSkew": false}
+  // Unset, the defaults in that file apply. See docs/API.md, "Switches".
+  "vars": {
+    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
+    "QLOO_CACHE_TTL_SECONDS": "21600"
+  }
+}
