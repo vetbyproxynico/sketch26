@@ -104,7 +104,7 @@ async function datedDomain(ctx: DomainContext, domain: Domain): Promise<DomainRe
   let page = await fetchPage(ctx, domain, step, { ...dates, 'filter.release_country': country });
   if (country !== undefined && page.items.length === 0) {
     const retry = await fetchPage(ctx, domain, `${step} (any country)`, { ...dates });
-    if (retry.items.length > 0) warnings.push(countryRelaxedWarning(label, country, domain));
+    if (retry.items.length > 0) warnings.push(countryRelaxedWarning(label, country, domain, dates !== undefined));
     page = retry;
   }
 

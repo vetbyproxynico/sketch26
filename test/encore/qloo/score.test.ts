@@ -97,11 +97,28 @@ describe('scoreForPerson', () => {
     expect(scores).toEqual({ 'F-1': 0.5 });
   });
 
-  it('leaves a failed call as nulls for its candidates and still scores the rest', async () => {
-    const { source } = makeSource((call) => (call.params['filter.type'] === 'urn:entity:artist' ? status(403) : scoring(() => 0.4)(call)));
-    const scores = await source.scoreForPerson(makeProfile(), [film('F-1'), artist('A-1')]);
-    expect(scores).toEqual({ 'F-1': 0.4, 'A-1': null });
+  it('throws when a call fails, instead of leaving its candidates as nulls, once every call has finished', async () => {
+    const { source, calls } = makeSource((call) => (call.params['filter.type'] === 'urn:entity:artist' ? status(403) : scoring(() => 0.4)(call)));
+    await expect(source.scoreForPerson(makeProfile(), [film('F-1'), artist('A-1')])).rejects.toMatchObject({ kind: 'forbidden' });
+    // The film call was not abandoned half way: both calls are in the trace.
+    expect(calls).toHaveLength(2);
     expect(source.trace().find((t) => t.status === 403)).toMatchObject({ count: 0, cached: false });
+    expect(source.trace().find((t) => t.status === 200)).toMatchObject({ count: 1 });
+  });
+
+  it('throws when only one chunk of a large group fails, so no candidate is read as unscored', async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `F-${i}`);
+    let seen = 0;
+    const { source } = makeSource((call) => {
+      seen += 1;
+      return seen === 2 ? status(400) : scoring(() => 0.3)(call);
+    });
+    await expect(source.scoreForPerson(makeProfile(), ids.map(film))).rejects.toMatchObject({ kind: 'client_error' });
+  });
+
+  it('does not throw for an answer that simply holds no score', async () => {
+    const { source } = makeSource(scoring(() => undefined));
+    expect(await source.scoreForPerson(makeProfile(), [film('F-1')])).toEqual({ 'F-1': null });
   });
 
   it('gives nulls for an answer that cannot be read', async () => {

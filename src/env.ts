@@ -43,4 +43,16 @@ export interface Env {
   QLOO_BASE_URL?: string;
   /** Var. Cache lifetime for Qloo responses, in seconds. */
   QLOO_CACHE_TTL_SECONDS?: string;
+  /**
+   * Var. Requests one visitor may make to all POST /api routes per window.
+   * Default 60. A whole number; 0 turns this limit off.
+   */
+  RATE_LIMIT_GENERAL?: string;
+  /**
+   * Var. Requests one visitor may make to /api/map, /api/feedback and /api/room
+   * per window, the routes that cost the most. Default 20. 0 turns this limit off.
+   */
+  RATE_LIMIT_HEAVY?: string;
+  /** Var. Length of the rate-limit window in seconds. Default 600. */
+  RATE_LIMIT_WINDOW_SECONDS?: string;
 }

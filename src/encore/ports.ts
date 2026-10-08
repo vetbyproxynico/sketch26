@@ -21,7 +21,9 @@ export interface TasteSource {
   culturalMap(profile: Profile, opts?: { perDomain?: number }): Promise<CulturalMap>;
   /**
    * Scores candidates against one person's signals. Returns affinity 0 to 1 by
-   * entity ID; null where Qloo returned no score.
+   * entity ID; null where Qloo answered but returned no score. Rejects when
+   * scoring failed, in whole or in part, so a failure cannot be mistaken for
+   * "this person dislikes everything": the caller decides how to carry on.
    */
   scoreForPerson(profile: Profile, candidates: readonly EntityRef[]): Promise<Record<string, number | null>>;
   /** What two people's tastes share, as tags. */

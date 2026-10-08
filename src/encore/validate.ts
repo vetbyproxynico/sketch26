@@ -2,6 +2,7 @@ import { HTTPException } from 'hono/http-exception';
 import { isRecord } from '../util';
 import {
   DOMAINS,
+  MAP_WARNING_CODES,
   type Contribution,
   type CulturalMap,
   type Domain,
@@ -10,7 +11,6 @@ import {
   type Feedback,
   type MapItem,
   type MapWarning,
-  type MapWarningCode,
   type Plan,
   type Profile,
   type Reaction,
@@ -50,7 +50,6 @@ export const LIMITS = {
 
 const ERA_CHECKS: readonly EraCheck[] = ['filter', 'age_skew', 'unchecked'];
 const REACTIONS: readonly Reaction[] = ['lit_up', 'neutral', 'not_today'];
-const WARNING_CODES: readonly MapWarningCode[] = ['empty', 'no_era_filter', 'qloo_error', 'unverified_shape', 'no_birth_year'];
 
 function bad(message: string): never {
   throw new HTTPException(400, { message });
@@ -200,7 +199,7 @@ export function parseMapItem(value: unknown, field: string): MapItem {
 function parseWarning(value: unknown, field: string): MapWarning {
   const v = record(value, field);
   const warning: MapWarning = {
-    code: oneOf(v['code'], WARNING_CODES, `${field}.code`),
+    code: oneOf(v['code'], MAP_WARNING_CODES, `${field}.code`),
     message: text(v['message'], `${field}.message`, LIMITS.textChars),
   };
   const domain = optionalDomain(v['domain'], `${field}.domain`);

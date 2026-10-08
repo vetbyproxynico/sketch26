@@ -7,6 +7,9 @@ import { findSharedGround } from './shared';
 import { signalIds } from './signals';
 import { createTraced } from './traced';
 
+export { recoverableFailure } from './faults';
+export { scoringFailedWarning } from './warnings';
+
 export interface TasteSourceOptions {
   /** The clock, injected so the era window can be tested. Defaults to the real time. */
   now?: () => Date;

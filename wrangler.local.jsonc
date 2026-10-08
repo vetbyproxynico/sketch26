@@ -4,6 +4,10 @@
   // binding, which needs Cloudflare credentials. This config omits that binding
   // so the page and the API routes can run with no Cloudflare access at all.
   // Everything else mirrors wrangler.jsonc; vars fall back to the code defaults.
+  // Exception: the per-visitor rate limits are switched off below. `wrangler dev`
+  // gives every request the address 127.0.0.1, so everything on the page would
+  // share one visitor's budget, and clicking through it would soon hit the limit.
+  // To try the limits locally, override them, e.g. `--var RATE_LIMIT_HEAVY:3`.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sketch26-local",
   "main": "src/index.ts",
@@ -13,5 +17,9 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-  "kv_namespaces": [{ "binding": "CACHE" }]
+  "kv_namespaces": [{ "binding": "CACHE" }],
+  "vars": {
+    "RATE_LIMIT_GENERAL": "0",
+    "RATE_LIMIT_HEAVY": "0"
+  }
 }

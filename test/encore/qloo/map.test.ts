@@ -260,9 +260,47 @@ describe('the country retry', () => {
     expect(map.byDomain.film).toHaveLength(5);
     expect(map.byDomain.film.every((i) => i.eraCheck === 'filter')).toBe(true);
     const warning = map.warnings.find((w) => w.domain === 'film');
-    expect(warning).toMatchObject({ domain: 'film', code: 'empty' });
-    expect(warning?.message).toContain('GB');
+    expect(warning).toMatchObject({ domain: 'film', code: 'country_relaxed' });
+    expect(warning?.message).toBe('No British films were found for those years, so films from other countries are shown.');
     expect(map.warnings).toHaveLength(1);
+  });
+
+  it('warns once for the domain that fell back, and for no other', async () => {
+    const { source } = makeSource(mapHandler({ 'urn:entity:movie': noFilmsFromCountry }));
+    const map = await source.culturalMap(makeProfile({ country: 'FR' }));
+    const relaxed = map.warnings.filter((w) => w.code === 'country_relaxed');
+    expect(relaxed).toHaveLength(1);
+    expect(relaxed[0]?.domain).toBe('film');
+    expect(relaxed[0]?.message).toBe('No French films were found for those years, so films from other countries are shown.');
+    // Television still found something for France, so it did not need to fall back.
+    expect(map.warnings.some((w) => w.domain === 'tv')).toBe(false);
+  });
+
+  it('names the domain in the warning for television', async () => {
+    const { source } = makeSource(mapHandler({ 'urn:entity:tv_show': noFilmsFromCountry }));
+    const map = await source.culturalMap(makeProfile());
+    const warning = map.warnings.find((w) => w.domain === 'tv');
+    expect(warning).toMatchObject({ code: 'country_relaxed' });
+    expect(warning?.message).toBe(
+      'No British television programmes were found for those years, so television programmes from other countries are shown.',
+    );
+  });
+
+  it('names the country by its name when there is no adjective for it', async () => {
+    const { source } = makeSource(mapHandler({ 'urn:entity:movie': noFilmsFromCountry }));
+    const map = await source.culturalMap(makeProfile({ country: 'lu' }));
+    expect(map.warnings.find((w) => w.domain === 'film')?.message).toBe(
+      'No films from Luxembourg were found for those years, so films from other countries are shown.',
+    );
+  });
+
+  it('leaves out "for those years" when there is no birth year to bound the list', async () => {
+    const { source, calls } = makeSource(mapHandler({ 'urn:entity:movie': noFilmsFromCountry }));
+    const map = await source.culturalMap(makeProfile({ birthYear: undefined }));
+    expect(ofType(calls, 'urn:entity:movie')).toHaveLength(2);
+    expect(map.warnings.find((w) => w.code === 'country_relaxed')?.message).toBe(
+      'No British films were found, so films from other countries are shown.',
+    );
   });
 
   it('retries television too, and records the retry step in the trace', async () => {
@@ -286,7 +324,8 @@ describe('the country retry', () => {
     expect(map.byDomain.film).toEqual([]);
     expect(map.warnings).toHaveLength(1);
     expect(map.warnings[0]).toMatchObject({ domain: 'film', code: 'empty' });
-    expect(map.warnings[0]?.message).not.toContain('GB');
+    expect(map.warnings[0]?.message).not.toContain('British');
+    expect(map.warnings.some((w) => w.code === 'country_relaxed')).toBe(false);
   });
 });
 

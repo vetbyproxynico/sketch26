@@ -1,3 +1,4 @@
+import type { QlooError } from '../../qloo/client';
 import { DOMAIN_ENTITY_TYPE, type EntityRef } from '../types';
 import { readEntities } from './adapter';
 import { recoverableFailure } from './faults';
@@ -22,9 +23,14 @@ function insightsTypeOf(candidate: EntityRef): string {
 /**
  * Scores candidates against one person's signals: one `/v2/insights` call per
  * entity type (and per 40 IDs within a type) with `filter.results.entities`.
- * Returns affinity by entity ID, null where Qloo gave no score. A call that
- * fails for a reason local to it leaves its candidates null (the trace shows
- * the failure); a fatal one (no key, key refused) is thrown.
+ * Returns affinity by entity ID, null where Qloo answered but gave no score.
+ *
+ * A failure is never turned into null: a null means "Qloo has no score", and a
+ * person whose scoring failed would read as someone who dislikes everything.
+ * When any call fails for a reason local to it, every call is still allowed to
+ * finish (so the trace is complete) and then the first such error is thrown,
+ * for the caller to report and work around. A fatal failure (no key, key
+ * refused) is thrown at once.
  */
 export async function scoreCandidates(
   traced: TracedQloo,
@@ -41,6 +47,7 @@ export async function scoreCandidates(
   }
   if (signals.length === 0) return Object.fromEntries(scores);
 
+  const failures: QlooError[] = [];
   const calls = [...idsByType].flatMap(([type, ids]) =>
     chunksOf(ids, SCORE_CHUNK_SIZE).map(async (chunk) => {
       try {
@@ -54,10 +61,11 @@ export async function scoreCandidates(
           if (chunk.includes(ref.id) && affinity !== undefined) scores.set(ref.id, affinity);
         }
       } catch (error) {
-        recoverableFailure(error);
+        failures.push(recoverableFailure(error));
       }
     }),
   );
   await Promise.all(calls);
+  if (failures[0] !== undefined) throw failures[0];
   return Object.fromEntries(scores);
 }

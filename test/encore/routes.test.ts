@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CulturalMap, Plan, Profile } from '../../src/encore/types';
 import type { AiBinding, Env } from '../../src/env';
 import app from '../../src/index';
 import type { FetchLike } from '../../src/util';
 import search from '../fixtures/encore/qloo/search-film.json';
-import { TEST_KEY, jsonResponse } from '../helpers';
-import { COMPARE_BODY, type Handler, makeProfile, mapHandler, routed } from './qloo/helpers';
+import { BrokenKv, MemoryKv, TEST_KEY, jsonResponse } from '../helpers';
+import { COMPARE_BODY, type Handler, entityRef, makeProfile, mapHandler, routed, status } from './qloo/helpers';
 
 /** Every Qloo call the routes can make, answered from the invented fixtures. */
 const everything: Handler = (call) => {
@@ -27,10 +27,21 @@ function stubQloo(handler: Handler = everything) {
   return net;
 }
 
-async function post(path: string, payload: unknown, env: Env = WITH_KEY) {
+/**
+ * Each request comes from a different address (from the ranges reserved for
+ * documentation), so the per-visitor limits, which have their own tests below,
+ * never get in the way of the other tests.
+ */
+let visitors = 0;
+const nextVisitor = (): string => {
+  const n = visitors++;
+  return `${Math.floor(n / 254) % 2 === 0 ? '198.51.100' : '203.0.113'}.${(n % 254) + 1}`;
+};
+
+async function post(path: string, payload: unknown, env: Env = WITH_KEY, headers: Record<string, string> = {}) {
   const init: RequestInit = {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'cf-connecting-ip': nextVisitor(), ...headers },
     body: typeof payload === 'string' ? payload : JSON.stringify(payload),
   };
   const response = await app.request(path, init, env);
@@ -322,5 +333,280 @@ describe('Qloo failing', () => {
     const { response, text } = await post('/api/resolve', { names: ['Example Film One'] });
     expect(response.status).toBeGreaterThanOrEqual(500);
     expect(text).not.toContain(TEST_KEY);
+  });
+});
+
+/* Everything below uses invented profiles and the invented fixtures: no real Qloo data. */
+
+describe('POST /api/room when scoring fails for someone', () => {
+  const isScoring = (call: { path: string; params: Record<string, string> }) =>
+    call.path === '/v2/insights' && call.params['filter.results.entities'] !== undefined;
+
+  /** Reg has favourites of his own, so his scoring calls can be told apart from Dot's. */
+  const dot = makeProfile({ id: 'a', nickname: 'Dot' });
+  const reg = makeProfile({
+    id: 'b',
+    nickname: 'Reg',
+    favourites: [entityRef('FAV-REG', 'Example Fave Of Reg')],
+    liked: [],
+  });
+  const forReg = (call: { params: Record<string, string> }) => (call.params['signal.interests.entities'] ?? '').includes('FAV-REG');
+
+  async function roomWith(failing: (call: { path: string; params: Record<string, string> }) => Response | undefined) {
+    const net = stubQloo((call) => (isScoring(call) ? (failing(call) ?? everything(call)) : everything(call)));
+    const maps = [await buildMap(dot), await buildMap(reg)];
+    const before = net.calls.length;
+    const result = await post('/api/room', { profiles: [dot, reg], maps });
+    return { net, maps, before, ...result };
+  }
+
+  type Programme = {
+    items: Array<{
+      item: { entity: { id: string }; affinity?: number };
+      score: { perPerson: Array<{ profileId: string; affinity: number | null }>; min: number };
+      leftOut: string[];
+    }>;
+    warnings: Array<{ code: string; message: string; domain?: string }>;
+  };
+
+  it('still answers, names the person in a qloo_error warning, and shows the failed call in the trace', async () => {
+    const { response, json, maps } = await roomWith((call) => (forReg(call) ? status(403) : undefined));
+    expect(response.status).toBe(200);
+    const { programme, trace } = json<{ programme: Programme; trace: Array<{ status: number; step: string }> }>();
+
+    expect(programme.items.length).toBeGreaterThan(0);
+    const warnings = programme.warnings.filter((w) => w.code === 'qloo_error');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.message).toContain('Reg');
+    expect(warnings[0]?.message).not.toContain('Dot');
+    expect(trace.some((entry) => entry.step === 'score candidates' && entry.status === 403)).toBe(true);
+
+    // Reg is scored from his own map instead: no item on it reads as zero.
+    const regMap = maps[1];
+    const own = new Map(Object.values(regMap?.byDomain ?? {}).flat().map((item) => [item.entity.id, item.affinity]));
+    let checked = 0;
+    for (const row of programme.items) {
+      const regScore = row.score.perPerson.find((p) => p.profileId === 'b')?.affinity;
+      const affinity = own.get(row.item.entity.id);
+      if (affinity === undefined) continue;
+      expect(regScore).toBe(affinity);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('adds no warning when every score arrives', async () => {
+    const { response, json } = await roomWith(() => undefined);
+    expect(response.status).toBe(200);
+    expect(json<{ programme: Programme }>().programme.warnings.filter((w) => w.code === 'qloo_error')).toEqual([]);
+  });
+
+  it('answers an error only when scoring failed for everyone, in plain words and with no upstream detail', async () => {
+    const { response, text, json } = await roomWith(() => new Response('UPSTREAM-SCORING-MARKER', { status: 403 }));
+    expect(response.status).toBe(502);
+    expect(json<{ error: { code: string; message: string } }>().error.code).toBe('qloo_forbidden');
+    expect(text).not.toContain('UPSTREAM-SCORING-MARKER');
+    expect(text).not.toContain(TEST_KEY);
+  });
+
+  it('answers an error at once when Qloo refuses the key, even if the map calls worked', async () => {
+    const { response, json } = await roomWith((call) => (forReg(call) ? status(401) : undefined));
+    expect(response.status).toBe(502);
+    expect(json<{ error: { code: string } }>().error.code).toBe('qloo_unauthorized');
+  });
+});
+
+describe('the country warning', () => {
+  it('reaches the browser as country_relaxed and is accepted when the map is sent back', async () => {
+    const noFilmsFromCountry: Handler = (call) =>
+      call.params['filter.type'] === 'urn:entity:movie' && call.params['filter.release_country'] !== undefined
+        ? jsonResponse({ success: true, results: { entities: [] } })
+        : everything(call);
+    stubQloo(noFilmsFromCountry);
+    const profile = makeProfile({ country: 'FR' });
+    const map = await buildMap(profile);
+
+    const warning = map.warnings.find((w) => w.code === 'country_relaxed');
+    expect(warning).toEqual({
+      domain: 'film',
+      code: 'country_relaxed',
+      message: 'No French films were found for those years, so films from other countries are shown.',
+    });
+
+    const { response } = await post('/api/plan', { profile, map });
+    expect(response.status).toBe(200);
+  });
+
+  it('is accepted in a map sent to the plan and feedback routes, and an unknown code is still refused', async () => {
+    stubQloo();
+    const profile = makeProfile();
+    const map = await buildMap(profile);
+    const withWarning = (code: string): CulturalMap => ({
+      ...map,
+      warnings: [{ domain: 'tv', code, message: 'No British television programmes were found.' } as CulturalMap['warnings'][number]],
+    });
+
+    expect((await post('/api/plan', { profile, map: withWarning('country_relaxed') })).response.status).toBe(200);
+    const refused = await post('/api/plan', { profile, map: withWarning('country_dropped') });
+    expect(refused.response.status).toBe(400);
+    expect(refused.json<{ error: { code: string } }>().error.code).toBe('bad_request');
+  });
+});
+
+describe('error bodies', () => {
+  type ErrorBody = { error: { code: string; message: string } };
+  const profile = makeProfile();
+
+  it('uses bad_request for a request the app rejects', async () => {
+    stubQloo();
+    for (const [path, payload] of [
+      ['/api/map', {}],
+      ['/api/map', 'this is not json'],
+      ['/api/map', '[1,2,3]'],
+      ['/api/resolve', { names: [] }],
+      ['/api/plan', { profile }],
+    ] as const) {
+      const { response, json } = await post(path, payload);
+      expect(response.status).toBe(400);
+      expect(json<ErrorBody>().error.code).toBe('bad_request');
+      expect(json<ErrorBody>().error.message.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('uses too_large for a body over the size limit', async () => {
+    const { response, json } = await post('/api/intake', { text: 'x'.repeat(1024 * 1024 + 10) }, {});
+    expect(response.status).toBe(413);
+    expect(json<ErrorBody>().error).toEqual({ code: 'too_large', message: 'The request is too large.' });
+  });
+
+  it('keeps the upstream body, the key and any stack out of the answer to an upstream 500', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const marker = 'UPSTREAM-BODY-MARKER-91c2';
+    stubQloo(
+      () =>
+        new Response(`${marker} key=${TEST_KEY}\n    at Object.<anonymous> (/srv/qloo/worker.js:10:5)`, {
+          status: 500,
+          headers: { 'content-type': 'text/plain' },
+        }),
+    );
+
+    const { response, text, json } = await post('/api/resolve', { names: ['Example Film One'] });
+
+    expect(response.status).toBe(502);
+    expect(json<ErrorBody>().error.code).toBe('qloo_server_error');
+    expect(text).not.toContain(marker);
+    expect(text).not.toContain(TEST_KEY);
+    expect(text).not.toMatch(/\n\s+at |worker\.js|\.ts:\d+/);
+    expect(text).not.toContain('/v2/');
+    expect(text).not.toContain('/search');
+    // The log holds the code and status only.
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0]?.[0])).not.toContain(marker);
+    expect(String(logged.mock.calls[0]?.[0])).not.toContain(TEST_KEY);
+  });
+
+  it('keeps the key out of the answer when Qloo rejects it', async () => {
+    stubQloo((call) => new Response(`you sent ${call.url} with ${TEST_KEY}`, { status: 401 }));
+    const { response, text } = await post('/api/map', { profile });
+    expect(response.status).toBe(502);
+    expect(text).not.toContain(TEST_KEY);
+    expect(text).not.toContain('QLOO_API_KEY');
+  });
+
+  it('reduces an unexpected error to a generic 500 with no message, key or stack', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const env: Env = {
+      QLOO_API_KEY: TEST_KEY,
+      get QLOO_BASE_URL(): string {
+        throw new Error(`unexpected failure with ${TEST_KEY} inside`);
+      },
+    };
+    const { response, text, json } = await post('/api/map', { profile }, env);
+    expect(response.status).toBe(500);
+    expect(json<ErrorBody>()).toEqual({ error: { code: 'internal_error', message: 'Internal server error.' } });
+    expect(text).not.toContain(TEST_KEY);
+    expect(text).not.toContain('unexpected failure');
+    expect(String(logged.mock.calls[0]?.[0])).not.toContain(TEST_KEY);
+  });
+});
+
+describe('the per-visitor limits through the app', () => {
+  const profile = makeProfile();
+
+  beforeEach(() => {
+    // Only the clock is frozen, in the middle of a ten-minute window, so no test can straddle a window.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-08T12:03:20Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  type ErrorBody = { error: { code: string; message: string } };
+  const from = (ip: string) => ({ 'cf-connecting-ip': ip });
+
+  it('answers the 21st /api/map from one visitor with 429, the standard body and a Retry-After', async () => {
+    stubQloo();
+    const ip = '198.51.100.201';
+    for (let i = 0; i < 20; i += 1) {
+      const { response } = await post('/api/map', {}, WITH_KEY, from(ip)); // a 400: it still counts
+      expect(response.status).toBe(400);
+    }
+    const { response, text, json } = await post('/api/map', { profile }, WITH_KEY, from(ip));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('400');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(json<ErrorBody>().error.code).toBe('rate_limited');
+    expect(json<ErrorBody>().error.message).toContain('about 7 minutes');
+    expect(text).not.toContain(ip);
+
+    // Another visitor is unaffected, and so is the same visitor on a cheaper route.
+    expect((await post('/api/map', {}, WITH_KEY, from('198.51.100.202'))).response.status).toBe(400);
+    expect((await post('/api/intake', { text: 'She loved Example Film One.' }, {}, from(ip))).response.status).toBe(200);
+  });
+
+  it('applies the limits set in the environment, and 0 turns one off', async () => {
+    const ip = '198.51.100.203';
+    const env: Env = { RATE_LIMIT_GENERAL: '3', RATE_LIMIT_HEAVY: '0' };
+    const codes: number[] = [];
+    for (let i = 0; i < 4; i += 1) codes.push((await post('/api/map', {}, env, from(ip))).response.status);
+    expect(codes).toEqual([400, 400, 400, 429]);
+
+    const off: Env = { RATE_LIMIT_GENERAL: '0', RATE_LIMIT_HEAVY: '0' };
+    for (let i = 0; i < 30; i += 1) {
+      expect((await post('/api/map', {}, off, from('198.51.100.204'))).response.status).toBe(400);
+    }
+  });
+
+  it('never limits GET /api/health', async () => {
+    const env: Env = { RATE_LIMIT_GENERAL: '1', RATE_LIMIT_HEAVY: '1' };
+    for (let i = 0; i < 10; i += 1) {
+      const response = await app.request('/api/health', { headers: from('198.51.100.205') }, env);
+      expect(response.status).toBe(200);
+    }
+  });
+
+  it('puts requests with no address in one shared bucket', async () => {
+    const env: Env = { RATE_LIMIT_GENERAL: '2', RATE_LIMIT_HEAVY: '0' };
+    const codes: number[] = [];
+    for (let i = 0; i < 3; i += 1) codes.push((await post('/api/intake', {}, env, { 'cf-connecting-ip': '' })).response.status);
+    expect(codes).toEqual([400, 400, 429]);
+  });
+
+  it('uses KV when the CACHE binding is there, and lets requests through when KV fails', async () => {
+    const kv = new MemoryKv();
+    const env: Env = { CACHE: kv, RATE_LIMIT_GENERAL: '1', RATE_LIMIT_HEAVY: '0' };
+    expect((await post('/api/intake', {}, env, from('198.51.100.206'))).response.status).toBe(400);
+    expect((await post('/api/intake', {}, env, from('198.51.100.206'))).response.status).toBe(429);
+    expect(kv.entries.size).toBe(1);
+    expect([...kv.entries.keys()].every((key) => !key.includes('198.51.100'))).toBe(true);
+
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const broken: Env = { CACHE: new BrokenKv(), RATE_LIMIT_GENERAL: '1', RATE_LIMIT_HEAVY: '0' };
+    for (let i = 0; i < 3; i += 1) {
+      expect((await post('/api/intake', {}, broken, from('198.51.100.207'))).response.status).toBe(400);
+    }
   });
 });

@@ -4,10 +4,12 @@ import { HTTPException } from 'hono/http-exception';
 import type { Env } from '../env';
 import { createLlmProvider } from '../llm/factory';
 import { createQlooClient } from '../qloo/from-env';
+import { rateLimit } from '../ratelimit';
 import { isRecord } from '../util';
 import { applyFeedback, buildPlan, candidatePool, chooseProgramme, scoreRoom } from './plan';
 import type { TasteSource, Wordsmith } from './ports';
 import { createTasteSource } from './qloo';
+import { scoreRoomMembers } from './room-scoring';
 import type { MapWarning, Profile, RoomProgramme, TagRef } from './types';
 import {
   parseCountry,
@@ -94,6 +96,8 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
       throw new HTTPException(413, { message: 'The request is too large.' });
     },
   });
+  // Per-visitor request budgets, checked before anything is read or paid for.
+  app.post('/api/*', rateLimit());
   for (const path of ['/api/intake', '/api/resolve', '/api/map', '/api/plan', '/api/feedback', '/api/room']) {
     app.use(path, limit);
   }
@@ -166,13 +170,11 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
     }
 
     const entities = candidates.map((candidate) => candidate.entity);
-    const [scored, tags] = await Promise.all([
-      Promise.all(
-        profiles.map(async (profile) => [profile.id, await taste.scoreForPerson(profile, entities)] as const),
-      ),
-      sharedTags(taste, profiles),
-    ]);
-    const roomScores = scoreRoom(profiles, candidates, Object.fromEntries(scored));
+    // A person Qloo could not score is scored from their own map and named in a
+    // warning; an error is answered only when scoring failed for everyone.
+    const [scoring, tags] = await Promise.all([scoreRoomMembers(taste, profiles, maps, entities), sharedTags(taste, profiles)]);
+    warnings.push(...scoring.warnings);
+    const roomScores = scoreRoom(profiles, candidates, scoring.scores);
     const programme: RoomProgramme = {
       items: chooseProgramme(profiles, maps, candidates, roomScores),
       sharedGround: await wordsmith.describeSharedGround(

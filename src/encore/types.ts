@@ -125,7 +125,26 @@ export interface MapItem {
   tags: TagRef[];
 }
 
-export type MapWarningCode = 'empty' | 'no_era_filter' | 'qloo_error' | 'unverified_shape' | 'no_birth_year';
+/**
+ * Why a map or programme carries a warning:
+ * - `empty`: Qloo had nothing to suggest;
+ * - `no_era_filter`: the list could not be tied to the person's years;
+ * - `qloo_error`: a Qloo call failed and its result is missing or replaced;
+ * - `unverified_shape`: Qloo answered in a form this app could not read;
+ * - `no_birth_year`: no birth year, so no era window;
+ * - `country_relaxed`: nothing came back for the person's country, so the list
+ *   was asked for again without the country and shows items from anywhere.
+ */
+export const MAP_WARNING_CODES = [
+  'empty',
+  'no_era_filter',
+  'qloo_error',
+  'unverified_shape',
+  'no_birth_year',
+  'country_relaxed',
+] as const;
+
+export type MapWarningCode = (typeof MAP_WARNING_CODES)[number];
 
 export interface MapWarning {
   domain?: Domain;

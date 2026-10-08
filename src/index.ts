@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { version } from '../package.json';
 import type { Env } from './env';
 import { registerEncoreRoutes } from './encore/routes';
-import { toApiError } from './errors';
+import { secretsOf, toApiError } from './errors';
 import { activeProviderName } from './llm/factory';
 import { countEntities } from './qloo/entities';
 import { QlooError } from './qloo/errors';
@@ -67,7 +67,7 @@ app.notFound((c) => {
 });
 
 app.onError((error, c) => {
-  const { status, code, message } = toApiError(error);
+  const { status, code, message } = toApiError(error, secretsOf(c.env));
   // Codes and names only: the message of an unexpected error may contain request data.
   if (status >= 500) {
     const name = code === 'internal_error' ? { name: error.name } : {};
