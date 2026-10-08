@@ -1,4 +1,5 @@
 import { QlooClient, type QlooClientOptions, type QlooResponse } from '../../../src/qloo/client';
+import { createTasteSource } from '../../../src/rung/qloo';
 import { DEFAULT_SWITCHES, type KindRoute, type Switches } from '../../../src/rung/switches';
 import type { Kind } from '../../../src/rung/types';
 import type { FetchLike } from '../../../src/util';
@@ -62,6 +63,13 @@ export function failingClient(error: Error): QlooClient {
 
 export function status(code: number): Response {
   return new Response(null, { status: code });
+}
+
+/** A taste source over a stubbed fetch. Every body served is a fixture or a body built from invented values. */
+export function makeSource(handler: Handler, overrides: SwitchOverrides = {}) {
+  const net = routed(handler);
+  const source = createTasteSource(makeClient(net.fetch), withSwitches(overrides));
+  return { ...net, source };
 }
 
 /** The default switches with some changed. `kindRoutes` may name only the kinds that change. */
