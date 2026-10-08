@@ -45,8 +45,39 @@ jobs:
           npm run typecheck
           npm test
       - name: Deploy with wrangler
+        id: deploy
         if: steps.gate.outputs.enabled == 'true'
         run: |
           # An empty account id would be passed to the API as-is, so drop it.
           [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || unset CLOUDFLARE_ACCOUNT_ID
-          npx wrangler deploy
+          npx wrangler deploy 2>&1 | tee deploy.log
+          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -n 1 || true)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      # The build workspace cannot read workflow logs or reach the demo, so the
+      # address and a short health line are published as run annotations. The
+      # health answer never contains a key (see test/index.test.ts).
+      - name: Check the demo answers
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          DEMO_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          if [ -z "$DEMO_URL" ]; then
+            echo "::warning title=Demo address not found::wrangler did not print a workers.dev address, so the demo was not checked."
+            exit 0
+          fi
+          echo "::notice title=Demo address::$DEMO_URL"
+          code=000
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o health.json -w '%{http_code}' --max-time 20 "$DEMO_URL/api/health" || true)
+            [ "$code" = "200" ] && break
+            sleep 10
+          done
+          page=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$DEMO_URL/" || true)
+          summary=$(node -e '
+            try {
+              const h = JSON.parse(require("fs").readFileSync("health.json", "utf8"));
+              console.log(["ok", "version", "llmProvider", "qlooConfigured", "cacheEnabled"].map((k) => k + "=" + String(h[k])).join(", "));
+            } catch { console.log("health answer was not JSON"); }
+          ')
+          echo "::notice title=Demo health::page $page, health $code, $summary"
+          [ "$code" = "200" ] && [ "$page" = "200" ]
