@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { version } from '../package.json';
 import type { Env } from './env';
+import { registerEncoreRoutes } from './encore/routes';
 import { toApiError } from './errors';
 import { activeProviderName } from './llm/factory';
 import { countEntities } from './qloo/entities';
@@ -56,6 +57,8 @@ app.get('/api/selftest', async (c) => {
     );
   }
 });
+
+registerEncoreRoutes(app);
 
 app.notFound((c) => {
   const isApi = new URL(c.req.url).pathname.startsWith('/api/');
