@@ -106,7 +106,7 @@ export async function runLoop(input: LoopInput): Promise<void> {
     let merged: { added: number; remarked: number };
     try {
       const page = await fetchPage(ctx, decision.domain, callStep(move, decision.domain), state.query, note);
-      merged = mergeItems(state, page.items);
+      merged = mergeItems(state, page.items, page.dropped);
     } catch (error) {
       recoverableFailure(error); // the move is spent and the list keeps what it had
       return;

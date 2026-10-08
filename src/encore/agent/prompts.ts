@@ -37,5 +37,6 @@ export const ADVISE_SYSTEM = [
   'Reply with one JSON object: {"decisions": [{"domain": "...", "action": "...", "reason": "..."}]}.',
   'The "reason" is read by a carer. Write one short, plain sentence of at most 20 words that says why you chose that move.',
   'In the reason, use no names of people, places, films, programmes, songs, books or brands, and no numbers other than ones in the data.',
+  'Begin the reason with an ordinary word, such as "Widening", "Dropping", "Keeping", "Only", "The" or "Their", and never with a name.',
   'Do not make medical or therapeutic claims, and never mention dementia, memory loss, diagnosis, therapy or treatment.',
 ].join('\n');

@@ -260,7 +260,7 @@ describe('checkReason', () => {
     expect(check("Use the singer's Olympia years.")).toBeUndefined();
   });
 
-  it('does not judge the first word, which starts the sentence', () => {
+  it('lets an ordinary word start the sentence', () => {
     expect(check('Widening keeps the country.')).toBe('Widening keeps the country.');
   });
 
@@ -273,11 +273,13 @@ describe('checkReason', () => {
   it('refuses more than one sentence, and text over the limit', () => {
     expect(check('First this. Then that.')).toBeUndefined();
     expect(check('Stop! Then go.')).toBeUndefined();
-    const long = `${'a'.repeat(MAX_REASON_CHARS)}.`;
+    // Filler that starts with an ordinary word, so that only the length is on trial.
+    const filled = (length: number): string => `The ${'a'.repeat(length - 4)}`;
+    const long = `${filled(MAX_REASON_CHARS)}.`;
     expect(long.length).toBe(MAX_REASON_CHARS + 1);
     expect(check(long)).toBeUndefined();
-    expect(check('a'.repeat(MAX_REASON_CHARS))).toBeUndefined();
-    expect(check(`${'a'.repeat(MAX_REASON_CHARS - 1)}.`)).toBe(`${'a'.repeat(MAX_REASON_CHARS - 1)}.`);
+    expect(check(filled(MAX_REASON_CHARS))).toBeUndefined();
+    expect(check(`${filled(MAX_REASON_CHARS - 1)}.`)).toBe(`${filled(MAX_REASON_CHARS - 1)}.`);
   });
 
   it('refuses anything but letters, digits and plain punctuation', () => {

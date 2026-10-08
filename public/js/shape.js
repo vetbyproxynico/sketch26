@@ -47,6 +47,58 @@ export function normaliseMap(map) {
   return out;
 }
 
+// ---------------------------------------------------------------- map work
+//
+// What Encore did to build a map: how many questions it asked Qloo, and each
+// decision it took between them. The server sends both in the `trace` of the
+// same answer as the map, and the page keeps the trace only in memory, so this
+// short record is saved with the map and survives a reload. It holds the
+// sentence of each decision and who made it, and nothing from a Qloo answer.
+
+const WORK_MOVES = ['drop_country', 'widen_years', 'drop_age_signal', 'same_kind_favourites', 'strongest_favourites', 'taste_tags'];
+const WORK_ACTIONS = [...WORK_MOVES, 'accept', 'stop'];
+const MAX_WORK_DECISIONS = 24;
+const MAX_WORK_REASON = 600;
+
+function normaliseDecision(d) {
+  if (!isObject(d)) return null;
+  const reason = text(d.reason).replace(/\s+/g, ' ').trim().slice(0, MAX_WORK_REASON);
+  // A decision with no sentence, or with no say of who made it, cannot be shown without guessing.
+  if (!reason || (d.decidedBy !== 'rules' && d.decidedBy !== 'model')) return null;
+  const out = { reason, decidedBy: d.decidedBy };
+  if (WORK_ACTIONS.includes(d.action)) out.action = d.action;
+  if (DOMAINS.includes(d.domain)) out.domain = d.domain;
+  if (typeof d.round === 'number' && Number.isInteger(d.round) && d.round > 0 && d.round < 10) out.round = d.round;
+  return out;
+}
+
+/** The saved record of how a map was built, made safe to show, or null when there is none. */
+export function normaliseMapWork(work) {
+  if (!isObject(work)) return null;
+  const questions = work.questions;
+  if (typeof questions !== 'number' || !Number.isInteger(questions) || questions < 0 || questions > 1000) return null;
+  return { questions, decisions: list(work.decisions).map(normaliseDecision).filter(Boolean).slice(0, MAX_WORK_DECISIONS) };
+}
+
+/**
+ * The record to save with a map, from the `trace` that came with it: the count
+ * of questions asked (every entry that is not a decision) and the decisions.
+ * Null when the trace holds nothing, so the page says nothing rather than "0".
+ */
+export function mapWorkFromTrace(trace) {
+  if (!Array.isArray(trace)) return null;
+  const entries = trace.filter(isObject);
+  const decisions = entries.filter((e) => e.kind === 'decision');
+  const questions = entries.length - decisions.length;
+  if (entries.length === 0) return null;
+  return normaliseMapWork({ questions, decisions });
+}
+
+/** How many times the map builder changed course: the decisions that were a new question, not a list kept or the stop. */
+export function changesOfCourse(work) {
+  return work && Array.isArray(work.decisions) ? work.decisions.filter((d) => WORK_MOVES.includes(d.action)).length : 0;
+}
+
 function normaliseSession(session, index) {
   if (!isObject(session)) return null;
   const items = list(session.items)
@@ -175,6 +227,7 @@ export function normalisePerson(p) {
     resolved,
     profile,
     map: profile ? map : null,
+    mapWork: profile && map ? normaliseMapWork(p.mapWork) : null,
     plan: profile ? plan : null,
     changes: Array.isArray(p.changes) ? strings(p.changes) : null,
     draft: isObject(p.draft) ? p.draft : {},

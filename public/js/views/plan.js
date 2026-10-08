@@ -4,7 +4,7 @@ import { journey } from '../components/journey.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
 import { announce, focusEl, h, isBusy, setBusy, srOnly, uid } from '../dom.js';
 import { buildPlan, readFeedbackAnswer } from '../flow.js';
-import { personSummary, plural } from '../format.js';
+import { SAMPLE_FILTER_NOTE, hasFilters, personSummary, plural } from '../format.js';
 import { navigate } from '../router.js';
 import { getPerson, savePerson } from '../store.js';
 
@@ -102,6 +102,18 @@ export function planView(id) {
         h('button', { type: 'button', class: 'btn btn--quiet', onClick: () => load(true) }, 'Make a new plan'),
       ),
     );
+
+    // Sample mode never reaches the server, so the avoid list and gentle mode do nothing: say so.
+    if (api.isSample() && hasFilters(person.profile || person.input)) {
+      parts.push(
+        h(
+          'section',
+          { class: 'notice notice--soft', 'aria-labelledby': 'plan-good-to-know' },
+          h('h2', { id: 'plan-good-to-know', class: 'notice-title' }, 'Good to know'),
+          h('ul', null, h('li', null, SAMPLE_FILTER_NOTE)),
+        ),
+      );
+    }
 
     const liked = person.profile && Array.isArray(person.profile.liked) ? person.profile.liked : [];
     if (liked.length) {
@@ -255,6 +267,7 @@ export function planView(id) {
       const answer = readFeedbackAnswer(data);
       person.profile = answer.profile;
       person.map = answer.map;
+      person.mapWork = answer.work;
       person.plan = answer.plan;
       person.changes = answer.changes.length ? answer.changes : ['No changes were needed this time. The plan stays as it was.'];
       person.draft = {};

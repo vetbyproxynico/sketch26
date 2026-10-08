@@ -3,7 +3,8 @@ import { cleanLine } from '../words/fallbacks';
 import { findClinicalClaim } from '../words/schemas';
 import { actionable, ruleChoice } from './rules';
 import type { Decision, ListObservation, Observation } from './types';
-import { numbersShown, wordsAllowed } from './view';
+import { OPENERS } from './openers';
+import { numbersShown, openersAllowed, wordsAllowed } from './view';
 
 /**
  * The gate between an advisor and the map builder. Whatever an advisor returns
@@ -31,6 +32,12 @@ export interface ReasonAllowances {
   numbers: ReadonlySet<number>;
   /** Lower-case words it may spell with a capital letter after the first word. */
   words: ReadonlySet<string>;
+  /**
+   * Lower-case words it may open with. The first word is judged against this set
+   * and not by its capital, which every first word has. Absent: the everyday and
+   * rule-sentence words (`OPENERS`) and `words`. See `openersAllowed` in `view.ts`.
+   */
+  openers?: ReadonlySet<string>;
 }
 
 /**
@@ -41,8 +48,9 @@ export interface ReasonAllowances {
  * - no medical or therapeutic wording (`findClinicalClaim`);
  * - no invented names: after the first word, a capital letter may only start a
  *   word from `allowances.words` (the person's country, Encore, Qloo, TV). The
- *   first word starts the sentence, so its capital proves nothing and it is
- *   not judged: a one-word name in that one place would pass;
+ *   first word starts the sentence, so its capital proves nothing; instead it
+ *   must be an ordinary word from `allowances.openers`, so a one-word name
+ *   cannot open a reason either;
  * - no invented numbers: only numbers from `allowances.numbers`.
  */
 export function checkReason(value: unknown, allowances: ReasonAllowances): string | undefined {
@@ -56,10 +64,16 @@ export function checkReason(value: unknown, allowances: ReasonAllowances): strin
   if (findClinicalClaim(text, []) !== undefined) return undefined;
 
   const words = text.split(' ').map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
-  for (const word of words.slice(1)) {
+  const openers = allowances.openers ?? new Set([...OPENERS, ...allowances.words]);
+  for (const [position, word] of words.entries()) {
     // A hyphen or apostrophe joins words; each part is judged on its own.
-    for (const part of word.split(/[-']/)) {
-      if (/^\p{Lu}/u.test(part) && !allowances.words.has(part.toLowerCase())) return undefined;
+    for (const [inWord, part] of word.split(/[-']/).entries()) {
+      if (position === 0 && inWord === 0) {
+        // The first word has a capital whatever it is, so it must be an ordinary word instead. A number is judged as a number below.
+        if (/^\p{L}/u.test(part) && !openers.has(part.toLowerCase())) return undefined;
+      } else if (/^\p{Lu}/u.test(part) && !allowances.words.has(part.toLowerCase())) {
+        return undefined;
+      }
     }
   }
   for (const match of text.match(NUMBER) ?? []) {
@@ -109,7 +123,7 @@ function ruleLabelled(list: ListObservation, action: Decision['action'], callsLe
  */
 export function settle(observation: Observation, proposed: unknown): Decision[] {
   const offered = firstByDomain(proposed);
-  const allowances: ReasonAllowances = { numbers: numbersShown(observation), words: wordsAllowed(observation) };
+  const allowances: ReasonAllowances = { numbers: numbersShown(observation), words: wordsAllowed(observation), openers: openersAllowed(observation) };
   let callsLeft = observation.callsLeft;
   return actionable(observation).map((list) => {
     const decision = vetted(offered.get(list.domain), list, callsLeft, allowances) ?? ruleChoice(list, callsLeft);

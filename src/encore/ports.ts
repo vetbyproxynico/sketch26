@@ -1,5 +1,6 @@
 import type {
   CulturalMap,
+  Domain,
   EntityRef,
   MapItem,
   PersonInput,
@@ -11,6 +12,37 @@ import type {
 } from './types';
 
 /**
+ * What a caller may ask of one cultural map beyond the profile.
+ *
+ * `keep` and `onLeftOut` exist so that a caller can have suggestions left out
+ * while the map is still being built, and not only afterwards: a list that is
+ * cut to its cap first and filtered second ends up shorter than Qloo's answer
+ * allowed. The taste source knows nothing about why a suggestion is turned
+ * away. It receives a yes or no for each one and hands the turned-away ones back.
+ */
+export interface CulturalMapOptions {
+  /** Suggestions kept per group (default 8). */
+  perDomain?: number;
+  /**
+   * May this suggestion be shown? Asked once for each suggestion Qloo returns,
+   * before any group is cut to `perDomain` and before a group is judged short.
+   * A suggestion turned away is replaced by the next one down Qloo's list, and
+   * a group left short by it is asked for again like any other short group. If
+   * the function throws, the suggestion is kept: whoever supplied it still has
+   * the map to filter afterwards. Absent: every suggestion may be shown.
+   */
+  keep?: (item: MapItem) => boolean;
+  /**
+   * Called once, when the map is finished, with the suggestions `keep` turned
+   * away that would otherwise have been among those shown: the group as it would
+   * have stood without `keep`, cut to `perDomain` the same way. So it holds what
+   * was really left out of the map, not everything Qloo sent that `keep` refused.
+   * A group with nothing in it is absent.
+   */
+  onLeftOut?: (leftOut: Partial<Record<Domain, MapItem[]>>) => void;
+}
+
+/**
  * Everything Encore asks of the taste data. Implemented over the Qloo client in
  * `src/encore/qloo`. Tests of other layers use a hand-written fake.
  */
@@ -18,7 +50,7 @@ export interface TasteSource {
   /** Looks up each typed favourite. Never invents a match. */
   resolve(names: readonly string[], hint?: { country?: string }): Promise<ResolvedFavourite[]>;
   /** Builds the cultural map for one person. `perDomain` caps items per domain (default 8). */
-  culturalMap(profile: Profile, opts?: { perDomain?: number }): Promise<CulturalMap>;
+  culturalMap(profile: Profile, opts?: CulturalMapOptions): Promise<CulturalMap>;
   /**
    * Scores candidates against one person's signals. Returns affinity 0 to 1 by
    * entity ID; null where Qloo answered but returned no score. Rejects when

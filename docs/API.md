@@ -60,9 +60,9 @@ sent back by the browser is never trusted to be clean already.
 
 | Route | What is filtered |
 | --- | --- |
-| `POST /api/map` | The map Qloo returned, before it is answered. Avoided items are not in `map.byDomain`. |
+| `POST /api/map` | Avoided items are dropped while the map is built, so a list that loses some is filled again from further down Qloo's answer (see "Topping up" below). The finished map is then filtered once more, which is what produces the warnings. Avoided items are not in `map.byDomain`. |
 | `POST /api/plan` | The map in the request, before the plan is built. The warnings this added are returned as `warnings` (empty when the map was already clean). |
-| `POST /api/feedback` | The rebuilt map, with the profile as updated by the feedback. A note that adds to the avoid list therefore applies to the new plan at once. |
+| `POST /api/feedback` | The rebuilt map, built and topped up as for `/api/map`, with the profile as updated by the feedback. A note that adds to the avoid list therefore applies to the new plan at once. |
 | `POST /api/room` | Every resident's map, with every resident's settings: an item one resident must avoid is left out for the whole room, and so are companions and shared-ground tags. Gentle mode applies to the whole room when it is on for any resident. |
 
 How a note is read (`src/encore/avoid.ts`): case, accents and punctuation are
@@ -81,6 +81,38 @@ and combat, graphic violence, horror, murder and true crime, abuse, disaster,
 terminal illness, suicide), or whose name or description uses a strong word for
 one (a bare "war" in a description does not count). The avoid list is tried
 first.
+
+### Topping up
+
+A list shows at most eight suggestions, but Qloo is asked for more than that
+(twice the cap, for each question). The map builder is handed a yes-or-no
+function built from the profile (`keepFor` in `src/encore/plan/filters.ts`) and
+asks it about every suggestion as it arrives. It drops the ones the person must
+not see before it cuts the list to eight and before it decides whether the list
+is short, so a list that the filters thin is filled again from further down
+Qloo's answer, and one that is still short after that gets the same extra
+questions as any short list. The builder knows nothing about notes or Gentle
+mode: it gets a function and nothing else (`src/encore/qloo` imports neither
+`avoid.ts` nor `plan/`, and a test checks it).
+
+The route then runs the whole filter on the finished map, as before. That second
+pass is the guarantee: it is what produces the warnings and counts, and a map
+is clean whatever the builder did with the function. A suggestion the first pass
+dropped is simply not there for the second to find.
+
+The counts stay true. A count is the number of suggestions that were left out
+of what would otherwise have been shown: the list as it would have stood
+without the filters, cut to eight. A suggestion that ranks below that cut was
+never going to be shown and is not counted, and a suggestion is counted once,
+however many questions brought it back. Each suggestion is also counted under
+one filter only, the avoid list first and Gentle mode for what is left. When a
+filter takes every suggestion in a group, the group is listed in `emptied` and
+the map does not also say that Qloo had nothing for it.
+
+None of this adds or removes a field of a response. `map`, `trace`, `warnings`
+and `emptied` have the shapes above. A decision in the trace may now say that a
+list was short, where before the filters it would not have, because the list
+is judged after what the person must not see has gone.
 
 Both filters use only the name, description and tags in the map. They cannot
 know what an item is about beyond those words. Qloo is not asked to do any of

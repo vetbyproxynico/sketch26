@@ -279,6 +279,7 @@ export function intakeView(editId) {
         if (!sameLookup) target.resolved = null;
         target.profile = null;
         target.map = null;
+        target.mapWork = null;
         target.plan = null;
         target.changes = null;
         target.draft = {};

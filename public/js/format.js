@@ -1,5 +1,7 @@
 // Plain-word labels and small formatting helpers shared by the views.
 
+import { changesOfCourse } from './shape.js';
+
 export const DOMAIN_ORDER = ['film', 'tv', 'music', 'book', 'person', 'brand'];
 
 export const DOMAIN_HEADING = {
@@ -109,14 +111,37 @@ export function plural(count, one, many) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** The era badge: what `eraCheck` means, in plain words. */
-export function eraInfo(item) {
+/**
+ * The era badge: what `eraCheck` means, in plain words.
+ *
+ * `window` is the years the map reports (`map.window`: when the person was about
+ * 10 to 30), so the badge can name them. A film, programme or book that has an
+ * era check of `filter` but a year outside that window was found after the years
+ * were widened (too little came back for the person's own years), and says so
+ * and not that it is from when they were about 10 to 30. People are checked by
+ * the year they were born, in the decades around the person's own, which is not
+ * the same window, so the window is not used for them.
+ */
+export function eraInfo(item, window) {
   if (item.eraCheck === 'filter') {
-    return {
-      tone: 'filter',
-      label: 'From their years',
-      text: 'Picked from the years they were about 10 to 30.',
-    };
+    const domain = item.domain || (item.entity && item.entity.domain);
+    if (domain === 'person') {
+      return { tone: 'filter', label: 'From their years', text: 'Picked from people born in the decades around theirs.' };
+    }
+    const from = window ? Number(window.fromYear) : NaN;
+    const to = window ? Number(window.toYear) : NaN;
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      return { tone: 'filter', label: 'From their years', text: 'Picked from the years they were about 10 to 30.' };
+    }
+    const year = item.entity ? Number(item.entity.year) : NaN;
+    if (Number.isFinite(year) && (year < from || year > to)) {
+      return {
+        tone: 'filter',
+        label: 'From a little outside their years',
+        text: `Picked from a few years either side of ${from} to ${to}, because too little came back for those years.`,
+      };
+    }
+    return { tone: 'filter', label: 'From their years', text: `Picked from ${from} to ${to}, when they were about 10 to 30.` };
   }
   if (item.eraCheck === 'age_skew') {
     const older = typeof item.ageSkew55Plus === 'number' ? item.ageSkew55Plus > 0 : true;
@@ -137,6 +162,56 @@ export function eraInfo(item) {
     label: 'Era not checked',
     text: 'There was no way to check this against their years, so treat it as a maybe.',
   };
+}
+
+// ------------------------------------------------------- how a map was built
+
+/** Who made a decision, in the words of the map page. */
+export const DECIDED_BY = {
+  rules: 'Decided by fixed rules',
+  model: 'Decided by the language model',
+};
+
+/** "once", "twice", "3 times". */
+function timesWord(n) {
+  if (n === 1) return 'once';
+  if (n === 2) return 'twice';
+  return `${n} times`;
+}
+
+/**
+ * The one sentence at the top of "How Encore built this map", with the real
+ * numbers for it. `work` is the saved record (see `mapWorkFromTrace` in shape.js).
+ * In sample mode nothing was really asked, so it says what Encore would do.
+ */
+export function mapWorkSentence(work, sample) {
+  const questions = plural(work.questions, 'question', 'questions');
+  const changes = changesOfCourse(work);
+  if (sample) {
+    if (changes > 0) return `In this sample, Encore would ask Qloo ${questions} and change course ${timesWord(changes)}.`;
+    return work.decisions.length === 0
+      ? `In this sample, Encore would ask Qloo ${questions} and not need to change course.`
+      : `In this sample, Encore would ask Qloo ${questions} and not change course.`;
+  }
+  if (changes > 0) return `Encore asked Qloo ${questions} and changed course ${timesWord(changes)}.`;
+  return work.decisions.length === 0 ? `Encore asked Qloo ${questions} and did not need to change course.` : `Encore asked Qloo ${questions} and did not change course.`;
+}
+
+// ------------------------------------------------- filters in sample mode
+
+/** Said on the map and plan pages in sample mode, when the person has set a filter that cannot be applied. */
+export const SAMPLE_FILTER_NOTE =
+  'Sample suggestions are invented and are not filtered. Things to avoid and gentle mode apply once the live taste service is connected.';
+
+/**
+ * True when the person has asked for something to be left out: a thing to avoid,
+ * or gentle mode, which is on unless it was switched off. `settings` is the
+ * profile or the input the carer typed; they use `avoidNotes` and `avoid`.
+ */
+export function hasFilters(settings) {
+  if (!settings) return false;
+  const notes = Array.isArray(settings.avoidNotes) ? settings.avoidNotes : Array.isArray(settings.avoid) ? settings.avoid : [];
+  return notes.some((note) => typeof note === 'string' && note.trim() !== '') || settings.gentle !== false;
 }
 
 export function formatClock(ms) {

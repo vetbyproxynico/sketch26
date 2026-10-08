@@ -3,7 +3,7 @@ import { DEFAULT_LIMITS, type Advisor, type AgentLimits } from '../agent/types';
 import { DOMAINS, type CulturalMap, type Domain, type MapItem, type MapWarning, type Profile, type TagRef, type YearWindow } from '../types';
 import { domainOfType, readTags } from './adapter';
 import { countryWords } from './countries';
-import { firstRound, shownItems, type DomainContext, type ListState } from './domain';
+import { firstRound, leftOut, shownItems, type DomainContext, type ListState } from './domain';
 import { recoverableFailure } from './faults';
 import { runLoop } from './loop';
 import { AGE_CHECKED, HAS_COUNTRY, type ListQuery } from './query';
@@ -29,6 +29,10 @@ const TASTE_WORD_COUNT = 12;
 
 export interface MapOptions {
   perDomain?: number;
+  /** See `CulturalMapOptions.keep` in `../ports`. */
+  keep?: (item: MapItem) => boolean;
+  /** See `CulturalMapOptions.onLeftOut` in `../ports`. */
+  onLeftOut?: (leftOut: Partial<Record<Domain, MapItem[]>>) => void;
   now: Date;
   /** Chooses the next move for each thin list. Defaults to the fixed rules. */
   advisor?: Advisor;
@@ -87,7 +91,11 @@ function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; war
   if (state.status === 'failed') return { items: [], warnings: [qlooErrorWarning(label, state.failure ?? 'client_error', domain)] };
 
   const items = shownItems(state, perDomain);
-  if (items.length === 0) return { items, warnings: [emptyWarning(label, state.status === 'unreadable', domain)] };
+  if (items.length === 0) {
+    // Qloo did answer, and the caller's `keep` refused all of it: that is the caller's to explain, not "Qloo had no ...".
+    if ((state.dropped?.length ?? 0) > 0) return { items, warnings: [] };
+    return { items, warnings: [emptyWarning(label, state.status === 'unreadable', domain)] };
+  }
 
   const warnings: MapWarning[] = [];
   if (state.country !== undefined && state.country.added > 0) {
@@ -130,6 +138,7 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
   if (window !== undefined) map.window = window;
   if (signals.length === 0) {
     map.warnings.push(NO_SIGNALS_WARNING);
+    options.onLeftOut?.({});
     return map;
   }
   if (birthYear === undefined) map.warnings.push(NO_BIRTH_YEAR_WARNING);
@@ -143,6 +152,7 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
     names: signalNames(profile),
     excluded: new Set(excluded),
     shared: { take: perDomain * 2, excludedIds: excluded, excludedTags: unique(profile.excludedTagIds) },
+    ...(options.keep === undefined ? {} : { keep: options.keep }),
   };
 
   /** The years a list's date filter starts at: birth years for people, none for music and brands. */
@@ -184,12 +194,16 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
     elapsed: () => clock() - started,
   });
 
+  const turnedAway: Partial<Record<Domain, MapItem[]>> = {};
   for (const state of states) {
     const outcome = outcomeOf(state, perDomain);
     map.byDomain[state.domain] = outcome.items;
     map.warnings.push(...outcome.warnings);
+    const left = leftOut(state, perDomain);
+    if (left.length > 0) turnedAway[state.domain] = left;
   }
   map.tasteWords = words.tags;
   map.warnings.push(...words.warnings);
+  options.onLeftOut?.(turnedAway);
   return map;
 }

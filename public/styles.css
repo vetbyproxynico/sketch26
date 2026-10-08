@@ -1760,6 +1760,88 @@ a.journey-link:hover {
   margin: 0;
 }
 
+/* How Encore built this map: quiet and secondary to the map. A plain panel, the same weight as the legend. */
+
+.map-work {
+  margin: var(--s-4) 0;
+  max-width: 48rem;
+  padding: var(--s-3) var(--s-4);
+  background: var(--panel);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+
+.map-work-title {
+  margin: 0 0 var(--s-2);
+  font-family: var(--font-ui);
+  font-size: var(--step-1);
+}
+
+.map-work-summary {
+  margin: 0 0 var(--s-3);
+}
+
+.map-work-list {
+  margin: 0 0 var(--s-3);
+  padding-left: 1.5rem;
+}
+
+.map-work-list li {
+  margin-bottom: var(--s-2);
+  padding-left: var(--s-1);
+}
+
+.map-work-reason {
+  overflow-wrap: anywhere;
+}
+
+/* Who decided is said in words. The dashed edge on the model's label is a second cue, never the only one. */
+.map-work-by {
+  display: inline-block;
+  margin-left: var(--s-1);
+  padding: 0 0.55rem;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+  border: 1px solid var(--rule-strong);
+  /* Not a full pill: when large text makes the label wrap, a full pill turns into an oval. */
+  border-radius: 0.75rem;
+}
+
+.map-work-by--model {
+  border-style: dashed;
+  border-width: 2px;
+}
+
+.map-work .hint {
+  margin-top: 0;
+}
+
+.map-work-actions {
+  margin-top: var(--s-3);
+}
+
+/* On a narrow screen, and most of all with large text, give the words the room that the padding would take. */
+@media (max-width: 30rem) {
+  .map-work {
+    padding: var(--s-3);
+  }
+
+  .map-work-list {
+    padding-left: 1.25rem;
+  }
+
+  .map-work-list li {
+    padding-left: 0;
+  }
+
+  /* The label goes under its sentence, so that it never wraps in the middle of a line of words. */
+  .map-work-by {
+    display: block;
+    width: fit-content;
+    margin: var(--s-1) 0 0;
+  }
+}
+
 .jump-wrap {
   margin: var(--s-5) 0 0;
 }

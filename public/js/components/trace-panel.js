@@ -48,13 +48,25 @@ export function groupTrace(entries) {
   return groups;
 }
 
+/** The panel the page created, so that a button on a page can open it. */
+let current = null;
+
+/**
+ * Opens the trace panel from any page. Pass the button that was pressed, so that
+ * keyboard focus goes back to it when the panel closes (some browsers do not give
+ * focus to a button on a click, and the panel could not otherwise find its way back).
+ */
+export function openTracePanel(from) {
+  if (current) current.open(from);
+}
+
 export function createTracePanel() {
   const titleId = uid('trace-title');
   const list = h('ol', { class: 'trace-list' });
   const empty = h(
     'p',
     { class: 'trace-empty' },
-    'Nothing yet. Build a map and each question Encore asks the taste service will appear here, with what it decided to try when a list came back short.',
+    'Nothing yet. Build a map and each question Encore asks the taste service will appear here, with what it decided to try when a list came back short. The trace is kept only until the page is closed or reloaded.',
   );
   const sampleNote = h(
     'p',
@@ -194,13 +206,15 @@ export function createTracePanel() {
     opener = null;
   });
 
-  function open() {
-    opener = document.activeElement;
+  function open(from) {
+    opener = from instanceof HTMLElement ? from : document.activeElement;
     refresh();
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
     closeButton.focus();
   }
 
-  return { dialog, open, refresh };
+  const panel = { dialog, open, refresh };
+  current = panel;
+  return panel;
 }

@@ -1,4 +1,5 @@
 import { isRecord } from '../../util';
+import { OPENERS, wordsIn } from './openers';
 import { isActionable } from './rules';
 import { YEAR_STEP, type ListObservation, type Observation } from './types';
 
@@ -75,4 +76,32 @@ export function wordsAllowed(observation: Observation): Set<string> {
     for (const word of text.toLowerCase().split(/[^\p{L}]+/u)) if (word !== '') words.add(word);
   }
   return words;
+}
+
+/** Adds the words of every key and every text in a value: "widerYears" gives "wider" and "years", "drop_country" gives "drop" and "country". */
+function collectWords(value: unknown, into: Set<string>): void {
+  if (typeof value === 'string') {
+    for (const word of wordsIn(value.replace(/([a-z])([A-Z])/g, '$1 $2'))) into.add(word);
+  } else if (Array.isArray(value)) {
+    for (const entry of value) collectWords(entry, into);
+  } else if (isRecord(value)) {
+    for (const [key, entry] of Object.entries(value)) {
+      collectWords(key, into);
+      collectWords(entry, into);
+    }
+  }
+}
+
+/**
+ * Lower-case words that may open a reason. The first word of a sentence has a
+ * capital whatever it is, so the capital rule cannot judge it; instead it must
+ * be an ordinary word: one the rule advisor's own sentences use or an everyday
+ * word (`OPENERS`), one of the allowed capitalised words, or a word the model was
+ * shown (the names of the fields, lists and moves in its view). A one-word name
+ * is none of these.
+ */
+export function openersAllowed(observation: Observation): Set<string> {
+  const openers = new Set<string>([...OPENERS, ...wordsAllowed(observation)]);
+  collectWords(viewForModel(observation), openers);
+  return openers;
 }

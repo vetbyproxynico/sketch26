@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterFor, filterMap, filterRoom, filterTags, isLeftOut } from '../../../src/encore/plan/filters';
+import { filterFor, filterMap, filterRoom, filterTags, isLeftOut, keepFor } from '../../../src/encore/plan/filters';
 import type { CulturalMap, TagRef } from '../../../src/encore/types';
 import { deepFreeze, item, mapOf, profile, tag } from './builders';
 
@@ -383,5 +383,102 @@ describe('filterTags and isLeftOut', () => {
     expect(isLeftOut(filters, item({ id: 'b', tags: [WAR] }))).toBe(false);
     expect(isLeftOut([filterFor(profile({ gentle: true }))], item({ id: 'b', tags: [WAR] }))).toBe(true);
     expect(isLeftOut([], item({ id: 'b', tags: [WAR] }))).toBe(false);
+  });
+});
+
+describe('keepFor', () => {
+  const people = [
+    profile({ avoidNotes: ['the war'], gentle: false }),
+    profile({ avoidNotes: [], gentle: true }),
+    profile({ avoidNotes: ['boxing'], gentle: true }),
+    profile({ avoidNotes: [], gentle: false }),
+  ];
+  const items = [
+    item({ id: 'war-tag', tags: [WAR] }),
+    item({ id: 'war-name', name: 'Wartime Wedding', tags: [COMEDY] }),
+    item({ id: 'soldier', description: 'A soldier comes home.' }),
+    item({ id: 'horror', tags: [HORROR] }),
+    item({ id: 'boxing', tags: [BOXING] }),
+    item({ id: 'warwick', name: 'Warwick Road', tags: [COMEDY] }),
+    item({ id: 'clean', tags: [COMEDY] }),
+  ];
+
+  it('answers yes exactly for what filterMap would keep', () => {
+    for (const person of people) {
+      const keep = keepFor(person);
+      const kept = filterMap(mapOf('p1', items), person).map.byDomain.film.map((i) => i.entity.id);
+      expect(items.filter(keep).map((i) => i.entity.id), JSON.stringify(person.avoidNotes) + String(person.gentle)).toEqual(kept);
+    }
+  });
+
+  it('is the same judgement as isLeftOut, turned round', () => {
+    for (const person of people) {
+      const keep = keepFor(person);
+      for (const built of items) expect(keep(built)).toBe(!isLeftOut([filterFor(person)], built));
+    }
+  });
+
+  it('answers yes to everything for a person who asks for nothing to be left out', () => {
+    const keep = keepFor(profile({ avoidNotes: [], gentle: false }));
+    for (const built of items) expect(keep(built)).toBe(true);
+  });
+});
+
+describe('filterMap, after the map builder has already turned some suggestions away', () => {
+  const asked = profile({ avoidNotes: ['the war'], gentle: false });
+  const wars = [item({ id: 'w1', tags: [WAR] }), item({ id: 'w2', name: 'War Letters' })];
+  const clean = [item({ id: 'c1', tags: [COMEDY] }), item({ id: 'c2', tags: [COMEDY] })];
+
+  it('counts what the builder turned away together with what it removes now, each suggestion once', () => {
+    // The builder dropped w1 and w2 on the way. The map it built still holds one more the filter finds now.
+    const built = mapOf('p1', [...clean, item({ id: 'w3', description: 'A soldier comes home.' })]);
+    const { map, warnings } = filterMap(built, asked, { film: wars });
+    expect(map.byDomain.film.map((i) => i.entity.id)).toEqual(['c1', 'c2']);
+    expect(warnings).toEqual([{ code: 'avoided', message: 'Left out 3 suggestions because you asked to avoid: the war.' }]);
+  });
+
+  it('does not count a suggestion twice when it is both turned away and still on the map', () => {
+    const built = mapOf('p1', [...clean, wars[0] as never]);
+    const { warnings } = filterMap(built, asked, { film: wars });
+    expect(warnings[0]?.message).toMatch(/^Left out 2 suggestions /);
+  });
+
+  it('counts a clean map as clean: turned-away suggestions are the whole count, and nothing is added to the map', () => {
+    const { map, warnings } = filterMap(mapOf('p1', clean), asked, { film: wars });
+    expect(map.byDomain.film).toEqual(clean);
+    expect(warnings).toEqual([{ code: 'avoided', message: 'Left out 2 suggestions because you asked to avoid: the war.' }]);
+    expect(map.warnings).toEqual(warnings);
+  });
+
+  it('never brings a turned-away suggestion back, even one this filter would have kept', () => {
+    const { map, warnings } = filterMap(mapOf('p1', clean), asked, { film: [item({ id: 'fine', tags: [COMEDY] })] });
+    expect(map.byDomain.film).toEqual(clean);
+    expect(warnings).toEqual([]);
+  });
+
+  it('reports a group as emptied when the builder turned away everything in it', () => {
+    const { map, warnings } = filterMap(mapOf('p1', []), asked, { film: wars });
+    expect(map.byDomain.film).toEqual([]);
+    expect(warnings).toEqual([{ code: 'avoided', message: 'Left out 2 suggestions because you asked to avoid: the war.', emptied: ['film'] }]);
+  });
+
+  it('names Gentle mode and the avoid list for what the builder turned away, as it would for any item', () => {
+    const both = profile({ avoidNotes: ['boxing'], gentle: true });
+    const { warnings } = filterMap(mapOf('p1', clean), both, { film: [item({ id: 'b', tags: [BOXING] }), item({ id: 'h', tags: [HORROR] })] });
+    expect(warnings.map((w) => w.code)).toEqual(['avoided', 'gentle']);
+    expect(warnings[0]?.message).toBe('Left out 1 suggestion because you asked to avoid: boxing.');
+    expect(warnings[1]?.message).toContain('left out 1 suggestion with a theme such as horror');
+  });
+
+  it('reports a group as emptied by Gentle mode, not by the avoid list, when only Gentle mode turned its suggestions away', () => {
+    const gentle = profile({ avoidNotes: ['boxing'], gentle: true });
+    const { warnings } = filterMap(mapOf('p1', []), gentle, { film: [item({ id: 'h', tags: [HORROR] })] });
+    expect(warnings).toEqual([expect.objectContaining({ code: 'gentle', emptied: ['film'] })]);
+  });
+
+  it('gives exactly the old answer when the builder turned nothing away', () => {
+    const built = mapOf('p1', [...wars, ...clean]);
+    expect(filterMap(built, asked, {})).toEqual(filterMap(built, asked));
+    expect(filterMap(built, asked, undefined)).toEqual(filterMap(built, asked));
   });
 });

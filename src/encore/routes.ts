@@ -7,7 +7,7 @@ import { createQlooClient } from '../qloo/from-env';
 import { rateLimit } from '../ratelimit';
 import { isRecord } from '../util';
 import { createModelAdvisor } from './agent';
-import { applyFeedback, buildPlan, candidatePool, chooseProgramme, filterMap, filterRoom, filterTags, scoreRoom } from './plan';
+import { applyFeedback, buildPlan, candidatePool, chooseProgramme, filterMap, filterRoom, filterTags, keepFor, scoreRoom, type FilteredMap, type TurnedAway } from './plan';
 import type { TasteSource, Wordsmith } from './ports';
 import { createTasteSource } from './qloo';
 import { scoreRoomMembers } from './room-scoring';
@@ -74,6 +74,25 @@ async function body(request: { json(): Promise<unknown> }): Promise<Record<strin
   return parsed;
 }
 
+/**
+ * One person's map with their avoid list and Gentle mode applied. The taste
+ * source is handed `keepFor(profile)` and drops what the person must not see
+ * while it builds, so a list is topped up from further down Qloo's answer and
+ * not cut short afterwards. The full filter then runs on the finished map as it
+ * always has: it produces the warnings and the counts, and it is the guarantee
+ * (a taste source that ignores `keep`, or a predicate that throws, changes
+ * nothing about what the page is shown). The counts come out right because the
+ * builder reports what it dropped from what would have been shown: see `filterMap`.
+ */
+async function filteredMap(taste: TasteSource, profile: Profile): Promise<FilteredMap> {
+  const turnedAway: TurnedAway = {};
+  const built = await taste.culturalMap(profile, {
+    keep: keepFor(profile),
+    onLeftOut: (left) => Object.assign(turnedAway, left),
+  });
+  return filterMap(built, profile, turnedAway);
+}
+
 /** Tags shared between the first few pairs of residents, most widely shared first. */
 async function sharedTags(taste: TasteSource, profiles: readonly Profile[]): Promise<TagRef[]> {
   const pairs: Array<[Profile, Profile]> = [];
@@ -130,8 +149,8 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
   app.post('/api/map', async (c) => {
     const profile = parseProfile((await body(c.req))['profile']);
     const taste = tasteFor(c.env);
-    // Avoided items never reach the map: the filter runs on what Qloo returned.
-    const { map } = filterMap(await taste.culturalMap(profile), profile);
+    // Avoided items never reach the map: they are dropped while it is built, and the filter runs again on the result.
+    const { map } = await filteredMap(taste, profile);
     return c.json({ map, trace: taste.trace() });
   });
 
@@ -166,7 +185,7 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
 
     // The note may have added to the avoid list, so the new map is filtered with the updated profile.
     const outcome = applyFeedback(profile, plan, feedback, noted.avoidNotes);
-    const { map } = filterMap(await taste.culturalMap(outcome.profile), outcome.profile);
+    const { map } = await filteredMap(taste, outcome.profile);
     const next = await buildPlan(outcome.profile, map, wordsmith, { days: Math.max(1, plan.sessions.length) });
     return c.json({ profile: outcome.profile, map, plan: next, changes: outcome.changes, trace: taste.trace() });
   });

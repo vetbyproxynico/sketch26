@@ -2,7 +2,7 @@
 // Views and the common room share these so a person is built the same way everywhere.
 
 import * as api from './api.js';
-import { normaliseMap, normalisePlan, normaliseProfile, normaliseProgramme } from './shape.js';
+import { mapWorkFromTrace, normaliseMap, normalisePlan, normaliseProfile, normaliseProgramme } from './shape.js';
 import { savePerson } from './store.js';
 
 /** A problem that is already written in plain words for the carer. */
@@ -25,6 +25,7 @@ export async function resolveFavourites(person, options) {
     person.resolved = [];
     person.profile = null;
     person.map = null;
+    person.mapWork = null;
     person.plan = null;
     person.changes = null;
     person.draft = {};
@@ -47,6 +48,7 @@ export async function resolveFavourites(person, options) {
   }));
   person.profile = null;
   person.map = null;
+  person.mapWork = null;
   person.plan = null;
   person.changes = null;
   person.draft = {};
@@ -89,6 +91,8 @@ export async function buildMap(person, options) {
   const map = normaliseMap(data.map);
   if (!map) throw unreadable('a map');
   person.map = map;
+  // The trace is kept in memory only, so what the map builder decided is saved with the map.
+  person.mapWork = mapWorkFromTrace(data.trace);
   person.plan = null;
   person.changes = null;
   person.draft = {};
@@ -141,7 +145,8 @@ export function readFeedbackAnswer(data) {
   const plan = normalisePlan(data && data.plan);
   if (!profile || !map || !plan) throw unreadable('an updated plan');
   const changes = Array.isArray(data.changes) ? data.changes.filter((c) => typeof c === 'string' && c.trim() !== '') : [];
-  return { profile, map, plan, changes };
+  // The map was built again, so its record of how it was built is replaced too.
+  return { profile, map, plan, changes, work: mapWorkFromTrace(data.trace) };
 }
 
 /** Check the answer to a common-room request. Returns the programme to show. */

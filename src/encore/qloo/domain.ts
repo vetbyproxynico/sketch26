@@ -19,6 +19,22 @@ export interface DomainContext {
   excluded: ReadonlySet<string>;
   /** Parameters every domain query shares: take and the exclusions. */
   shared: SharedQuery;
+  /**
+   * May this suggestion be shown? Supplied by the caller of the builder, which
+   * is the only one that knows why a suggestion might not be. Absent: all may.
+   */
+  keep?: (item: MapItem) => boolean;
+}
+
+/**
+ * A suggestion that `keep` turned away, and where it stood among the others:
+ * `before` is how many suggestions that were kept had come ahead of it. The
+ * position is what lets the builder say afterwards what it left out of the
+ * suggestions it would otherwise have shown.
+ */
+export interface Dropped {
+  item: MapItem;
+  before: number;
 }
 
 /** A relaxation that was made for a list, kept so the warnings can say what was relaxed. */
@@ -42,10 +58,12 @@ export interface ListState {
   status: 'ok' | 'failed' | 'unreadable';
   /** Why the first call failed. Set only when `status` is `failed`. */
   failure?: QlooErrorKind;
-  /** Suggestions so far: each entity once, in the order the calls returned them. */
+  /** Suggestions so far that may be shown: each entity once, in the order the calls returned them. */
   items: MapItem[];
   /** The query of the latest call, or of the first one when nothing more was asked. */
   query: ListQuery;
+  /** Suggestions `keep` turned away, in the order they came. Absent when none was. */
+  dropped?: Dropped[];
   /** Moves made for this list, oldest first. */
   tried: AgentMove[];
   /** True once an advisor chose to keep the list as it is. */
@@ -103,12 +121,29 @@ function toItem(entity: QlooEntity, domain: Domain, years: YearWindow | undefine
 }
 
 export interface Page {
+  /** The suggestions that may be shown. */
   items: MapItem[];
+  /** The ones `keep` turned away. Their `before` counts the entries of `items` ahead of them. */
+  dropped: Dropped[];
   /** True when the answer held no entity list the adapter could read. */
   unrecognised: boolean;
 }
 
-/** One `/v2/insights` call for a list. Favourites and exclusions are dropped from the answer, and each entity is kept once. */
+/** Asks `keep`. A function that throws keeps the suggestion: whoever supplied it filters the finished map as well. */
+function mayShow(ctx: DomainContext, item: MapItem): boolean {
+  if (ctx.keep === undefined) return true;
+  try {
+    return ctx.keep(item);
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * One `/v2/insights` call for a list. Favourites and exclusions are dropped from
+ * the answer, each entity is kept once, and what `keep` refuses is set aside in
+ * `dropped` and not mixed into `items`, so it is never counted or capped.
+ */
 export async function fetchPage(
   ctx: DomainContext,
   domain: Domain,
@@ -123,13 +158,16 @@ export async function fetchPage(
   // mistake the carer would notice at once, so the answer is checked too.
   const seen = new Set<string>();
   const items: MapItem[] = [];
+  const dropped: Dropped[] = [];
   for (const entity of page.entities) {
     const id = entity.ref.id;
     if (ctx.excluded.has(id) || seen.has(id)) continue;
     seen.add(id);
-    items.push(toItem(entity, domain, query.years));
+    const item = toItem(entity, domain, query.years);
+    if (mayShow(ctx, item)) items.push(item);
+    else dropped.push({ item, before: items.length });
   }
-  return { items, unrecognised: page.unrecognised };
+  return { items, dropped, unrecognised: page.unrecognised };
 }
 
 /** The 55-and-older affinity of one entity, or undefined when Qloo gave none. */
@@ -169,6 +207,8 @@ export async function firstRound(ctx: DomainContext, domain: Domain, query: List
   try {
     const page = await fetchPage(ctx, domain, `cultural map: ${DOMAIN_LABEL[domain]}`, query);
     if (page.unrecognised) state.status = 'unreadable';
+    if (page.dropped.length > 0) state.dropped = page.dropped;
+    // The age check is spent on suggestions that may be shown, so a refused one does not use up a check.
     if (AGE_CHECKED.has(domain)) {
       const checked = await withAgeSkew(ctx, domain, page.items);
       state.items = checked.items;
@@ -188,13 +228,19 @@ export async function firstRound(ctx: DomainContext, domain: Domain, query: List
  * keeps its place and its first details; new ones go after it in the order they
  * came. Returns how many were new (`added`).
  *
+ * `dropped` are the suggestions of the same call that `keep` turned away, with
+ * `before` counted among `incoming`. Each is remembered once, at the place it
+ * would have had, unless it is already in the list or was set aside before.
+ *
  * One detail of an entity already there can change: when it first came back
  * with a year outside the years asked for, and comes back again inside years
  * that have since been widened, it is now marked as bounded by the date filter.
  * `remarked` is how many were.
  */
-export function mergeItems(state: ListState, incoming: readonly MapItem[]): { added: number; remarked: number } {
+export function mergeItems(state: ListState, incoming: readonly MapItem[], dropped: readonly Dropped[] = []): { added: number; remarked: number } {
   const have = new Map(state.items.map((item, index) => [item.entity.id, index]));
+  // How many suggestions the list held once the first k of `incoming` had been merged.
+  const heldAfter: number[] = [state.items.length];
   let added = 0;
   let remarked = 0;
   for (const item of incoming) {
@@ -203,18 +249,53 @@ export function mergeItems(state: ListState, incoming: readonly MapItem[]): { ad
       have.set(item.entity.id, state.items.length);
       state.items.push(item);
       added += 1;
-      continue;
+    } else {
+      const kept = state.items[at];
+      if (kept !== undefined && kept.eraCheck === 'unchecked' && item.eraCheck === 'filter') {
+        state.items[at] = { ...kept, eraCheck: 'filter' };
+        remarked += 1;
+      }
     }
-    const kept = state.items[at];
-    if (kept !== undefined && kept.eraCheck === 'unchecked' && item.eraCheck === 'filter') {
-      state.items[at] = { ...kept, eraCheck: 'filter' };
-      remarked += 1;
-    }
+    heldAfter.push(state.items.length);
+  }
+  const setAside = new Set((state.dropped ?? []).map((entry) => entry.item.entity.id));
+  for (const entry of dropped) {
+    const id = entry.item.entity.id;
+    if (have.has(id) || setAside.has(id)) continue;
+    setAside.add(id);
+    (state.dropped ??= []).push({ item: entry.item, before: heldAfter[Math.min(entry.before, heldAfter.length - 1)] ?? state.items.length });
   }
   return { added, remarked };
 }
 
 /** The list as the map shows it: suggestions tied to the era first, each group in the order it arrived, cut to `perDomain`. */
-export function shownItems(state: ListState, perDomain: number): MapItem[] {
+export function shownItems(state: Pick<ListState, 'items'>, perDomain: number): MapItem[] {
   return [...state.items.filter(inEra), ...state.items.filter((item) => !inEra(item))].slice(0, perDomain);
+}
+
+/**
+ * What `keep` really cost the list: the suggestions it turned away that, without
+ * it, would have been among those shown. The list is put back together with the
+ * turned-away suggestions in the places they came, and cut to `perDomain` the
+ * way `shownItems` cuts it; whichever of those the cut keeps were left out of the
+ * map. One that ranked below the cut would never have been shown, so it is not
+ * counted, and a topped-up list is not reported as short by what topped it up.
+ *
+ * A suggestion `keep` turned away is not checked for age skew (that check is
+ * spent on suggestions that may be shown), so for music and brands it ranks
+ * with the unchecked ones.
+ */
+export function leftOut(state: ListState, perDomain: number): MapItem[] {
+  const shown = new Set(state.items.map((item) => item.entity.id));
+  const turnedAway = (state.dropped ?? []).filter((entry) => !shown.has(entry.item.entity.id));
+  if (turnedAway.length === 0) return [];
+
+  const whole: MapItem[] = [];
+  for (let at = 0; at <= state.items.length; at += 1) {
+    for (const entry of turnedAway) if (entry.before === at) whole.push(entry.item);
+    const kept = state.items[at];
+    if (kept !== undefined) whole.push(kept);
+  }
+  const ids = new Set(turnedAway.map((entry) => entry.item.entity.id));
+  return shownItems({ items: whole }, perDomain).filter((item) => ids.has(item.entity.id));
 }

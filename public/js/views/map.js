@@ -1,10 +1,11 @@
 import * as api from '../api.js';
 import { entry } from '../components/entry.js';
 import { journey } from '../components/journey.js';
+import { mapWorkBlock } from '../components/map-work.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
 import { announce, focusEl, h, scrollToEl } from '../dom.js';
 import { buildMap, noteNames } from '../flow.js';
-import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, personSummary, plural } from '../format.js';
+import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, SAMPLE_FILTER_NOTE, hasFilters, personSummary, plural } from '../format.js';
 import { navigate } from '../router.js';
 import { getPerson } from '../store.js';
 
@@ -97,12 +98,18 @@ export function mapView(id) {
 
     const notes = noteNames(person);
     const messages = (map.warnings || []).map((w) => w.message);
+    // Sample mode never reaches the server, so the avoid list and gentle mode do nothing: say so.
+    if (api.isSample() && hasFilters(person.profile || person.input)) messages.push(SAMPLE_FILTER_NOTE);
     if (notes.length) messages.push(`${notes.join(', ')} could not be matched, so ${notes.length === 1 ? 'it was' : 'they were'} kept as ${notes.length === 1 ? 'a note' : 'notes'} and not used.`);
     if (messages.length) {
       parts.push(
         h('section', { class: 'notice notice--soft', 'aria-labelledby': 'good-to-know' }, h('h2', { id: 'good-to-know', class: 'notice-title' }, 'Good to know'), h('ul', null, messages.map((m) => h('li', null, m)))),
       );
     }
+
+    // What the map builder did, after the notices and before the lists. Kept for a map that found nothing too: it says what was tried.
+    const work = mapWorkBlock(person.mapWork, person.sample === true || api.isSample());
+    if (work) parts.push(work);
 
     if (nothingFound && filterWarnings.length) {
       // Something was found, and the filters left out all of it.
@@ -146,7 +153,9 @@ export function mapView(id) {
           'dl',
           null,
           h('dt', null, 'From their years'),
-          h('dd', null, `The date of the film, programme, book or person was checked against the years ${person.input.nickname} was about 10 to 30.`),
+          h('dd', null, `The date of the film, programme or book was checked against the years ${person.input.nickname} was about 10 to 30. For a person, it was the year they were born, in the decades around ${person.input.nickname}'s own.`),
+          h('dt', null, 'From a little outside their years'),
+          h('dd', null, 'Too little came back for their own years, so Encore also looked a few years either side. The label names the years it first asked for.'),
           h('dt', null, 'Popular with older people'),
           h('dd', null, 'Music and brands have no date to check, so Encore looked at how popular they are with people over 55.'),
           h('dt', null, 'Era not checked'),
@@ -170,7 +179,7 @@ export function mapView(id) {
         heading,
         warn.map((w) => h('p', { class: 'hint' }, w.message)),
         items.length
-          ? h('ul', { class: 'entries' }, items.map((item) => h('li', null, entry(item, { headingLevel: 3, nickname: person.input.nickname }))))
+          ? h('ul', { class: 'entries' }, items.map((item) => h('li', null, entry(item, { headingLevel: 3, nickname: person.input.nickname, window: map.window }))))
           : emptiedByFilters.has(domain)
             ? emptyBlock('Nothing is left here after your filters', 'Everything Encore found in this group matched something you asked to avoid, or gentle mode. The other groups are not affected. To see more, change the things to avoid, or turn gentle mode off, on the details page.')
             : emptyBlock(DOMAIN_EMPTY[domain], 'The taste service had nothing to suggest here. The other groups are not affected.'),

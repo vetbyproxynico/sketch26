@@ -57,6 +57,17 @@ export function isLeftOut(filters: readonly Filter[], item: MapItem): boolean {
   return judge(filters, item) !== undefined;
 }
 
+/**
+ * The yes-or-no question for the map builder: may this suggestion be shown to
+ * this person? It is the same judgement `filterMap` makes, so a suggestion the
+ * builder keeps is one `filterMap` would keep too. The builder gets nothing but
+ * this function, and so knows nothing about notes, themes or Gentle mode.
+ */
+export function keepFor(profile: Pick<Profile, 'nickname' | 'avoidNotes' | 'gentle'>): (item: MapItem) => boolean {
+  const filters = [filterFor(profile)];
+  return (item) => !isLeftOut(filters, item);
+}
+
 /** A tag judged as if it were an item, so that taste words and shared tags obey the same rules. */
 function asItem(tag: TagRef): MapItem {
   return {
@@ -89,6 +100,9 @@ interface Tally {
   gentle: Map<string, string>;
 }
 
+/** Suggestions the map builder already turned away, by group: see `filterMap`. */
+export type TurnedAway = Partial<Record<Domain, readonly MapItem[]>>;
+
 interface Applied {
   maps: CulturalMap[];
   tally: Tally;
@@ -97,12 +111,12 @@ interface Applied {
   emptiedByGentle: Domain[][];
 }
 
-function apply(maps: readonly CulturalMap[], filters: readonly Filter[]): Applied {
+function apply(maps: readonly CulturalMap[], filters: readonly Filter[], turnedAway: readonly (TurnedAway | undefined)[] = []): Applied {
   const tally: Tally = { avoided: new Map(), gentle: new Map() };
   const emptiedByAvoid: Domain[][] = [];
   const emptiedByGentle: Domain[][] = [];
 
-  const filtered = maps.map((map) => {
+  const filtered = maps.map((map, position) => {
     const byDomain = { ...map.byDomain };
     const byAvoid: Domain[] = [];
     const byGentle: Domain[] = [];
@@ -110,7 +124,12 @@ function apply(maps: readonly CulturalMap[], filters: readonly Filter[]): Applie
     for (const domain of DOMAINS) {
       const items = map.byDomain[domain] ?? [];
       const verdicts = items.map((item) => ({ item, verdict: judge(filters, item) }));
-      for (const { item, verdict } of verdicts) {
+      // What the map builder turned away on the way would have been in this list. It is judged again here, so the
+      // message names the same notes and themes as for any other item; one that this filter would not remove is
+      // ignored, because the builder has already dropped it and it must not come back.
+      const earlier = (turnedAway[position]?.[domain] ?? []).map((item) => ({ item, verdict: judge(filters, item) }));
+      const before = [...earlier.filter(({ verdict }) => verdict !== undefined), ...verdicts];
+      for (const { item, verdict } of before) {
         if (verdict === undefined) continue;
         const id = item.entity.id;
         if (verdict.by === 'avoid') {
@@ -122,8 +141,8 @@ function apply(maps: readonly CulturalMap[], filters: readonly Filter[]): Applie
       byDomain[domain] = verdicts.filter(({ verdict }) => verdict === undefined).map(({ item }) => item);
 
       const left = byDomain[domain].length;
-      const afterAvoid = verdicts.filter(({ verdict }) => verdict?.by !== 'avoid').length;
-      if (items.length > 0 && afterAvoid === 0) byAvoid.push(domain);
+      const afterAvoid = before.filter(({ verdict }) => verdict?.by !== 'avoid').length;
+      if (before.length > 0 && afterAvoid === 0) byAvoid.push(domain);
       else if (afterAvoid > 0 && left === 0) byGentle.push(domain);
     }
     emptiedByAvoid.push(byAvoid);
@@ -261,10 +280,29 @@ export interface FilteredMap {
  * rule out. The avoid list is tried first. Adds one `avoided` and one `gentle`
  * warning to the map when something was removed, each with a count and the
  * carer's own words or the kinds of theme, and the groups that were emptied.
+ *
+ * How the counts in those warnings are made when the map builder has already
+ * done some of the filtering. The builder is given `keepFor(profile)`, so it
+ * drops what this function would drop before it cuts a list to its cap, and a
+ * list can be topped up from further down Qloo's answer. Those suggestions are
+ * then no longer in `map`, and counting only what is left in `map` would say
+ * "Left out 0" about a list that lost three. `turnedAway` is what the builder
+ * reports back: the suggestions it dropped that would otherwise have been among
+ * those shown (see `CulturalMapOptions.onLeftOut`). The count is
+ *
+ *   (those, judged again here) + (whatever is still in `map` and is removed now)
+ *
+ * with each entity counted once. That is what was left out of what would
+ * otherwise have been shown, whichever of the two places it was removed in:
+ * nothing is counted twice, because the builder keeps a suggestion either in
+ * `map` or in `turnedAway`, never both; a suggestion that ranked below the cap
+ * is in neither count, because it would not have been shown anyway; and with no
+ * `turnedAway` (a map from the browser, or a taste source that ignores `keep`)
+ * the result is exactly what it was before the builder took part.
  */
-export function filterMap(map: CulturalMap, profile: Pick<Profile, 'nickname' | 'avoidNotes' | 'gentle'>): FilteredMap {
+export function filterMap(map: CulturalMap, profile: Pick<Profile, 'nickname' | 'avoidNotes' | 'gentle'>, turnedAway?: TurnedAway): FilteredMap {
   const filters = [filterFor(profile)];
-  const applied = apply([map], filters);
+  const applied = apply([map], filters, [turnedAway]);
   const warnings = [
     avoidedWarning(applied.tally, filters, applied.emptiedByAvoid[0] ?? [], false),
     gentleWarning(applied.tally, filters, applied.emptiedByGentle[0] ?? [], false),

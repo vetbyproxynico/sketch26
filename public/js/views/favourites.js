@@ -58,6 +58,7 @@ export function favouritesView(id) {
   function save() {
     person.profile = null;
     person.map = null;
+    person.mapWork = null;
     person.plan = null;
     savePerson(person);
   }
@@ -187,6 +188,7 @@ export function favouritesView(id) {
   function goBuild() {
     person.profile = buildProfile(person);
     person.map = null;
+    person.mapWork = null;
     person.plan = null;
     person.changes = null;
     person.draft = {};

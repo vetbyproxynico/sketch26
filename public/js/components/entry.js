@@ -22,14 +22,14 @@ export function stamp(entity, domain, showKind) {
 }
 
 /**
- * options: headingLevel, showKind, showEra, showBecause, nickname, reason, footer (element)
+ * options: headingLevel, showKind, showEra, window (the years the map reports), showBecause, nickname, reason, footer (element)
  */
 export function entry(item, options) {
   const o = options || {};
   const entity = item.entity;
   const domain = item.domain || entity.domain || 'film';
   const level = o.headingLevel || 3;
-  const era = o.showEra === false ? null : eraInfo(item);
+  const era = o.showEra === false ? null : eraInfo(item, o.window);
 
   const contributions = Array.isArray(item.contributions)
     ? item.contributions

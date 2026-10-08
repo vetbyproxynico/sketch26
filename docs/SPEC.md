@@ -201,9 +201,21 @@ and uses the rules when none is given. No model code is imported by
 
 The model's reason is shown to the carer, so it is checked like the wording
 layer's text and more tightly: one plain sentence of at most 160 characters; no
-medical or therapeutic wording; no capitalised word after the first except the
-person's country, Encore, Qloo and TV, so it cannot name a person or a title;
-and no number that was not in the data it was shown.
+medical or therapeutic wording; no capitalised word except the person's
+country, Encore, Qloo and TV, so it cannot name a person or a title; and no
+number that was not in the data it was shown.
+
+The first word of a sentence is capitalised anyway, so a capital there proves
+nothing, and a one-word name (a singer known by one name) would have passed. The
+first word must therefore be an ordinary word instead (`src/encore/agent/openers.ts`).
+The set of ordinary words is closed: the words of the rule advisor's own
+sentences (read off the code that writes them, for every kind of list and every
+move, so a new sentence adds its words by itself), the words of the model's own
+view of the observation, and a short hand-written list of function words and
+move verbs. A name belongs to an open class, so it can never be in a closed set.
+A reason that fails is replaced by the rules' choice, like any other. The
+prompt asks the model to begin with an ordinary word, and a test checks that
+every example the prompt gives passes.
 
 ### What the carer and the judge see
 
@@ -218,6 +230,35 @@ and no number that was not in the data it was shown.
   other countries are shown.") and `years_widened` ("Only 1 book was found from
   1942 to 1962, so books from 1937 to 1967 are shown too.").
 - A map whose lists were all full enough shows no decision: nothing was decided.
+- The map page shows the same decisions without opening the trace. A block
+  called "How Encore built this map" comes after the page's notices and before
+  its lists. It gives one sentence with this map's real numbers ("Encore asked
+  Qloo 24 questions and changed course 8 times."), then each decision in plain
+  words with who made it, in words and never by colour alone ("Decided by fixed
+  rules" or "Decided by the language model"), and a button that opens the Trace
+  panel. A map that needed no change of course says so in one line. The
+  decisions are saved in the browser with the map, so they survive a reload; the
+  full trace does not, and the block says so. In sample mode it shows the
+  sample's decisions under the sample label.
+
+### The avoid list and Gentle mode inside the loop
+
+The loop is given one thing about the person's filters: a yes-or-no function
+(`keep` in the options of `culturalMap`). It asks it about each suggestion as
+the answer is read, before the list is cut to its cap and before the list is
+judged short. A list that the filters thin is therefore topped up from the rest
+of Qloo's answer, and one that is still short gets the usual extra questions.
+The builder does not know why a suggestion was refused, and `src/encore/qloo`
+imports neither `avoid.ts` nor `plan/`.
+
+The route still filters the finished map in full. That pass is the guarantee and
+the source of the warnings. For the counts to stay true, the builder also
+reports, once, the suggestions it dropped that would otherwise have been shown
+(`onLeftOut`; output only, never an input). The filter judges those again and
+adds them to what it removes from the map: a count is what was left out of what
+would have been shown, each suggestion once, and nothing that ranked below the
+cut. If the function throws, the suggestion is kept and the full pass catches
+it. `docs/API.md` has the user-visible side.
 
 ### What is not built
 
@@ -229,8 +270,6 @@ and no number that was not in the data it was shown.
   can call.
 - A loop anywhere but the cultural map. Resolving favourites, scoring a room
   and comparing residents are fixed sequences of calls.
-- Topping up after the avoid list and Gentle mode. Those filters run on the
-  finished map, after the loop, so a list they thin is not asked for again.
 - Any check against the live API. Whether each move's parameters are accepted,
   and whether they change what comes back, is exactly what the live probe now
   asks (`docs/LIVE_PROBE.md`).
@@ -242,7 +281,7 @@ and no number that was not in the data it was shown.
 - The model never receives a real name; the profile uses a nickname and the
   model sees "the resident".
 - A gentle mode is on by default. It leaves out suggestions whose tags or text
-  name an upsetting theme, in Encore's own code after Qloo answers (the README
+  name an upsetting theme, in Encore's own code on Qloo's answers (the README
   describes it and its limits). Excluding those themes at Qloo with
   `filter.exclude.tags` is not built: the tag IDs would have to be found on the
   live API first. The carer's avoid list always wins.

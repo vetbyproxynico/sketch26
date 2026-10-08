@@ -47,6 +47,8 @@ export function createTasteSource(client: QlooClient, options: TasteSourceOption
     culturalMap: (profile, mapOptions) =>
       buildCulturalMap(traced, profile, {
         perDomain: mapOptions?.perDomain,
+        keep: mapOptions?.keep,
+        onLeftOut: mapOptions?.onLeftOut,
         now: now(),
         clock: () => now().getTime(),
         advisor: options.advisor,
