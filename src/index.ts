@@ -6,6 +6,8 @@ import { activeProviderName } from './llm/factory';
 import { countEntities } from './qloo/entities';
 import { QlooError } from './qloo/errors';
 import { createQlooClient } from './qloo/from-env';
+import { rateLimit } from './ratelimit';
+import { registerRungRoutes } from './rung/routes';
 import { configured } from './util';
 
 /** A fixed, harmless search term for the connectivity check. */
@@ -17,6 +19,9 @@ app.use('/api/*', async (c, next) => {
   await next();
   c.header('Cache-Control', 'no-store');
 });
+
+// Per-visitor budgets on the POST routes; a refused request is answered before its body is read.
+app.use('/api/*', rateLimit());
 
 app.get('/api/health', (c) =>
   c.json({
@@ -56,6 +61,8 @@ app.get('/api/selftest', async (c) => {
     );
   }
 });
+
+registerRungRoutes(app);
 
 app.notFound((c) => {
   const isApi = new URL(c.req.url).pathname.startsWith('/api/');

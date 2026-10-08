@@ -94,9 +94,11 @@ export function createTasteSource(client: QlooClient, switches: Switches = DEFAU
 /**
  * The taste source for a Worker request. Reads the key and the cache from the
  * bindings and the switches from `RUNG_SWITCHES`. Throws `QlooError('not_configured')`
- * without a key. Names of switches that were ignored are returned, never their values.
+ * without a key. The switches in force are returned with the source, so that the
+ * rest of the request reads the same ones. Names of switches that were ignored
+ * are returned, never their values.
  */
-export function createTasteSourceFromEnv(env: Env): { taste: TasteSource; ignoredSwitches: string[] } {
+export function createTasteSourceFromEnv(env: Env): { taste: TasteSource; switches: Switches; ignoredSwitches: string[] } {
   const { switches, ignored } = readSwitches(env.RUNG_SWITCHES);
-  return { taste: createTasteSource(createQlooClient(env), switches), ignoredSwitches: ignored };
+  return { taste: createTasteSource(createQlooClient(env), switches), switches, ignoredSwitches: ignored };
 }
