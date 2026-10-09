@@ -1,4 +1,4 @@
-import { announce, announceAlert, h, s, uid } from '../dom.js';
+import { announce, announceAlert, focusEl, h, s, uid } from '../dom.js';
 import { describeError } from '../api.js';
 import { sampleMode } from '../words.js';
 
@@ -160,6 +160,8 @@ export function loading(message) {
  */
 export function errorPanel(error, { onRetry, onSample, backHref, backLabel = 'Go back' } = {}) {
   const info = describeError(error);
+  // The control that was in use when this went wrong, so closing the message can put focus back on it.
+  const trigger = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
   const panel = h('div', { class: 'alert-panel', role: 'alert' });
   const message = info.message ? h('p', null, info.message) : null;
   panel.append(h('h2', { class: 'alert-panel__title' }, info.title), message);
@@ -188,6 +190,20 @@ export function errorPanel(error, { onRetry, onSample, backHref, backLabel = 'Go
   }
   if (info.offerSample && onSample) actionsRow.append(button({ label: 'Use sample data instead', variant: 'primary', onClick: onSample }));
   if (backHref) actionsRow.append(linkButton({ label: backLabel, href: backHref }));
+  // An error that a retry cannot mend (a refused request, a missing route) still needs a way on: close it and change what was entered.
+  if (!info.retryable && !info.offerSample && !backHref && !info.silent) {
+    actionsRow.append(
+      button({
+        label: 'Close this message',
+        variant: 'secondary',
+        onClick: () => {
+          panel.remove();
+          announce('Message closed.');
+          focusEl(trigger?.isConnected ? trigger : document.querySelector('main h1'));
+        },
+      }),
+    );
+  }
   if (actionsRow.childElementCount > 0) panel.append(actionsRow);
   announceAlert(`${info.title}. ${info.message}`);
   return panel;

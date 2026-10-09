@@ -2,7 +2,7 @@ import { announce, h, joinNames, longDate, plural } from '../dom.js';
 import { boardTable, companionsBlock, coldNames, nameRows, tierKey } from '../components/board.js';
 import { button, linkButton, note } from '../components/ui.js';
 import { headcountWords, loadGroup, rowLabel } from '../group-flows.js';
-import { displayName, openRungs, positionOf, possessive } from '../records.js';
+import { climbed, displayName, openRungs, positionOf, possessive } from '../records.js';
 import { session } from '../session.js';
 import { FIXED_LINE, FLAGS, SAMPLE_PAPER, Source } from '../words.js';
 import { groupReadOnly, missingGroup, rebuildView } from './board.js';
@@ -57,6 +57,13 @@ function splitNames(rows, split, which) {
   return names.length === 0 ? 'nobody' : joinNames(names);
 }
 
+/** Why there is no slip to print, in words that fit what happened to the ladder. */
+function nothingToPrint(record) {
+  if (record.stopped) return 'Rung stopped after three give-ups in a row, so no book is waiting. Change the loves or rules to get a new ladder.';
+  if (climbed(record).length === 0) return 'No books came back for this ladder, so there is nothing to print. Change the loves or rules and try again.';
+  return 'There is nothing left to print: every rung on this ladder has been done. Start the next ladder first.';
+}
+
 export async function slipView({ id }) {
   const record = loadRecord(id);
   if (!record) return missingReader();
@@ -68,7 +75,7 @@ export async function slipView({ id }) {
 
   const slip =
     rungs.length === 0
-      ? note('There is nothing left to print: every rung on this ladder has been done. Start the next ladder first.', { title: 'Nothing to print' })
+      ? note(nothingToPrint(record), { title: 'Nothing to print' })
       : h(
           'article',
           { class: 'slip', 'aria-labelledby': 'slip-h' },

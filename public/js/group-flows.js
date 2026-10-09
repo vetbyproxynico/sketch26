@@ -338,6 +338,7 @@ export async function checkGroupBook(record, results, book, { signal } = {}) {
   const api = session.apiFor(record);
   if (!api) throw new ApiError({ kind: 'network', message: 'The live service is not available.' });
   const scored = [];
+  let failures = 0;
   await inBatches(record.rows.map((row, index) => index), 3, async (index) => {
     try {
       const answer = await api.groupScore(index, record.rows[index].loves, [book.id], { signal });
@@ -346,8 +347,11 @@ export async function checkGroupBook(record, results, book, { signal } = {}) {
     } catch (error) {
       if (!isRowFailure(error)) throw error;
       scored[index] = null;
+      failures += 1;
     }
   });
+  // If no row could be scored the book has no column worth showing: say so, as the board does.
+  if (failures === record.rows.length) throw new ApiError({ kind: 'network', message: 'No row could be scored.' });
   const asBook = { id: book.id, name: book.name, ...(book.year ? { year: book.year } : {}), tags: [] };
   const next = { ...results, checked: { book: asBook, scores: record.rows.map((_, index) => scored[index] ?? null) } };
   await askBoard(record, next, { signal });

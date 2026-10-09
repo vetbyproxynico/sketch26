@@ -79,9 +79,9 @@ export function describeError(error) {
   if (error.status === 503 && error.code === 'qloo_not_configured') {
     return { ...base, title: 'The taste service is not connected', message: given || 'Qloo is not connected on this server yet.', retryable: false, offerSample: true };
   }
-  if (error.status === 400) return { ...base, title: 'Rung could not use that', message: `${given || 'The request was not valid.'} Nothing was changed.`, retryable: false };
+  if (error.status === 400) return { ...base, title: 'Rung could not use that', message: `${given || 'The request was not valid.'} Nothing was changed. Check what you entered, then try again.`, retryable: false };
   if (error.status === 413) return { ...base, title: 'That is too much to send at once', message: `${given || 'The request was too large.'} Remove a few items and try again.`, retryable: false };
-  if (error.status === 404) return { ...base, title: 'Not available', message: 'That part of Rung is not available on this server.', retryable: false };
+  if (error.status === 404) return { ...base, title: 'Not available', message: 'That part of Rung is not available on this server. Nothing was changed. Try something else, or go back to the start.', retryable: false };
   if (error.status >= 500) return { ...base, title: error.status === 504 ? 'Qloo took too long' : 'Qloo could not answer', message: `${given || 'The server could not answer just now.'} Nothing was changed.` };
   return { ...base, title: 'Something went wrong', message: given || 'The server sent an answer Rung did not expect. Nothing was changed.' };
 }

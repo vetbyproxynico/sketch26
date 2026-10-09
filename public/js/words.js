@@ -132,10 +132,13 @@ export const TIER_HELP = {
   },
 };
 
-/** The model statement beside the free-text box. `provider` comes from /api/health. */
-export function sentenceStatement(provider, mode) {
+/**
+ * What happens to the sentence, one short line for each step, for the list
+ * beside the free-text box. `provider` comes from /api/health.
+ */
+export function sentenceStatementLines(provider, mode) {
   if (mode === 'sample') {
-    return 'Sample mode: your sentence stays in this browser and is split on commas and the word "and". Nothing is sent anywhere.';
+    return ['Sample mode: your sentence stays in this browser and is split on commas and the word "and". Nothing is sent anywhere.'];
   }
   const model =
     provider === 'anthropic'
@@ -144,13 +147,20 @@ export function sentenceStatement(provider, mode) {
         ? 'a language model run on Cloudflare Workers AI'
         : null;
   const parts = [
-    'Your sentence goes to Rung’s server once and is not kept. It can be 600 characters at most. Email addresses, phone numbers and web addresses are removed from it first.',
+    'It goes to Rung’s server once and is not kept. It can be 600 characters at most.',
+    'Email addresses, phone numbers and web addresses are removed from it first.',
   ];
   if (model) {
-    parts.push(`Then ${model} reads it and returns the names of games, programmes, films, musicians and people in it, and any theme you said to avoid. If a name is not in your sentence, Rung throws the whole reply away and splits the sentence on commas and the word "and" instead.`);
+    parts.push(`Then ${model} reads it and returns the names of games, programmes, films, musicians and people in it, and any theme you said to avoid.`);
+    parts.push('If a name is not in your sentence, Rung throws the whole reply away and splits the sentence on commas and the word "and" instead.');
   } else {
     parts.push('This server uses no language model, so the sentence is split on commas and the word "and".');
   }
   parts.push('The names you confirm are sent to Qloo as search text. Nicknames never leave this device. Please do not put a real name in the sentence.');
-  return parts.join(' ');
+  return parts;
+}
+
+/** The same lines as one paragraph. */
+export function sentenceStatement(provider, mode) {
+  return sentenceStatementLines(provider, mode).join(' ');
 }

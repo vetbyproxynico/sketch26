@@ -138,6 +138,9 @@ describe('every failure becomes an error with a way forward', () => {
     const large = await failure(apiWith(() => Promise.resolve(reply(413, { error: { code: 'too_large', message: 'The request is larger than 16 KB, the most this route accepts.' } }))).themes('x'));
     expect(describeError(large).message).toContain('16 KB');
     expect(describeError(large).retryable).toBe(false);
+    // Neither can be mended by asking again, so each says what to do instead.
+    expect(describeError(bad).message).toMatch(/Nothing was changed\. Check what you entered, then try again\./);
+    expect(describeError(large).message).toMatch(/Remove a few items and try again\./);
   });
 
   it('a 429 gives the server own words and the wait', async () => {

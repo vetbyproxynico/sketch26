@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { ApiError } from '../../../public/js/api.js';
 import { nameRows } from '../../../public/js/components/board.js';
-import { draftProblems, emptyGroupDraft, emptyRow, GROUP_LIMITS, parseLines, rowLabel, rowsFromDraft, updateGroupRecord, usedByLine, usedRows } from '../../../public/js/group-flows.js';
+import { checkGroupBook, draftProblems, emptyGroupDraft, emptyRow, GROUP_LIMITS, parseLines, rowLabel, rowsFromDraft, updateGroupRecord, usedByLine, usedRows } from '../../../public/js/group-flows.js';
+import { session } from '../../../public/js/session.js';
 import { entryKey } from '../../../public/js/flows.js';
 
 /*
@@ -108,5 +110,42 @@ describe('server notes that talk about rows', () => {
 
   it('leaves a note alone when no row has a nickname', () => {
     expect(nameRows('Qloo gave no scores for rows 1 and 2.', [{ nickname: '' }, { nickname: '' }])).toBe('Qloo gave no scores for rows 1 and 2.');
+  });
+});
+
+describe('"check a book we already have" on a board', () => {
+  const api = session.liveApi as unknown as Record<string, unknown>;
+  const saved = { groupScore: api['groupScore'], groupBoard: api['groupBoard'] };
+  afterEach(() => {
+    api['groupScore'] = saved.groupScore;
+    api['groupBoard'] = saved.groupBoard;
+  });
+  const record = { id: 'group-test', mode: 'live', rows: [{ loves: [], headcount: 1 }, { loves: [], headcount: 2 }, { loves: [], headcount: 1 }] } as never;
+  const results = { pool: { books: [], candidateIds: [], rowPools: [], partial: [] }, scores: [null, null, null], failed: [], notes: [], checked: null, rowsAsked: 3 } as never;
+  const book = { id: 'EX-B1', name: 'Specimen Title 1' } as never;
+  const boardStub = () => Promise.resolve({ board: { total: 4, titles: [] }, trace: [], wording: { model: 0, template: 0 } });
+
+  it('says so when no row could be scored, and does not show a column of "cold" for a book nobody scored', async () => {
+    api['groupScore'] = () => Promise.reject(new ApiError({ kind: 'network', message: 'down' }));
+    api['groupBoard'] = boardStub;
+    await expect(checkGroupBook(record, results, book)).rejects.toMatchObject({ kind: 'network' });
+  });
+
+  it('still builds the column when only some rows could not be scored', async () => {
+    let calls = 0;
+    api['groupScore'] = () => {
+      calls += 1;
+      return calls === 2 ? Promise.reject(new ApiError({ kind: 'http', status: 502, message: 'x' })) : Promise.resolve({ row: 0, scores: { 'EX-B1': 0.5 }, trace: [] });
+    };
+    api['groupBoard'] = boardStub;
+    const next = await checkGroupBook(record, results, book);
+    expect(next.checked.scores.filter((one: number | null) => one === null)).toHaveLength(1);
+    expect(next.board).toBeDefined();
+  });
+
+  it('does not hide a refusal as a row failure', async () => {
+    api['groupScore'] = () => Promise.reject(new ApiError({ kind: 'http', status: 400, message: 'refused' }));
+    api['groupBoard'] = boardStub;
+    await expect(checkGroupBook(record, results, book)).rejects.toMatchObject({ status: 400 });
   });
 });

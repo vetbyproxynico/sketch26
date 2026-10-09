@@ -9,7 +9,7 @@ import { KIND_INFO, kindMark } from '../kinds.js';
 import { QUICK_PICKS } from '../quick-picks.js';
 import { draftFromRecord, emptyDraft } from '../records.js';
 import { session } from '../session.js';
-import { AGE_BANDS, CAUTION_WORDS, defaultCautions, PUBLISHED, sampleMode, sentenceStatement, Source } from '../words.js';
+import { AGE_BANDS, CAUTION_WORDS, defaultCautions, PUBLISHED, sampleMode, sentenceStatementLines, Source } from '../words.js';
 
 /*
  * R1: "What are they into?" The form for one reader: nickname (never sent
@@ -268,7 +268,10 @@ function buildForm({ existing }) {
   const sentence = h('details', { class: 'sentence' },
     h('summary', null, 'Or paste a sentence'),
     h('div', { class: 'sentence__body' },
-      h('p', { class: 'note-plain' }, sentenceStatement(session.health?.llmProvider, session.mode)),
+      h('div', { class: 'note-plain' },
+        h('p', { class: 'note-plain__lead' }, 'What happens to this sentence'),
+        h('ul', { class: 'plain-list' }, sentenceStatementLines(session.health?.llmProvider, session.mode).map((line) => h('li', null, line))),
+      ),
       sentenceField.el,
       sentenceCount,
       readButton,
