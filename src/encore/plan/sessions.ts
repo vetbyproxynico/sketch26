@@ -10,8 +10,8 @@ const MAX_DAYS = 7;
 const DEFAULT_ITEMS_PER_SESSION = 3;
 const MAX_ITEMS_PER_SESSION = 8;
 
-/** A second favourite is only named in a reason when it contributed at least this much. */
-const SECOND_CONTRIBUTION_MIN = 0.2;
+/** The second favourite is named when its share is at least this much of the first one's. */
+const SECOND_CONTRIBUTION_SHARE = 0.8;
 
 /**
  * How much affinity a candidate loses for each item of its domain already in
@@ -26,12 +26,6 @@ const SAME_WEEK_PENALTY = 0.03;
 function clampWhole(value: number | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(value)));
-}
-
-function strengthLabel(score: number): string {
-  if (score >= 0.5) return 'strong link';
-  if (score >= 0.25) return 'good link';
-  return 'light link';
 }
 
 /**
@@ -50,9 +44,12 @@ export function reasonFor(item: MapItem, nickname: string): string {
   if (top) {
     const second = named.find((c) => c !== top && c.name.trim().toLowerCase() !== top.name.trim().toLowerCase());
     const first = top.name.trim();
-    const loved = second && second.score >= SECOND_CONTRIBUTION_MIN ? `${first} and ${second.name.trim()}` : first;
-    const percent = Math.round(Math.min(1, Math.max(0, top.score)) * 100);
-    return `Because ${name} loved ${loved} (${strengthLabel(top.score)}, ${percent}%)`;
+    // On the live API each favourite's share of a match is small and the shares
+    // sit close together (several favourites at 14% to 19%), so a share says
+    // little as a number. The sentence names the favourite that led, and the
+    // next one when it is nearly as strong.
+    const loved = second && second.score >= top.score * SECOND_CONTRIBUTION_SHARE ? `${first} and ${second.name.trim()}` : first;
+    return `Because ${name} loved ${loved}`;
   }
 
   switch (item.eraCheck) {

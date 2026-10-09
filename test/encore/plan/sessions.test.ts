@@ -6,36 +6,34 @@ import { fallbackDressing } from '../../../src/encore/words/fallbacks';
 import { contribution, deepFreeze, item, mapOf, profile } from './builders';
 
 describe('reasonFor', () => {
-  it('names the strongest favourite and its strength', () => {
+  it('names the favourite that led to the item', () => {
     const built = item({ id: 'a', contributions: [contribution('Casablanca', 0.62)] });
-    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca (strong link, 62%)');
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca');
   });
 
-  it('adds a second favourite when it contributed at least 0.2', () => {
+  it('adds a second favourite when its share is nearly as large as the first', () => {
+    const built = item({ id: 'a', contributions: [contribution('Casablanca', 0.19), contribution('Rebecca', 0.16), contribution('Third', 0.14)] });
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca and Rebecca');
+  });
+
+  it('leaves out a second favourite whose share is well below the first', () => {
     const built = item({ id: 'a', contributions: [contribution('Casablanca', 0.62), contribution('Rebecca', 0.2)] });
-    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca and Rebecca (strong link, 62%)');
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca');
   });
 
-  it('leaves out a second favourite below 0.2', () => {
-    const built = item({ id: 'a', contributions: [contribution('Casablanca', 0.62), contribution('Rebecca', 0.19)] });
-    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca (strong link, 62%)');
-  });
-
-  it('describes the strength in three bands', () => {
+  it('gives no number and no strength word, since live shares sit close together', () => {
     const at = (score: number) => reasonFor(item({ id: 'a', contributions: [contribution('X', score)] }), 'Dot');
-    expect(at(0.5)).toContain('(strong link, 50%)');
-    expect(at(0.3)).toContain('(good link, 30%)');
-    expect(at(0.1)).toContain('(light link, 10%)');
+    for (const score of [0.5, 0.3, 0.1]) expect(at(score)).toBe('Because Dot loved X');
   });
 
   it('puts the strongest favourite first even if the map lists them differently', () => {
     const built = item({ id: 'a', contributions: [contribution('Minor', 0.25), contribution('Major', 0.7)] });
-    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Major and Minor (strong link, 70%)');
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Major');
   });
 
   it('does not name the same favourite twice', () => {
     const built = item({ id: 'a', contributions: [contribution('Casablanca', 0.6, 'x'), contribution('casablanca', 0.5, 'y')] });
-    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca (strong link, 60%)');
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca');
   });
 
   it('falls back to the era check when there are no contributions', () => {
@@ -201,7 +199,7 @@ describe('draftSessions', () => {
     ];
     const [draft] = draftSessions(profile({ nickname: 'Nan' }), mapOf('p1', items));
     const reasons = Object.fromEntries((draft as SessionDraft).items.map((i) => [i.item.entity.id, i.reason]));
-    expect(reasons['a']).toBe('Because Nan loved Casablanca (strong link, 70%)');
+    expect(reasons['a']).toBe('Because Nan loved Casablanca');
     expect(reasons['b']).toBe("Well loved by people of Nan's generation");
   });
 
