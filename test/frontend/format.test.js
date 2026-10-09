@@ -193,3 +193,24 @@ describe('SAMPLE_FILTER_NOTE', () => {
     for (const sentence of SAMPLE_FILTER_NOTE.split('. ')) expect(sentence.split(' ').length).toBeLessThan(20);
   });
 });
+
+describe('shortDescription', () => {
+  it('returns null for text that is already short', async () => {
+    const { shortDescription } = await import('../../public/js/format.js');
+    expect(shortDescription('An invented line.')).toBeNull();
+    expect(shortDescription('')).toBeNull();
+  });
+
+  it('gives the first sentence when it fits', async () => {
+    const { shortDescription } = await import('../../public/js/format.js');
+    const text = `An invented film about a lighthouse keeper and the village below. ${'More invented words follow here. '.repeat(10)}`;
+    expect(shortDescription(text)).toBe('An invented film about a lighthouse keeper and the village below.');
+  });
+
+  it('cuts at a word and marks the cut when the first sentence is too long', async () => {
+    const { shortDescription, SHORT_DESCRIPTION } = await import('../../public/js/format.js');
+    const short = shortDescription('word '.repeat(100));
+    expect(short.length).toBeLessThanOrEqual(SHORT_DESCRIPTION);
+    expect(short.endsWith('word…')).toBe(true);
+  });
+});

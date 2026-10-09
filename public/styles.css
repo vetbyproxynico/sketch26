@@ -2791,3 +2791,43 @@ a.journey-link:hover {
   font-family: var(--font-voice);
   font-weight: 600;
 }
+
+/* ------------------------------------------- a long description, folded */
+
+.entry-desc-short {
+  margin-bottom: var(--s-1, 0.25rem);
+}
+
+.entry-more summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  list-style: none;
+}
+
+.entry-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.entry-more summary::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.entry-more[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.entry-more p {
+  margin: 0 0 var(--s-2);
+}

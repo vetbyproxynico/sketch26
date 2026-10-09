@@ -2,8 +2,24 @@
 // why it is here, and the favourites that led to it.
 
 import { h, srOnly } from '../dom.js';
-import { DOMAIN_SHORT, eraInfo, percent } from '../format.js';
+import { DOMAIN_SHORT, eraInfo, percent, shortDescription } from '../format.js';
 import { bar } from './meter.js';
+
+/**
+ * A description as it comes from the taste service can run to several
+ * sentences. The card shows its opening; the rest opens in place.
+ */
+function describe(description, name) {
+  if (!description) return null;
+  const short = shortDescription(description);
+  if (short === null) return h('p', { class: 'entry-desc' }, description);
+  return h(
+    'div',
+    { class: 'entry-desc' },
+    h('p', { class: 'entry-desc-short' }, short),
+    h('details', { class: 'entry-more' }, h('summary', null, 'More about it', srOnly(`: ${name}`)), h('p', null, description)),
+  );
+}
 
 export function stamp(entity, domain, showKind) {
   const known = Boolean(entity.year);
@@ -68,7 +84,7 @@ export function entry(item, options) {
     h(
       'div',
       { class: 'entry-body' },
-      item.description ? h('p', { class: 'entry-desc' }, item.description) : null,
+      describe(item.description, entity.name),
       o.reason ? h('p', { class: 'entry-reason' }, o.reason) : null,
       era ? h('p', { class: `era era--${era.tone}` }, h('strong', { class: 'era-label' }, era.label), h('span', { class: 'era-text' }, era.text)) : null,
       typeof item.affinity === 'number' && o.showFit !== false ? h('p', { class: 'entry-fit' }, `How well it fits: ${percent(item.affinity)}%`) : null,

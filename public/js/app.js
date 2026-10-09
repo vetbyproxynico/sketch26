@@ -1,8 +1,8 @@
 import * as api from './api.js';
 import { announce } from './dom.js';
-import { isPersistent, onChange as onStoreChange } from './store.js';
+import { allPeople, isPersistent, onChange as onStoreChange, savePerson } from './store.js';
 import { createTracePanel } from './components/trace-panel.js';
-import { startRouter } from './router.js';
+import { currentPath, navigate, startRouter } from './router.js';
 import { favouritesView } from './views/favourites.js';
 import { homeView } from './views/home.js';
 import { intakeView } from './views/intake.js';
@@ -76,7 +76,31 @@ skip.addEventListener('click', (event) => {
   main.focus();
 });
 
-api.init().then(updateBanner);
+api.init().then(() => {
+  updateBanner();
+  // A person built while the page was on sample data holds invented
+  // suggestions. Once the live service answers, start them again from their
+  // favourites so nothing invented is shown as real.
+  if (api.isSample()) return;
+  let reset = false;
+  for (const person of allPeople()) {
+    if (person.sample !== true) continue;
+    person.resolved = null;
+    person.profile = null;
+    person.map = null;
+    person.plan = null;
+    person.changes = null;
+    person.mapWork = null;
+    person.draft = {};
+    person.sample = false;
+    savePerson(person);
+    reset = true;
+  }
+  if (reset) {
+    announce('The live taste service is connected. People made on sample data start again from their favourites.');
+    navigate(currentPath() === '/' || currentPath() === '/people' || currentPath() === '/room' ? currentPath() : '/');
+  }
+});
 updateBanner();
 updateTraceButton();
 startRouter(routes, main, (path, view) => {

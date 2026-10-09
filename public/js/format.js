@@ -229,3 +229,20 @@ export function personSummary(input) {
   if (where) parts.push(where);
   return parts.join(', ');
 }
+
+/** Longest description shown on a card before the rest goes behind "More about it". */
+export const SHORT_DESCRIPTION = 170;
+
+/**
+ * The opening of a long description: its first sentence when that is short
+ * enough, else a cut at a word, marked. Returns null when the text is already short.
+ */
+export function shortDescription(text, max = SHORT_DESCRIPTION) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return null;
+  const sentence = /^(.{40,}?[.!?])\s/.exec(clean);
+  if (sentence && sentence[1].length <= max) return sentence[1];
+  const room = clean.slice(0, max - 1);
+  const word = room.lastIndexOf(' ');
+  return `${(word > 0 ? room.slice(0, word) : room).replace(/[\s,;:.]+$/u, '')}\u2026`;
+}
