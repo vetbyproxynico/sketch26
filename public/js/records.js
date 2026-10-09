@@ -214,10 +214,6 @@ export function positionOf(record, rung) {
   return { number: before + rung.number, total };
 }
 
-export function isChecked(record, rung) {
-  return record.progress.checked.includes(rung.book.id);
-}
-
 export function isReading(record, rung) {
   return record.progress.reading === rung.book.id;
 }

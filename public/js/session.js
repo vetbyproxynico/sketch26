@@ -1,7 +1,7 @@
 import { createLiveApi } from './api.js';
 import { createSampleApi } from './sample.js';
 import { createStore, PROBLEM_TEXT } from './store.js';
-import { h, replaceChildren } from './dom.js';
+import { h } from './dom.js';
 
 /*
  * The one object every view shares: the saved data, the API in use (live or
@@ -39,7 +39,6 @@ export const session = {
   /** Every Qloo question made in this visit, by owner (a reader or group id). Memory only; never saved. */
   traces: new Map(),
   router: null,
-  listeners: new Set(),
 
   get api() {
     return this.mode === 'sample' ? sample : live;
@@ -64,20 +63,6 @@ export const session = {
 
   go(path, options) {
     return this.router?.go(path, options);
-  },
-
-  onChange(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  },
-  changed() {
-    for (const listener of this.listeners) listener();
-  },
-
-  setMode(mode) {
-    if (this.mode === mode) return;
-    this.mode = mode;
-    this.changed();
   },
 
   /** Adds the Qloo questions of one answer to the trace log. */
@@ -142,8 +127,4 @@ export function persistReader(record) {
 
 export function persistGroup(record) {
   return checkStore(session.store.saveGroup(record));
-}
-
-export function clearChildren(el) {
-  replaceChildren(el);
 }

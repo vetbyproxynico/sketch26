@@ -124,7 +124,9 @@ its own tests in `test/rung/client/`: its client against the Worker and the
 stand-in, every route failure turned into plain words, the store (including a
 blocked or full browser store and older saved shapes), sample mode, the colour
 tokens against WCAG 2.1 AA in both themes, the wording against claims Rung must
-not make, and that every import, route and file in `public/` resolves.
+not make, and that every import, route and file in `public/` resolves. At the
+last commit of this stage: 50 test files, 1222 tests, and `npm run typecheck`
+clean.
 
 The tests do not drive a browser. The page was also walked in Chromium against
 the stand-in and in sample mode (one reader and a group, at 390 and 1280 pixels

@@ -22,11 +22,6 @@ export function loveChip(love, { onRemove, removeLabel, strength } = {}) {
   return li;
 }
 
-/** A list of loves. `label` names the list for assistive technology. */
-export function loveChips(loves, { label, ...options } = {}) {
-  return h('ul', { class: 'chips', 'aria-label': label }, loves.map((love) => loveChip(love, options)));
-}
-
 /** A chip for a love that is not matched yet (a typed name with the kind chosen, if any). */
 export function nameChip(entry, { onRemove, removeLabel } = {}) {
   const li = h(

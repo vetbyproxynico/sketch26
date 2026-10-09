@@ -106,9 +106,6 @@ export function verdictWords(entry) {
   }
 }
 
-/** Short names for the three tiers on the class sheet and in the table. */
-export const TIER_GLYPH = { warm: 'filled', lukewarm: 'hatched', cold: 'empty' };
-
 export const TIER_HELP = {
   warm: 'Near the top of what this group of readers would pick.',
   lukewarm: 'In the middle of what this group of readers would pick.',

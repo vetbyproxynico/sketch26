@@ -6,11 +6,10 @@ import { dock, mountDock } from '../components/dock.js';
 import { drawRailLines } from '../components/rail-lines.js';
 import { foldedRung, lookItUp, openRung } from '../components/rung.js';
 import { tracePanel } from '../components/trace-panel.js';
-import { button, errorPanel, linkButton, loading, noteList, note, setBusy, toggleChip } from '../components/ui.js';
-import { kindMark } from '../kinds.js';
+import { button, errorPanel, linkButton, loading, noteList, note, toggleChip } from '../components/ui.js';
 import { applyLadderAnswer, applyVerdictAnswer, climbed, displayName, isReading, openRungs, possessive, setAside } from '../records.js';
 import { checkStore, persistReader, session } from '../session.js';
-import { GIVE_UP_REASONS, STRENGTH_WORD, SWAP_REASONS, verdictWords } from '../words.js';
+import { GIVE_UP_REASONS, SWAP_REASONS, verdictWords } from '../words.js';
 import { runner } from './try.js';
 
 /*
@@ -640,7 +639,9 @@ function buildView(record) {
       ? 'The ladder stopped after three give-ups in a row. What was tried stays on the page.'
       : finished
         ? 'Every rung on this ladder has been done.'
-        : 'Closest to what they love first. Each rung after it steps a little further out. Check every book yourself before you hand it over.';
+        : noBooks
+          ? 'Qloo had no books to put on a ladder for these loves and rules.'
+          : 'Closest to what they love first. Each rung after it steps a little further out. Check every book yourself before you hand it over.';
 
     const railNote = status === 'short' && open.length > 0 ? note('Qloo came back with fewer books than a full ladder, so this one is short.') : null;
 

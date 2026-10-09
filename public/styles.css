@@ -3381,3 +3381,42 @@ body.dock-static.has-dock .site-footer {
     stroke: var(--ground);
   }
 }
+
+/* Windows high contrast and other forced colours: keep the shapes that carry a state */
+@media (forced-colors: active) {
+  .tier__glyph,
+  .tierbar__part,
+  .toggle__box,
+  .rung-block,
+  .tagmark {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+  .tier--warm .tier__glyph,
+  .tierbar__part--warm {
+    background: CanvasText;
+  }
+  .tier--lukewarm .tier__glyph,
+  .tierbar__part--lukewarm {
+    background: repeating-linear-gradient(135deg, CanvasText 0 2px, Canvas 2px 5px);
+  }
+  .tier-cell--warm {
+    background: Canvas;
+    border-width: 4px;
+  }
+  .toggle[aria-pressed='true'] .toggle__box {
+    background: CanvasText;
+    color: Canvas;
+  }
+  .rung-block {
+    background: Canvas;
+    color: CanvasText;
+  }
+}
+
+/* in a group row on a wide screen the loves sit side by side */
+@media (min-width: 720px) {
+  .group-row .chosen-list {
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  }
+}

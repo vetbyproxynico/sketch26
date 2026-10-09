@@ -4,7 +4,7 @@ import { EXAMPLE_READERS } from '../examples.js';
 import { allClean, buildReader, lovesOfDraft, resolveNames } from '../flows.js';
 import { allMatched, createAndBuild, exampleGroupDraft, loadGroup, readerFromRow, resolveGroupNames } from '../group-flows.js';
 import { applyLadderAnswer, emptyDraft } from '../records.js';
-import { button, errorPanel, linkButton, loading, note } from '../components/ui.js';
+import { errorPanel, linkButton, loading, note } from '../components/ui.js';
 import { session } from '../session.js';
 
 /*

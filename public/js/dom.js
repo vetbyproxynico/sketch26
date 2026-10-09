@@ -138,12 +138,3 @@ export function normaliseName(text) {
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
-
-export function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** True when the visitor asks for less motion. */
-export function reducedMotion() {
-  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-}

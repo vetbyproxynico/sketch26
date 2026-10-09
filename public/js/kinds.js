@@ -17,14 +17,6 @@ export const KIND_INFO = {
   book: { word: 'Book', choice: 'A book they did finish', verb: 'read', pattern: 'thick' },
 };
 
-export function isKind(value) {
-  return typeof value === 'string' && Object.hasOwn(KIND_INFO, value);
-}
-
-export function kindWord(kind) {
-  return KIND_INFO[kind]?.word ?? 'Other';
-}
-
 /** A small mark: a line in the kind's pattern, then the kind's word. */
 export function kindMark(kind) {
   const info = KIND_INFO[kind];
