@@ -1,0 +1,268 @@
+/*
+ * Rung on paper. Loaded for print only. Black on white whatever the screen
+ * theme, no controls, no navigation. The fixed line stays on every page, and
+ * the sample-data banner stays on every page that has one. A tier is a word
+ * and a shape, so a black and white printer loses nothing. The slip is a
+ * narrow column; the class sheet is one landscape page. Neither carries a score.
+ */
+
+:root,
+:root:not([data-theme='light']) {
+  --ground: #fff;
+  --card: #fff;
+  --ink: #000;
+  --on-ink: #fff;
+  --ink-2: #222;
+  --line: #444;
+  --go: #000;
+  --on-go: #fff;
+  --mark: #fff;
+  --on-mark: #000;
+  --stop: #000;
+  --tint: #fff;
+  --kind-game: #000;
+  --kind-tv: #000;
+  --kind-film: #000;
+  --kind-music: #000;
+  --kind-person: #000;
+  --kind-book: #000;
+  color-scheme: light;
+}
+
+@page {
+  margin: 14mm;
+}
+
+@page sheet {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+html,
+body {
+  background: #fff !important;
+  color: #000 !important;
+}
+
+body {
+  display: block;
+  min-height: 0;
+  font-size: 11pt;
+  line-height: 1.4;
+}
+
+/* things that make no sense on paper */
+.skip,
+.masthead,
+.notices,
+.dock,
+.no-print,
+#live-status,
+#live-alert,
+.btn,
+button,
+.toggle,
+.site-footer__links,
+.trace,
+.side,
+.rung__more,
+.rung__primary,
+.ladder-head__actions,
+.home__saved {
+  display: none !important;
+}
+
+.site-footer {
+  border-top: 1pt solid #000;
+  background: #fff;
+  padding: 8pt 0 0;
+}
+
+.main {
+  max-width: none;
+  padding: 0;
+}
+
+a {
+  color: #000;
+  text-decoration: none;
+}
+
+.card,
+.rung__card,
+.home-base,
+.title-card,
+.changed,
+.note,
+.slip,
+.sheet,
+.stop,
+.done {
+  border-color: #000 !important;
+  box-shadow: none !important;
+}
+
+.rung,
+.title-card,
+.slip__item,
+.board-table tr {
+  break-inside: avoid;
+}
+
+/* the banner that says the data is invented stays, in black on white */
+.sample-banner {
+  display: block;
+  margin: 0 0 8pt;
+  padding: 4pt 6pt;
+  border: 2pt solid #000;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+}
+
+body.print-sheet .sample-banner {
+  display: none;
+}
+
+/* the slip: a narrow column, no frame */
+.slip {
+  max-width: 80mm;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  font-size: 10pt;
+}
+
+.slip__sample {
+  border: 2pt solid #000;
+  background: #fff;
+  color: #000;
+}
+
+.slip__mark {
+  background: #fff;
+  border-color: #000;
+}
+
+.slip__item::before {
+  background: #fff;
+  color: #000;
+  border-color: #000;
+}
+
+.slip__title {
+  font-size: 16pt;
+}
+
+.tick {
+  width: 11pt;
+  height: 11pt;
+  border: 1.5pt solid #000;
+}
+
+/* the class sheet: the board as a table on one landscape page */
+.sheet {
+  page: sheet;
+  padding: 0;
+  border: 0 !important;
+  font-size: 9.5pt;
+}
+
+.sheet__title {
+  font-size: 15pt;
+}
+
+.board-table-wrap {
+  overflow: visible;
+  border: 0;
+  background: #fff;
+}
+
+.board-table {
+  min-width: 0;
+  width: 100%;
+  border-spacing: 2pt;
+  font-size: 9pt;
+}
+
+.board-table th,
+.board-table td {
+  padding: 3pt 5pt;
+  min-width: 0 !important;
+  position: static !important;
+}
+
+.board-table thead th,
+.board-table tbody th,
+.board-table tfoot th {
+  background: #fff;
+  border: 1.5pt solid #000;
+}
+
+.tier__glyph {
+  border: 1.5pt solid #000;
+}
+
+.tier--warm .tier__glyph {
+  background: #000;
+}
+
+.tier--lukewarm .tier__glyph {
+  background: repeating-linear-gradient(135deg, #000 0 1.5pt, transparent 1.5pt 3.5pt);
+}
+
+.tier--cold .tier__glyph {
+  border-style: dashed;
+}
+
+.tier-cell {
+  border: 1.5pt solid #000;
+}
+
+.tier-cell--warm {
+  background: #000;
+  color: #fff;
+}
+
+.tier-cell--warm .tier__glyph {
+  background: #fff;
+  border-color: #fff;
+}
+
+.tier-cell--lukewarm {
+  background: repeating-linear-gradient(135deg, #bbb 0 2pt, #fff 2pt 5pt);
+}
+
+.tier-cell--lukewarm .tier {
+  background: #fff;
+  border: 1.5pt solid #000;
+}
+
+.tier-cell--cold {
+  background: #fff;
+  border: 1.5pt dashed #000;
+}
+
+.tier-key {
+  gap: 2pt;
+  margin: 6pt 0;
+}
+
+.tier-key__row {
+  display: flex;
+  gap: 8pt;
+}
+
+/* the ladder, if someone prints it from the browser's own menu */
+.rung {
+  padding-left: 40pt;
+}
+
+.rung-block {
+  background: #fff;
+  border-color: #000;
+}
+
+.rail {
+  border-left-color: #000;
+}

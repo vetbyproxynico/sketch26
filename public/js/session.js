@@ -33,6 +33,7 @@ export const session = {
   useSample: null,
   /** Matches waiting for the adult to confirm. */
   pending: null,
+  groupPending: null,
   /** Results of group work, by group id, kept in memory only. */
   groupResults: new Map(),
   /** Every Qloo question made in this visit, by owner (a reader or group id). Memory only; never saved. */
@@ -61,8 +62,8 @@ export const session = {
   /** Show cover pictures. Off until the adult turns it on, because a cover is loaded from the address Qloo gives. */
   coversOn: false,
 
-  go(path) {
-    return this.router?.go(path);
+  go(path, options) {
+    return this.router?.go(path, options);
   },
 
   onChange(listener) {

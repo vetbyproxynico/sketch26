@@ -28,6 +28,7 @@ const ROUTES = [
   { pattern: '/group/confirm', load: load('./views/group-confirm.js', 'groupConfirmView') },
   { pattern: '/group/try', load: load('./views/try.js', 'tryGroupView') },
   { pattern: '/group/:id/sheet', load: load('./views/print.js', 'sheetView') },
+  { pattern: '/group/:id/edit', load: load('./views/group.js', 'editGroupView') },
   { pattern: '/group/:id/reader/:row', load: load('./views/try.js', 'groupReaderView') },
   { pattern: '/group/:id', load: load('./views/board.js', 'boardView') },
 ];
@@ -41,7 +42,10 @@ function renderBanner() {
   if (!banner) return;
   banner.replaceChildren();
   banner.hidden = session.mode !== 'sample';
-  if (session.mode !== 'sample') return;
+  if (session.mode !== 'sample') {
+    delete document.documentElement.dataset.mode;
+    return;
+  }
   banner.append(h('p', { class: 'sample-banner__text' }, h('strong', null, 'Sample data:'), ` ${SAMPLE_BANNER.replace(/^Sample data: /, '')}`));
   if (session.forcedSample && session.health?.qlooConfigured) {
     banner.append(h('a', { class: 'sample-banner__link', href: `${location.pathname}${location.hash}` }, 'Leave sample mode'));

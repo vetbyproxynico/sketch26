@@ -1,7 +1,9 @@
 import { focusEl, h, replaceChildren } from '../dom.js';
+import { ApiError } from '../api.js';
 import { EXAMPLE_READERS } from '../examples.js';
 import { allClean, buildReader, lovesOfDraft, resolveNames } from '../flows.js';
-import { emptyDraft } from '../records.js';
+import { allMatched, createAndBuild, exampleGroupDraft, loadGroup, readerFromRow, resolveGroupNames } from '../group-flows.js';
+import { applyLadderAnswer, emptyDraft } from '../records.js';
 import { button, errorPanel, linkButton, loading, note } from '../components/ui.js';
 import { session } from '../session.js';
 
@@ -81,6 +83,64 @@ export async function tryReaderView({ example: id }) {
     },
   });
   return { title: `Building a ladder for ${example.nickname}`, ...view };
+}
+
+/** "Try this" on the example group: looks the names up, then builds the board. */
+export async function tryGroupView() {
+  return {
+    title: 'Building the example group',
+    ...runner({
+      heading: 'Building the example group',
+      summary: 'Thursday club is an invented group of 14 readers in six rows. Rung looks up what each row loves, finds books, and works out who each title would leave cold.',
+      async start({ signal, progress, isGone }) {
+        const draft = exampleGroupDraft();
+        const results = await resolveGroupNames(draft, { signal, progress });
+        if (isGone()) return;
+        if (allMatched(results)) {
+          const { record } = await createAndBuild(draft, results, { signal, progress });
+          if (isGone()) return;
+          session.groupDraft = null;
+          session.go(`/group/${record.id}`, { replace: true });
+          return;
+        }
+        session.groupDraft = draft;
+        session.groupPending = { results };
+        session.go('/group/confirm', { replace: true });
+      },
+    }),
+  };
+}
+
+/** A ladder for one row of a group: the row's loves, the group's rules, and what the row has read with the group. */
+export async function groupReaderView({ id, row }) {
+  const group = loadGroup(id);
+  const index = Number(row);
+  if (!group || !Number.isInteger(index) || !group.rows[index]) {
+    const title = h('h1', { class: 'page-title', tabindex: '-1' }, 'That row is not here');
+    return { title: 'Not found', el: h('div', { class: 'page prose' }, title, note('Rung has no row with that number in this group.'), linkButton({ label: 'Back to the start', href: '#/', variant: 'primary' })), heading: title };
+  }
+  const name = group.rows[index].nickname || `row ${index + 1}`;
+  return {
+    title: `Building a ladder for ${name}`,
+    ...runner({
+      heading: `Building a ladder for ${name}`,
+      summary: `Rung builds a ladder from what ${name} loves, using the group’s rules. Anything the group has read together is counted.`,
+      backHref: `#/group/${id}`,
+      backLabel: 'Back to the board',
+      async start({ signal, progress, isGone }) {
+        const api = session.apiFor(group);
+        if (!api) throw new ApiError({ kind: 'network', message: 'The live service is not available.' });
+        const record = readerFromRow(group, index);
+        progress(`Finding books close to what ${name} loves`);
+        const answer = await api.ladder(record.state, false, { signal });
+        if (isGone()) return;
+        session.logTrace(record.id, 'Building the ladder', answer.trace);
+        applyLadderAnswer(record, answer);
+        session.readers.set(record.id, record);
+        session.go(`/reader/${record.id}`, { replace: true });
+      },
+    }),
+  };
 }
 
 export { runner };

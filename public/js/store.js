@@ -13,7 +13,7 @@ import { KINDS } from './kinds.js';
  */
 
 export const STORAGE_KEY = 'rung:saved';
-export const SHAPE_VERSION = 2;
+export const SHAPE_VERSION = 3;
 
 const AGE_IDS = ['8_to_10', '11_to_13', '14_to_16'];
 const PUBLISHED_IDS = ['any', 'since_2000', 'last_10'];
@@ -24,6 +24,9 @@ const MAX_NICKNAME = 20;
 const MAX_LOVES = 8;
 const MAX_HISTORY = 60;
 const MAX_ROWS = 12;
+const MAX_SHARED = 20;
+const CAUTION_WORDS = ['horror', 'erotica', 'graphic violence', 'self-harm', 'drug use', 'war'];
+const SHARED_VERDICTS = ['loved', 'finished', 'gave_up'];
 
 const KIND_TYPE = {
   game: 'urn:entity:videogame',
@@ -261,12 +264,41 @@ function tidyRow(raw) {
   return { nickname: tidyNickname(raw), loves, headcount: whole(raw.headcount, 1, 500, 1) };
 }
 
+/**
+ * The words switched on for exclusion in a group. Older saves kept a single
+ * true or false for "cautions"; true means all six words, false none.
+ */
+function tidyCautions(value) {
+  if (value === true || value === undefined || value === null) return [...CAUTION_WORDS];
+  if (value === false) return [];
+  return unique(list(value).map((one) => text(one, 40)?.toLowerCase()).filter(Boolean)).slice(0, 12);
+}
+
+/** A title the group has read together, and what each row did with it (one entry for each row, or null). */
+function tidySharedRead(raw, rowCount) {
+  if (!isObject(raw)) return undefined;
+  const bookId = text(raw.bookId);
+  const title = text(raw.title, 300);
+  if (bookId === undefined || title === undefined) return undefined;
+  const verdicts = Array.from({ length: rowCount }, (_, index) => (SHARED_VERDICTS.includes(list(raw.verdicts)[index]) ? list(raw.verdicts)[index] : null));
+  const entry = { bookId, title, at: isoDate(raw.at, new Date(0).toISOString()), verdicts, tags: tidyTags(raw.tags, 20) };
+  if (text(raw.author, 200) !== undefined) entry.author = text(raw.author, 200);
+  if (year(raw.year) !== undefined) entry.year = raw.year;
+  return entry;
+}
+
 /** One saved group, or undefined when it has fewer than two readable rows. */
 export function tidyGroup(raw, now = new Date().toISOString()) {
   if (!isObject(raw)) return undefined;
   const rows = list(raw.rows).map(tidyRow).filter(Boolean).slice(0, MAX_ROWS);
   if (rows.length < 2) return undefined;
   const settings = isObject(raw.settings) ? raw.settings : {};
+  const done = unique(list(raw.done).map((one) => text(one)).filter(Boolean)).slice(0, 500);
+  const shared = list(raw.shared)
+    .map((one) => tidySharedRead(one, rows.length))
+    .filter(Boolean)
+    .slice(-MAX_SHARED);
+  for (const read of shared) if (!done.includes(read.bookId)) done.push(read.bookId);
   return {
     id: text(raw.id, 300) ?? randomId('group'),
     label: text(raw.label, MAX_NICKNAME) ?? text(raw.name, MAX_NICKNAME) ?? '',
@@ -277,10 +309,11 @@ export function tidyGroup(raw, now = new Date().toISOString()) {
     settings: {
       published: PUBLISHED_IDS.includes(settings.published) ? settings.published : 'since_2000',
       trends: flag(settings.trends),
-      cautions: flag(settings.cautions, true),
+      cautions: tidyCautions(settings.cautions),
       excludedTags: tidyTags(settings.excludedTags, 20),
     },
-    done: unique(list(raw.done).map((one) => text(one)).filter(Boolean)).slice(0, 500),
+    done,
+    shared,
   };
 }
 
