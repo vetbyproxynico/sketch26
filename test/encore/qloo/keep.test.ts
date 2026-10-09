@@ -151,9 +151,10 @@ describe('the map builder and keep', () => {
   });
 
   it('does not spend an age check on a music suggestion that keep refused', async () => {
+    // No birth year, so no suggestion is dated and every one of the first six is checked.
     const checked = async (refused: readonly string[]): Promise<string[]> => {
       const made = makeSource(mapHandler());
-      await made.source.culturalMap(makeProfile(), { keep: (item) => !refused.includes(item.entity.id) });
+      await made.source.culturalMap(makeProfile({ birthYear: undefined }), { keep: (item) => !refused.includes(item.entity.id) });
       return made.calls
         .filter((call) => call.params['filter.type'] === 'urn:demographics')
         .map((call) => call.params['signal.interests.entities'] ?? '')

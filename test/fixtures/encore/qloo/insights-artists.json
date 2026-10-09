@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. Years: for a person born in 1940 or 1941 (era window about 1950 to 1971), bands 1, 2 and 4 began inside it, bands 5 and 8 began long after it, band 7 had stopped before it, and bands 3 and 6 have no year at all. The explainability is in the shape seen on the live API: an object keyed by the signal parameter, holding rows of entity_id and score.",
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. Years: for a person born in 1940 or 1941 (era window about 1950 to 1971), bands 1, 2 and 4 began inside it, bands 5 and 8 began long after it, band 7 had stopped before it, and bands 3 and 6 have no year at all.",
   "success": true,
   "results": {
     "entities": [
@@ -8,20 +8,14 @@
         "name": "Example Band One",
         "subtype": "urn:entity:artist",
         "properties": { "start_year": 1957, "short_descriptions": ["An invented dance band from the fifties."] },
-        "query": {
-          "affinity": 0.95,
-          "explainability": { "signal.interests.entities": [{ "entity_id": "FAV-1", "score": 0.34 }, { "entity_id": "FAV-2", "score": 0.12 }] }
-        }
+        "query": { "affinity": 0.95 }
       },
       {
         "entity_id": "ARTIST-2",
         "name": "Example Band Two",
         "subtype": "urn:entity:artist",
         "properties": { "start_year": 1961, "end_year": 1998, "short_descriptions": ["", "An invented harmony group."], "date_of_birth": "1938-02-14" },
-        "query": {
-          "affinity": 0.9,
-          "explainability": { "signal.interests.entities": [{ "entity_id": "FAV-1", "score": 0.28 }, { "entity_id": "LIKED-1", "score": 0.09 }] }
-        }
+        "query": { "affinity": 0.9 }
       },
       { "entity_id": "ARTIST-3", "name": "Example Band Three", "subtype": "urn:entity:artist", "properties": { "date_of_birth": "1935-05-30" }, "query": { "affinity": 0.85 } },
       {

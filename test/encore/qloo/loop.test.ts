@@ -299,7 +299,9 @@ describe('which moves are open', () => {
       options: ['drop_country', 'widen_years', 'drop_age_signal', 'same_kind_favourites', 'taste_tags'],
       accepted: false,
     });
-    expect(list(observation, 'music')).toMatchObject({ thin: false, usable: 8, inEra: 3, counted: 8, options: ['drop_age_signal', 'same_kind_favourites', 'taste_tags'] });
+    // Eight musicians came back. Three began after the person's years or stopped before them and are set aside;
+    // of the five that stay, three have a year of their own that fits, and one more skews older.
+    expect(list(observation, 'music')).toMatchObject({ thin: false, usable: 5, inEra: 4, counted: 5, setAside: 3, options: ['drop_age_signal', 'same_kind_favourites', 'taste_tags'] });
     expect(list(observation, 'person')?.filters.years).toEqual({ fromYear: 1895, toYear: 1945 });
   });
 
@@ -391,7 +393,8 @@ describe('which moves are open', () => {
     const { source } = makeSource(mapHandler({ [TYPE.brand]: () => page(...many('BRAND', 3)) }), { advisor });
     await source.culturalMap(makeProfile());
     expect(advisor.seen[0]?.lists.find((l) => l.domain === 'brand')).toMatchObject({ usable: 3, inEra: 3, counted: 3, thin: true });
-    expect(advisor.seen[0]?.lists.find((l) => l.domain === 'music')).toMatchObject({ usable: 8, inEra: 3, counted: 8, thin: false });
+    // Three of the eight musicians are set aside for their years; the three dated ones that stay count as in the era.
+    expect(advisor.seen[0]?.lists.find((l) => l.domain === 'music')).toMatchObject({ usable: 5, inEra: 4, counted: 5, setAside: 3, thin: false });
   });
 
   it('never offers a move for a list whose first call failed or could not be read', async () => {
@@ -928,7 +931,8 @@ describe('the trace of a map that needed more', () => {
     expect(last).not.toHaveProperty('domain');
     expect(last?.reason).toBe('Stopped after 1 extra question. Still short: books (2). Encore kept those as they are.');
     // The count of a decision to stop is every suggestion in every list.
-    expect(last?.count).toBe(5 + 6 + 8 + 2 + 6 + 6);
+    // (Music and brands are the lists that the dated check shortens: three musicians and one brand are set aside.)
+    expect(last?.count).toBe(5 + 6 + 5 + 2 + 6 + 5);
   });
 
   it('has one entry for each call and one for each decision, and nothing else', async () => {

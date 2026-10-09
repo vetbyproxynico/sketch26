@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data.",
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. Alpha, Beta and Gamma give explainability in three older guessed shapes; Epsilon gives it in the shape seen on the live API (an object keyed by the signal parameter, holding rows of entity_id and score). Alpha, Beta and Gamma carry short_descriptions, in three forms: one line, an empty line first, and an empty list.",
   "success": true,
   "results": {
     "entities": [
@@ -58,7 +58,10 @@
         "entity_id": "EX-FILM-105",
         "name": "Example Film Epsilon",
         "subtype": "urn:entity:movie",
-        "query": { "affinity": 0.5 }
+        "query": {
+          "affinity": 0.5,
+          "explainability": { "signal.interests.entities": [{ "entity_id": "FAV-1", "score": 0.21 }, { "entity_id": "FAV-2", "score": 0.05 }] }
+        }
       }
     ]
   }

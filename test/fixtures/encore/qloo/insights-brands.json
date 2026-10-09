@@ -8,10 +8,7 @@
         "name": "Example Biscuits",
         "subtype": "urn:entity:brand",
         "properties": { "founded_year": 1925, "short_descriptions": ["An invented biscuit maker."] },
-        "query": {
-          "affinity": 0.7,
-          "explainability": { "signal.interests.entities": [{ "entity_id": "FAV-2", "score": 0.21 }] }
-        }
+        "query": { "affinity": 0.7 }
       },
       { "entity_id": "BRAND-2", "name": "Example Soap", "subtype": "urn:entity:brand", "properties": { "founded_year": 1948, "inception": "1948-03-01T00:00:00Z" }, "query": { "affinity": 0.6 } },
       { "entity_id": "BRAND-3", "name": "Example Radios", "subtype": "urn:entity:brand", "properties": { "inception": "1952-06-01T00:00:00Z" }, "query": { "affinity": 0.5 } }

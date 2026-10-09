@@ -322,7 +322,8 @@ describe('dressSessions', () => {
       nickname: string;
       sessions: Array<{ session: number; items: Array<Record<string, unknown>> }>;
     };
-    expect(Object.keys(payload).sort()).toEqual(['avoid', 'nickname', 'sessions', 'tasteWords']);
+    // "spelling" is one word, British or American, worked out from the country. The country itself is never sent.
+    expect(Object.keys(payload).sort()).toEqual(['avoid', 'nickname', 'sessions', 'spelling', 'tasteWords']);
     expect(payload.nickname).toBe('Dot');
     expect(payload.sessions.map((s) => s.session)).toEqual([1, 2]);
     expect(payload.sessions[0]?.items[0]).toEqual({
@@ -497,7 +498,7 @@ describe('describeSharedGround', () => {
     await wordsmith.describeSharedGround(tags, ['Ann', 'Bea']);
     const { system, user, all } = firstCall(llm);
     expect(system).toBe(SHARED_GROUND_SYSTEM);
-    expect(JSON.parse(user)).toEqual({ residents: ['Ann', 'Bea'], sharedTags: ['Swing', 'Radio comedy'] });
+    expect(JSON.parse(user)).toEqual({ residents: ['Ann', 'Bea'], sharedTags: ['Swing', 'Radio comedy'], spelling: 'British' });
     expect(all).not.toContain('urn:tag');
   });
 

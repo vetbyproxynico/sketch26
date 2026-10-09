@@ -190,6 +190,7 @@ describe('the map that comes back', () => {
       ],
       eraCheck: 'filter',
       description: 'An invented story about a lighthouse.',
+      summary: 'An invented lighthouse story, in one line.',
       tags: [
         { id: 'urn:tag:genre:media:example-drama', name: 'Example Drama', type: 'urn:tag:genre:media' },
         { id: 'urn:tag:keyword:media:example-sea', name: 'Example Sea' },
@@ -342,9 +343,17 @@ describe('dropping the country', () => {
 });
 
 describe('music and brands: the age-skew path', () => {
+  /*
+   * A person with no birth year has no years to judge a musician or a brand
+   * against, so every suggestion goes through the age check, as it did before
+   * music and brands were dated. (With a birth year, those that carry a year
+   * are judged by it and cost no question: see dated.test.ts.)
+   */
+  const NO_YEAR = makeProfile({ birthYear: undefined });
+
   async function artists() {
     const net = makeSource(mapHandler());
-    const map = await net.source.culturalMap(makeProfile());
+    const map = await net.source.culturalMap(NO_YEAR);
     return { ...net, map };
   }
 
@@ -393,7 +402,7 @@ describe('music and brands: the age-skew path', () => {
 
   it('trims to perDomain after sorting, so older-skewing items survive the cut', async () => {
     const { source } = makeSource(mapHandler());
-    const map = await source.culturalMap(makeProfile(), { perDomain: 3 });
+    const map = await source.culturalMap(NO_YEAR, { perDomain: 3 });
     expect(map.byDomain.music.map((i) => i.entity.id)).toEqual(['ARTIST-2', 'ARTIST-4', 'ARTIST-6']);
   });
 
@@ -412,9 +421,10 @@ describe('music and brands: the age-skew path', () => {
 
   it('warns that no era filter exists when no candidate could be checked', async () => {
     const { source } = makeSource(mapHandler({ 'urn:demographics': () => jsonResponse({ results: { demographics: [] } }) }));
-    const map = await source.culturalMap(makeProfile());
+    const map = await source.culturalMap(NO_YEAR);
     expect(map.byDomain.music.every((i) => i.eraCheck === 'unchecked')).toBe(true);
     expect(map.warnings.map((w) => [w.domain, w.code])).toEqual([
+      [undefined, 'no_birth_year'],
       ['music', 'no_era_filter'],
       ['brand', 'no_era_filter'],
     ]);
@@ -429,11 +439,11 @@ describe('music and brands: the age-skew path', () => {
             : jsonResponse({ results: { demographics: [{ query: { age: { '55_and_older': 0.1 } } }] } }),
       }),
     );
-    const map = await source.culturalMap(makeProfile());
+    const map = await source.culturalMap(NO_YEAR);
     const second = map.byDomain.music.find((i) => i.entity.id === 'ARTIST-2');
     expect(second?.eraCheck).toBe('unchecked');
     expect(map.byDomain.music.filter((i) => i.eraCheck === 'age_skew')).toHaveLength(5);
-    expect(map.warnings).toEqual([]);
+    expect(map.warnings.map((w) => w.code)).toEqual(['no_birth_year']);
   });
 
   it('still checks age skew when the profile has no birth year', async () => {
@@ -479,7 +489,8 @@ describe('a domain that fails or comes back empty', () => {
     expect(map.byDomain.film).toHaveLength(5);
     expect(map.byDomain.tv).toHaveLength(6);
     expect(map.byDomain.person).toHaveLength(6);
-    expect(map.byDomain.music).toHaveLength(8);
+    // Eight came back; three began after the person's years, or stopped before them, and are left out.
+    expect(map.byDomain.music).toHaveLength(5);
     expect(map.tasteWords).toHaveLength(3);
   });
 
@@ -609,13 +620,20 @@ describe('a profile with nothing to go on', () => {
 describe('call volume and concurrency', () => {
   it('makes 7 map calls plus one age check per top music and brand candidate', async () => {
     const { source, calls } = makeSource(mapHandler());
-    await source.culturalMap(makeProfile());
+    await source.culturalMap(makeProfile({ birthYear: undefined }));
     expect(calls).toHaveLength(7 + 6 + 6);
+  });
+
+  it('makes an age check only for the music and brands that have no year, when the person has a birth year', async () => {
+    const { source, calls } = makeSource(mapHandler());
+    await source.culturalMap(makeProfile());
+    // Of the first six candidates, two musicians and one brand carry no year of their own.
+    expect(calls).toHaveLength(7 + 3);
   });
 
   it('never has more than three calls in flight, across all domains and age checks', async () => {
     const { source, peak } = makeSource(mapHandler());
-    await source.culturalMap(makeProfile());
+    await source.culturalMap(makeProfile({ birthYear: undefined }));
     expect(peak()).toBe(2);
   });
 });
