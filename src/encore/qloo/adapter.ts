@@ -20,11 +20,42 @@ import { DOMAIN_ENTITY_TYPE, DOMAINS, type Contribution, type Domain, type Entit
  *   type          `subtype`, else `type`, else the first string in `types`;
  *                 when none is present the caller's `filter.type` is used
  *   image         `properties.image.url`
- *   year          `properties.release_year`, else `properties.publication_year`,
- *                 else the leading four digits of `properties.date_of_birth`
+ *   year          from the field that fits the kind of the entity, and from no
+ *                 other: films and television `properties.release_year`; books
+ *                 `properties.publication_year`; people the leading four digits
+ *                 of `properties.date_of_birth`; music `properties.start_year`
+ *                 (the year they began performing, never a date of birth);
+ *                 brands `properties.founded_year`, else the leading four
+ *                 digits of `properties.inception`. An entity whose kind is
+ *                 none of these (a place, a video game) takes the first of
+ *                 `release_year`, `publication_year`, `date_of_birth`.
+ *                 A year is a whole number, or a numeric string, from 1000 to
+ *                 2999; anything else counts as no year.
+ *   end year      music only: `properties.end_year`, same rules. Not shown; it
+ *                 lets the era check see that a band had already stopped.
  *   description   `properties.short_description`, else `properties.description`
+ *   summary       the first non-empty string in `properties.short_descriptions`
+ *                 (an array), else `properties.short_description`; left out
+ *                 when neither holds one. Shown on the card in place of the
+ *                 long description, which stays as `description`.
  *   tags          `tags`: array of { id | tag_id, name, type? }
  *   affinity      `query.affinity`, else `affinity`; a number, clamped to 0..1
+ *
+ * Seen on the live API on 9 October 2026 (field names, types and counts only;
+ * no values were read)
+ *   Brands: `properties.founded_year` is a number (16 of 16 in a sample; 14 of
+ *   the 16 were before 1975), and `properties.inception` is sometimes there as
+ *   a string date. Music (artists): `properties.start_year` is a number (16 of
+ *   16), `properties.end_year` a number on about half (8 of 16), and
+ *   `properties.date_of_birth` is sometimes there, which is why the year of a
+ *   musician never falls back to it. Films and television carry
+ *   `properties.release_year`, books `properties.publication_year`, people
+ *   `properties.date_of_birth`. Films, television, music, people and books
+ *   carry `properties.short_descriptions`, an array (assumed to hold short
+ *   strings; nothing more was confirmed), as well as the long
+ *   `properties.description`; books and some others also carry
+ *   `properties.short_description`, a string. On each result `query.affinity`
+ *   is a number from 0 to 1.
  *
  * Explainability (requested with feature.explainability=true)
  *   Seen on the live API on 9 October 2026 (structure only): on each result,
@@ -71,6 +102,10 @@ export interface QlooEntity {
   /** Strongest first. Empty without explainability. */
   contributions: Contribution[];
   description?: string;
+  /** A short line for the card: see "summary" in the comment at the top. */
+  summary?: string;
+  /** Music only: the year they stopped performing, when Qloo says. */
+  endYear?: number;
   tags: TagRef[];
 }
 
@@ -134,6 +169,32 @@ const DOMAIN_BY_TYPE: ReadonlyMap<string, Domain> = new Map(
   DOMAINS.map((domain): [string, Domain] => [DOMAIN_ENTITY_TYPE[domain], domain]),
 );
 
+/**
+ * The `properties` fields that hold the year of each kind, in the order they
+ * are tried. The year of a musician is the year they began performing; it never
+ * falls back to a date of birth, because the year on a music card means
+ * "performing from".
+ */
+const YEAR_FIELDS: Readonly<Record<Domain, readonly string[]>> = {
+  film: ['release_year'],
+  tv: ['release_year'],
+  book: ['publication_year'],
+  person: ['date_of_birth'],
+  music: ['start_year'],
+  brand: ['founded_year', 'inception'],
+};
+
+/** For an entity of a kind that Encore has no list for. */
+const OTHER_YEAR_FIELDS: readonly string[] = ['release_year', 'publication_year', 'date_of_birth'];
+
+function yearFor(raw: Record<string, unknown>, domain: Domain | undefined): number | undefined {
+  for (const name of domain === undefined ? OTHER_YEAR_FIELDS : YEAR_FIELDS[domain]) {
+    const year = yearOf(path(raw, 'properties', name));
+    if (year !== undefined) return year;
+  }
+  return undefined;
+}
+
 /** The Encore domain of a Qloo entity type, or undefined (video games and all other types included). */
 export function domainOfType(type: string): Domain | undefined {
   return DOMAIN_BY_TYPE.get(type.trim().toLowerCase());
@@ -173,12 +234,21 @@ function refOf(raw: Record<string, unknown>, fallbackType: string | undefined): 
   if (domain !== undefined) ref.domain = domain;
   const imageUrl = text(path(raw, 'properties', 'image', 'url'));
   if (imageUrl !== undefined) ref.imageUrl = imageUrl;
-  const year =
-    yearOf(path(raw, 'properties', 'release_year')) ??
-    yearOf(path(raw, 'properties', 'publication_year')) ??
-    yearOf(path(raw, 'properties', 'date_of_birth'));
+  const year = yearFor(raw, domain);
   if (year !== undefined) ref.year = year;
   return ref;
+}
+
+/** The first non-empty string in `short_descriptions`, else `short_description`. */
+function summaryOf(raw: Record<string, unknown>): string | undefined {
+  const list = path(raw, 'properties', 'short_descriptions');
+  if (Array.isArray(list)) {
+    for (const entry of list) {
+      const line = text(entry);
+      if (line !== undefined) return line;
+    }
+  }
+  return text(path(raw, 'properties', 'short_description'));
 }
 
 function contributionRows(raw: Record<string, unknown>): readonly unknown[] {
@@ -218,6 +288,12 @@ function entityOf(raw: unknown, options: ReadOptions): QlooEntity | undefined {
   if (affinity !== undefined) entity.affinity = unit(affinity);
   const description = text(path(raw, 'properties', 'short_description')) ?? text(path(raw, 'properties', 'description'));
   if (description !== undefined) entity.description = description;
+  const summary = summaryOf(raw);
+  if (summary !== undefined) entity.summary = summary;
+  if (ref.domain === 'music') {
+    const endYear = yearOf(path(raw, 'properties', 'end_year'));
+    if (endYear !== undefined) entity.endYear = endYear;
+  }
   return entity;
 }
 

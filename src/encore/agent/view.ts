@@ -20,6 +20,7 @@ function listView(list: ListObservation, observation: Observation): Record<strin
   if (list.accepted) view['accepted'] = true;
   if (!isActionable(list)) return view;
 
+  if (list.setAside !== undefined) view['setAside'] = list.setAside;
   const filters: Record<string, unknown> = { olderAudience: list.filters.olderAudience, signals: list.filters.signals };
   if (list.filters.country !== undefined) filters['country'] = list.filters.country;
   if (list.filters.years !== undefined) filters['years'] = years(list.filters.years);

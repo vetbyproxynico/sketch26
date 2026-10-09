@@ -1,5 +1,5 @@
 import { YEAR_STEP, type AgentMove, type CountryWords, type Decision, type ListObservation, type Observation } from '../agent/types';
-import type { AgentAction, Domain } from '../types';
+import type { AgentAction, Domain, YearWindow } from '../types';
 import { joinNames } from '../words/fallbacks';
 import { DOMAIN_LABEL, nounFor } from './warnings';
 
@@ -52,7 +52,7 @@ export const STOP_STEP = 'decision: stop asking';
  * 1942 to 1962." It names the country and the years only while they are still
  * applied, and says "still" once something has been tried.
  */
-export function observed(list: ListObservation, country: CountryWords | undefined): string {
+export function observed(list: ListObservation, country: CountryWords | undefined, window?: YearWindow): string {
   const count = list.counted;
   const again = list.tried.length > 0;
   const lead = count === 0 ? (again ? 'Still no' : 'No') : `${again ? 'Still only' : 'Only'} ${count}`;
@@ -61,12 +61,28 @@ export function observed(list: ListObservation, country: CountryWords | undefine
   const subject = from === undefined ? noun : from.adjective === undefined ? `${noun} from ${from.name}` : `${from.adjective} ${noun}`;
 
   const years = list.filters.years;
-  if (years === undefined) return `${lead} ${subject}.`;
+  if (years === undefined) return `${lead} ${subject}.${setAsideSentence(list, window)}`;
   const span = `${years.fromYear} to ${years.toYear}`;
   const when = list.domain === 'person' ? ` born from ${span}` : from !== undefined && from.adjective === undefined ? `, ${span}` : ` from ${span}`;
   const outside = list.usable - count;
   const stray = outside > 0 ? ` ${outside} more came back from outside those years.` : '';
   return `${lead} ${subject}${when}.${stray}`;
+}
+
+/**
+ * For music and brands that have a year of their own: " 5 more were left out
+ * because they began after 1971 or had stopped before 1951." Empty when none
+ * were left out. These are the suggestions Encore turned away itself, by the
+ * year in Qloo's answer, so the sentence is a fact of the list and not a move.
+ */
+function setAsideSentence(list: ListObservation, window: YearWindow | undefined): string {
+  const count = list.setAside ?? 0;
+  if (count <= 0) return '';
+  const lead = `${count} more ${count === 1 ? 'was' : 'were'} left out because`;
+  const they = count === 1 ? 'it' : 'they';
+  if (window === undefined) return ` ${lead} ${they} did not fit the years the person was young.`;
+  if (list.domain === 'brand') return ` ${lead} ${they} ${count === 1 ? 'was' : 'were'} founded after ${window.toYear}.`;
+  return ` ${lead} ${they} began after ${window.toYear} or had stopped before ${window.fromYear}.`;
 }
 
 /** What a rule decision does, as a sentence. A model decision carries its own sentence instead. */
@@ -99,7 +115,7 @@ export function doing(decision: Decision, list: ListObservation, observation: Ob
 
 /** The whole reasoning of a decision: what was seen, then the advisor's sentence. */
 export function reasonFor(decision: Decision, list: ListObservation, observation: Observation): string {
-  return `${observed(list, observation.country)} ${decision.reason ?? doing(decision, list, observation)}`;
+  return `${observed(list, observation.country, observation.window)} ${decision.reason ?? doing(decision, list, observation)}`;
 }
 
 /**

@@ -15,6 +15,8 @@ import { DOMAINS } from '../types';
 export const SLIM_TAGS = 20;
 /** Longest description kept, in characters. Matches the request validator. */
 export const SLIM_DESCRIPTION = 600;
+/** Longest summary kept, in characters. Matches the request validator. */
+export const SLIM_SUMMARY = 300;
 /** Most "because they loved" rows kept on a suggestion. Matches the request validator. */
 export const SLIM_CONTRIBUTIONS = 10;
 
@@ -94,6 +96,7 @@ export function slimItem(item: MapItem): MapItem {
     contributions: item.contributions.slice(0, SLIM_CONTRIBUTIONS),
   };
   if (item.description !== undefined) slim.description = slimText(item.description);
+  if (item.summary !== undefined) slim.summary = slimText(item.summary, SLIM_SUMMARY);
   return slim;
 }
 

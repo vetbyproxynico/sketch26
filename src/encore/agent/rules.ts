@@ -37,6 +37,11 @@ export const RULE_ORDER: readonly AgentMove[] = [
  * loosen, an empty answer most often means a parameter that Qloo does not take
  * for that entity type (docs/QLOO_API.md), so the one signal every query
  * carries beyond the favourites is dropped before the favourites are changed.
+ *
+ * Not used for a list that is empty because every suggestion was set aside for
+ * a year that does not fit (`setAside`): there the answer was understood, and
+ * dropping the lean towards what older people like would only bring more
+ * recent music and brands.
  */
 export const RULE_ORDER_WHEN_EMPTY: readonly AgentMove[] = [
   'drop_country',
@@ -53,7 +58,7 @@ export const RULE_ORDER_WHEN_EMPTY: readonly AgentMove[] = [
  */
 export function ruleChoice(list: ListObservation, callsLeft: number): Decision {
   if (callsLeft <= 0) return { domain: list.domain, action: 'accept', decidedBy: 'rules', outOfBudget: true };
-  const order = list.usable === 0 ? RULE_ORDER_WHEN_EMPTY : RULE_ORDER;
+  const order = list.usable === 0 && (list.setAside ?? 0) === 0 ? RULE_ORDER_WHEN_EMPTY : RULE_ORDER;
   const move = order.find((candidate) => list.options.includes(candidate));
   return { domain: list.domain, action: move ?? 'accept', decidedBy: 'rules' };
 }

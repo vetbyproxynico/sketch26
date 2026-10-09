@@ -10,6 +10,7 @@
         "properties": {
           "release_year": 1962,
           "short_description": "An invented story about a lighthouse.",
+          "short_descriptions": ["An invented lighthouse story, in one line."],
           "image": { "url": "https://example.invalid/film-alpha.jpg" }
         },
         "tags": [
@@ -30,7 +31,7 @@
         "entity_id": "EX-FILM-102",
         "name": "Example Film Beta",
         "subtype": "urn:entity:movie",
-        "properties": { "release_year": 1965 },
+        "properties": { "release_year": 1965, "short_descriptions": ["", "An invented comedy about two neighbours."] },
         "tags": [],
         "query": {
           "affinity": 0.8,
@@ -41,7 +42,7 @@
         "entity_id": "EX-FILM-103",
         "name": "Example Film Gamma",
         "subtype": "urn:entity:movie",
-        "properties": { "release_year": 1968 },
+        "properties": { "release_year": 1968, "short_descriptions": [], "description": "A longer invented description of a film, kept here to test the long text. It is not real." },
         "query": {
           "affinity": 0.7,
           "explainability": { "signals": [{ "id": "LIKED-1", "name": "Example Show Liked", "score": 0.4 }] }

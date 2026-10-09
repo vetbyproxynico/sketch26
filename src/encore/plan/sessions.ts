@@ -57,6 +57,8 @@ export function reasonFor(item: MapItem, nickname: string): string {
       return `From the years ${name} was young`;
     case 'age_skew':
       return `Well loved by people of ${name}'s generation`;
+    case 'dated':
+      return `Already around when ${name} was young`;
     default:
       return `Close to ${name}'s tastes`;
   }
@@ -222,6 +224,7 @@ export async function buildPlan(
         nickname: profile.nickname,
         tasteWords: map.tasteWords,
         avoidNotes: profile.avoidNotes,
+        ...(profile.country === undefined ? {} : { country: profile.country }),
       });
     } catch {
       dressed = [];

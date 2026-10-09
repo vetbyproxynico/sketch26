@@ -107,7 +107,8 @@ function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; war
   if (state.years !== undefined && state.years.added > 0) {
     warnings.push(yearsWidenedWarning(domain, state.years.before, state.years.from, state.years.to));
   }
-  if (state.noAgeCheck) warnings.push(noEraFilterWarning(label, domain));
+  // Music and brands that have a year of their own are tied to the person's years whatever the age check said.
+  if (state.noAgeCheck && !items.some((item) => item.eraCheck === 'dated')) warnings.push(noEraFilterWarning(label, domain));
   return { items, warnings };
 }
 
@@ -117,8 +118,12 @@ function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; war
  * First round: every list is asked for with the same signals (favourites and
  * liked items, the 55-and-older age band, explainability). Date filters bound
  * films, television, books and people to the years the person was about 10 to
- * 30, and films and television to the country they grew up in; music and brands
- * have no such filter, so their top candidates are checked for age skew.
+ * 30, and films and television to the country they grew up in. Music and brands
+ * have no such filter. A person with a birth year has them judged by the year
+ * in the answer instead, in Encore's own code (`dated.ts`): a musician or band
+ * that began after those years or stopped before them, and a brand founded
+ * after them, are left out while the list is built. Those with no year have
+ * their top candidates checked for age skew, as before.
  *
  * Then the agent loop (`loop.ts`): each list that came back thin gets one move
  * a round, chosen by the advisor from a closed set, until every list is good
@@ -153,6 +158,7 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
     names: signalNames(profile),
     excluded: new Set(excluded),
     shared: { take: perDomain * 2, excludedIds: excluded, excludedTags: unique(profile.excludedTagIds) },
+    ...(window === undefined ? {} : { window }),
     ...(options.keep === undefined ? {} : { keep: options.keep }),
   };
 

@@ -119,10 +119,17 @@ export function yearsWidenedWarning(domain: Domain, found: number, from: YearWin
   return warn('years_widened', message, domain);
 }
 
+/**
+ * Warning for music or brands that could not be tied to the person's years at
+ * all: none of the list has a year that was checked against them (no year came
+ * with it, or there is no birth year), and the check for what older people like
+ * gave no answer. A list with even one item that has a year does not get it:
+ * the other items say on their own card that their era was not checked.
+ */
 export function noEraFilterWarning(subject: string, domain: Domain): MapWarning {
   return warn(
     'no_era_filter',
-    `There is no way to limit ${subject} to the years this person grew up, and the check for what older people like gave no answer, so these are matched on taste alone.`,
+    `The ${subject} could not be tied to the years this person grew up, and the check for what older people like gave no answer, so they are matched on taste alone.`,
     domain,
   );
 }

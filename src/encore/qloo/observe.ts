@@ -69,6 +69,7 @@ function observeList(state: ListState, facts: MapFacts, moves: MoveFacts): ListO
     options,
     accepted: state.accepted,
   };
+  if (state.setAside !== undefined && state.setAside.size > 0) list.setAside = state.setAside.size;
   if (state.query.country !== undefined) list.filters.country = state.query.country;
   if (state.query.years !== undefined) {
     list.filters.years = state.query.years;

@@ -33,6 +33,7 @@ export const LIMITS = {
   noteChars: 1000,
   idChars: 200,
   textChars: 600,
+  summaryChars: 300,
   signals: 12,
   excluded: 200,
   avoidNotes: 20,
@@ -48,7 +49,7 @@ export const LIMITS = {
   roomMax: 8,
 } as const;
 
-const ERA_CHECKS: readonly EraCheck[] = ['filter', 'age_skew', 'unchecked'];
+const ERA_CHECKS: readonly EraCheck[] = ['filter', 'age_skew', 'dated', 'unchecked'];
 const REACTIONS: readonly Reaction[] = ['lit_up', 'neutral', 'not_today'];
 
 function bad(message: string): never {
@@ -190,9 +191,11 @@ export function parseMapItem(value: unknown, field: string): MapItem {
   const affinity = optionalNumber(v['affinity'], `${field}.affinity`, 0, 1);
   const ageSkew = optionalNumber(v['ageSkew55Plus'], `${field}.ageSkew55Plus`, -1000, 1000);
   const description = optionalText(v['description'], `${field}.description`, LIMITS.textChars);
+  const summary = optionalText(v['summary'], `${field}.summary`, LIMITS.summaryChars);
   if (affinity !== undefined) item.affinity = affinity;
   if (ageSkew !== undefined) item.ageSkew55Plus = ageSkew;
   if (description !== undefined) item.description = description;
+  if (summary !== undefined) item.summary = summary;
   return item;
 }
 

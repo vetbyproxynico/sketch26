@@ -89,16 +89,25 @@ export interface ListObservation {
   usable: number;
   /**
    * Of those, how many are tied to the person's era: inside the years of the
-   * date filter that returned them, or (music and brands) favoured by people
-   * over 55 in the demographic check.
+   * date filter that returned them, or (music and brands) with a year of their
+   * own that fits the person's years, or favoured by people over 55 in the
+   * demographic check.
    */
   inEra: number;
   /**
    * The number the list is judged on: `inEra` while a date filter is in force,
    * otherwise `usable` (music and brands have no date filter, and nobody has
-   * one without a birth year).
+   * one without a birth year). A music or brand suggestion whose own year does
+   * not fit the person's years is never in `usable`, so it is never counted.
    */
   counted: number;
+  /**
+   * Music and brands, for a person with a birth year: how many suggestions
+   * Qloo returned were left out because the year they began performing (or
+   * stopped), or the year the brand was founded, does not fit the person's
+   * years. They are not in `usable`. Absent when there were none.
+   */
+  setAside?: number;
   /** True when `state` is `ok` and `counted` is below the target. */
   thin: boolean;
   filters: ListFilters;

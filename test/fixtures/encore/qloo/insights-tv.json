@@ -3,7 +3,13 @@
   "success": true,
   "results": {
     "entities": [
-      { "entity_id": "EX-TV-201", "name": "Example Series One", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1963 }, "query": { "affinity": 0.88 } },
+      {
+        "entity_id": "EX-TV-201",
+        "name": "Example Series One",
+        "subtype": "urn:entity:tv_show",
+        "properties": { "release_year": 1963, "short_descriptions": ["An invented family comedy."] },
+        "query": { "affinity": 0.88, "explainability": { "signal.interests.entities": [{ "entity_id": "FAV-1", "score": 0.18 }, { "entity_id": "LIKED-1", "score": 0.15 }] } }
+      },
       { "entity_id": "EX-TV-202", "name": "Example Series Two", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1969 }, "query": { "affinity": 0.66 } }
     ]
   }

@@ -3,6 +3,7 @@ import type { AgentMove } from '../agent/types';
 import { DOMAIN_ENTITY_TYPE, type Domain, type MapItem, type YearWindow } from '../types';
 import { AGE_55_PLUS, readAgeBands, readEntities, type QlooEntity } from './adapter';
 import { recoverableFailure } from './faults';
+import { datedVerdict } from './dated';
 import { AGE_CHECKED, dateParams, queryParams, type ListQuery, type SharedQuery } from './query';
 import type { DecisionNote, TracedQloo } from './traced';
 import { personBirthWindow } from './window';
@@ -19,6 +20,12 @@ export interface DomainContext {
   excluded: ReadonlySet<string>;
   /** Parameters every domain query shares: take and the exclusions. */
   shared: SharedQuery;
+  /**
+   * The years the person was about 10 to 30. Set only for a person with a usable
+   * birth year. Music and brands that have a year of their own are judged against
+   * it (see `dated.ts`) while the lists are built.
+   */
+  window?: YearWindow;
   /**
    * May this suggestion be shown? Supplied by the caller of the builder, which
    * is the only one that knows why a suggestion might not be. Absent: all may.
@@ -64,11 +71,21 @@ export interface ListState {
   query: ListQuery;
   /** Suggestions `keep` turned away, in the order they came. Absent when none was. */
   dropped?: Dropped[];
+  /**
+   * Music and brands only: the IDs of suggestions left out because their own
+   * year does not fit the person's years (`dated.ts`). They are in neither
+   * `items` nor `dropped`, so they are never counted, capped or shown. Absent
+   * when there were none.
+   */
+  setAside?: Set<string>;
   /** Moves made for this list, oldest first. */
   tried: AgentMove[];
   /** True once an advisor chose to keep the list as it is. */
   accepted: boolean;
-  /** Music and brands: true when no candidate's age skew could be read. */
+  /**
+   * Music and brands: true when the age of some candidates was asked about (they
+   * had no year of their own) and no answer could be read.
+   */
   noAgeCheck: boolean;
   /** Set once the release country was dropped. `code` is the country that was asked for first. */
   country?: Relaxed & { code: string };
@@ -88,11 +105,12 @@ export function buildDateFilters(birthYear: number, window: YearWindow): Partial
 }
 
 /**
- * True when an item is tied to the person's era: a date filter bounded it, or
- * the demographic check found that people over 55 favour it.
+ * True when an item is tied to the person's era: a date filter bounded it, its
+ * own year was checked against the person's years (`dated`), or the demographic
+ * check found that people over 55 favour it.
  */
 export function inEra(item: MapItem): boolean {
-  return item.eraCheck === 'filter' || (item.eraCheck === 'age_skew' && (item.ageSkew55Plus ?? 0) > 0);
+  return item.eraCheck === 'filter' || item.eraCheck === 'dated' || (item.eraCheck === 'age_skew' && (item.ageSkew55Plus ?? 0) > 0);
 }
 
 /**
@@ -101,22 +119,24 @@ export function inEra(item: MapItem): boolean {
  * lies outside the years asked for is not counted as filtered. An item with no
  * year is taken on trust.
  */
-function eraCheckOf(entity: QlooEntity, years: YearWindow | undefined): MapItem['eraCheck'] {
+function eraCheckOf(entity: QlooEntity, years: YearWindow | undefined, dated: boolean): MapItem['eraCheck'] {
+  if (dated) return 'dated';
   if (years === undefined) return 'unchecked';
   const year = entity.ref.year;
   return year === undefined || (year >= years.fromYear && year <= years.toYear) ? 'filter' : 'unchecked';
 }
 
-function toItem(entity: QlooEntity, domain: Domain, years: YearWindow | undefined): MapItem {
+function toItem(entity: QlooEntity, domain: Domain, years: YearWindow | undefined, dated: boolean): MapItem {
   const item: MapItem = {
     entity: { ...entity.ref, domain },
     domain,
     contributions: entity.contributions,
-    eraCheck: eraCheckOf(entity, years),
+    eraCheck: eraCheckOf(entity, years, dated),
     tags: entity.tags,
   };
   if (entity.affinity !== undefined) item.affinity = entity.affinity;
   if (entity.description !== undefined) item.description = entity.description;
+  if (entity.summary !== undefined) item.summary = entity.summary;
   return item;
 }
 
@@ -125,6 +145,8 @@ export interface Page {
   items: MapItem[];
   /** The ones `keep` turned away. Their `before` counts the entries of `items` ahead of them. */
   dropped: Dropped[];
+  /** Music and brands: the IDs left out because their own year does not fit the person's years. */
+  setAside: string[];
   /** True when the answer held no entity list the adapter could read. */
   unrecognised: boolean;
 }
@@ -143,6 +165,12 @@ function mayShow(ctx: DomainContext, item: MapItem): boolean {
  * One `/v2/insights` call for a list. Favourites and exclusions are dropped from
  * the answer, each entity is kept once, and what `keep` refuses is set aside in
  * `dropped` and not mixed into `items`, so it is never counted or capped.
+ *
+ * Music and brands with a year of their own are judged against the person's
+ * years first (`datedVerdict`). One that fails is left out of `items` and
+ * `dropped` alike: it is named in `setAside` and nothing else, because it would
+ * never have been shown, so it is not something `keep` cost the list. One that
+ * passes is marked `dated`.
  */
 export async function fetchPage(
   ctx: DomainContext,
@@ -159,15 +187,21 @@ export async function fetchPage(
   const seen = new Set<string>();
   const items: MapItem[] = [];
   const dropped: Dropped[] = [];
+  const setAside: string[] = [];
   for (const entity of page.entities) {
     const id = entity.ref.id;
     if (ctx.excluded.has(id) || seen.has(id)) continue;
     seen.add(id);
-    const item = toItem(entity, domain, query.years);
+    const verdict = datedVerdict(domain, entity, ctx.window);
+    if (verdict === 'out') {
+      setAside.push(id);
+      continue;
+    }
+    const item = toItem(entity, domain, query.years, verdict === 'in');
     if (mayShow(ctx, item)) items.push(item);
     else dropped.push({ item, before: items.length });
   }
-  return { items, dropped, unrecognised: page.unrecognised };
+  return { items, dropped, setAside, unrecognised: page.unrecognised };
 }
 
 /** The 55-and-older affinity of one entity, or undefined when Qloo gave none. */
@@ -184,15 +218,22 @@ async function ageSkewOf(ctx: DomainContext, label: string, entityId: string): P
   }
 }
 
-/** Music and brands: the top few candidates are checked for how much older people favour them. */
+/**
+ * Music and brands: of the top few candidates, those with no year of their own
+ * are checked for how much older people favour them. One that has a year is
+ * already judged (`dated`) and costs no question.
+ */
 async function withAgeSkew(ctx: DomainContext, domain: Domain, items: readonly MapItem[]): Promise<{ items: MapItem[]; noAgeCheck: boolean }> {
   const label = DOMAIN_LABEL[domain];
-  const skews = await Promise.all(items.slice(0, AGE_CHECK_LIMIT).map((item) => ageSkewOf(ctx, label, item.entity.id)));
+  const skews = await Promise.all(
+    items.slice(0, AGE_CHECK_LIMIT).map((item) => (item.eraCheck === 'dated' ? undefined : ageSkewOf(ctx, label, item.entity.id))),
+  );
   const checked = items.map((item, index): MapItem => {
     const skew = skews[index];
     return skew === undefined ? item : { ...item, eraCheck: 'age_skew', ageSkew55Plus: skew };
   });
-  return { items: checked, noAgeCheck: skews.every((skew) => skew === undefined) };
+  const asked = items.slice(0, AGE_CHECK_LIMIT).filter((item) => item.eraCheck !== 'dated').length;
+  return { items: checked, noAgeCheck: asked > 0 && skews.every((skew) => skew === undefined) };
 }
 
 /**
@@ -208,7 +249,8 @@ export async function firstRound(ctx: DomainContext, domain: Domain, query: List
     const page = await fetchPage(ctx, domain, `cultural map: ${DOMAIN_LABEL[domain]}`, query);
     if (page.unrecognised) state.status = 'unreadable';
     if (page.dropped.length > 0) state.dropped = page.dropped;
-    // The age check is spent on suggestions that may be shown, so a refused one does not use up a check.
+    if (page.setAside.length > 0) state.setAside = new Set(page.setAside);
+    // The age check is spent on suggestions that may be shown and have no year of their own, so a refused one does not use up a check.
     if (AGE_CHECKED.has(domain)) {
       const checked = await withAgeSkew(ctx, domain, page.items);
       state.items = checked.items;
@@ -230,14 +272,21 @@ export async function firstRound(ctx: DomainContext, domain: Domain, query: List
  *
  * `dropped` are the suggestions of the same call that `keep` turned away, with
  * `before` counted among `incoming`. Each is remembered once, at the place it
- * would have had, unless it is already in the list or was set aside before.
+ * would have had, unless it is already in the list or was turned away before.
+ * `setAside` are the IDs the same call returned whose own year did not fit the
+ * person's years; they are remembered by ID so that they can be counted.
  *
  * One detail of an entity already there can change: when it first came back
  * with a year outside the years asked for, and comes back again inside years
  * that have since been widened, it is now marked as bounded by the date filter.
  * `remarked` is how many were.
  */
-export function mergeItems(state: ListState, incoming: readonly MapItem[], dropped: readonly Dropped[] = []): { added: number; remarked: number } {
+export function mergeItems(
+  state: ListState,
+  incoming: readonly MapItem[],
+  dropped: readonly Dropped[] = [],
+  setAside: readonly string[] = [],
+): { added: number; remarked: number } {
   const have = new Map(state.items.map((item, index) => [item.entity.id, index]));
   // How many suggestions the list held once the first k of `incoming` had been merged.
   const heldAfter: number[] = [state.items.length];
@@ -258,11 +307,12 @@ export function mergeItems(state: ListState, incoming: readonly MapItem[], dropp
     }
     heldAfter.push(state.items.length);
   }
-  const setAside = new Set((state.dropped ?? []).map((entry) => entry.item.entity.id));
+  for (const id of setAside) (state.setAside ??= new Set()).add(id);
+  const turnedAway = new Set((state.dropped ?? []).map((entry) => entry.item.entity.id));
   for (const entry of dropped) {
     const id = entry.item.entity.id;
-    if (have.has(id) || setAside.has(id)) continue;
-    setAside.add(id);
+    if (have.has(id) || turnedAway.has(id)) continue;
+    turnedAway.add(id);
     (state.dropped ??= []).push({ item: entry.item, before: heldAfter[Math.min(entry.before, heldAfter.length - 1)] ?? state.items.length });
   }
   return { added, remarked };
@@ -283,7 +333,9 @@ export function shownItems(state: Pick<ListState, 'items'>, perDomain: number): 
  *
  * A suggestion `keep` turned away is not checked for age skew (that check is
  * spent on suggestions that may be shown), so for music and brands it ranks
- * with the unchecked ones.
+ * with the unchecked ones, unless it has a year of its own and so counts as
+ * `dated` whether or not it was turned away. A suggestion left out because its
+ * own year does not fit is not in `dropped` at all, and is not counted here.
  */
 export function leftOut(state: ListState, perDomain: number): MapItem[] {
   const shown = new Set(state.items.map((item) => item.entity.id));

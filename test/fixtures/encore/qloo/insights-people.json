@@ -3,7 +3,7 @@
   "success": true,
   "results": {
     "entities": [
-      { "entity_id": "EX-PERSON-401", "name": "Example Actor One", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1921-04-12" }, "query": { "affinity": 0.79 } },
+      { "entity_id": "EX-PERSON-401", "name": "Example Actor One", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1921-04-12", "short_descriptions": ["An invented film actor."] }, "query": { "affinity": 0.79 } },
       { "entity_id": "EX-PERSON-402", "name": "Example Singer Two", "subtype": "urn:entity:person", "properties": { "date_of_birth": "1934-11-02" }, "query": { "affinity": 0.58 } }
     ]
   }

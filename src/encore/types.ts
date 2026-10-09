@@ -32,7 +32,12 @@ export interface EntityRef {
   /** Short text that tells two same-named entities apart, e.g. "film, 1958". */
   disambiguation?: string;
   imageUrl?: string;
-  /** Release, publication or birth year when known. */
+  /**
+   * The year that fits the kind of thing: release year for a film or
+   * programme, publication year for a book, birth year for a person, the year
+   * they began performing for music, the year it was founded for a brand.
+   * Absent when Qloo gave none.
+   */
   year?: number;
 }
 
@@ -107,9 +112,13 @@ export interface Contribution {
  * - `filter`: a Qloo date filter bounded it (films, television, books, people);
  * - `age_skew`: no date filter exists for the type, so the 55-and-older
  *   affinity from demographic insights was checked instead;
- * - `unchecked`: neither was possible.
+ * - `dated`: music or a brand, which have no date filter, but whose answer
+ *   carries a year of its own (the year a musician or band began performing,
+ *   the year a brand was founded). Encore checked that year against the
+ *   person's years itself, and no demographic question was asked;
+ * - `unchecked`: none of these was possible.
  */
-export type EraCheck = 'filter' | 'age_skew' | 'unchecked';
+export type EraCheck = 'filter' | 'age_skew' | 'dated' | 'unchecked';
 
 export interface MapItem {
   entity: EntityRef;
@@ -122,13 +131,19 @@ export interface MapItem {
   /** Demographic affinity for the 55-and-older band; positive means it skews older. */
   ageSkew55Plus?: number;
   description?: string;
+  /**
+   * A short line for the card, from the short descriptions Qloo sends. Absent
+   * when it sent none. `description` stays as it was: the filters read it too.
+   */
+  summary?: string;
   tags: TagRef[];
 }
 
 /**
  * Why a map or programme carries a warning:
  * - `empty`: Qloo had nothing to suggest;
- * - `no_era_filter`: the list could not be tied to the person's years;
+ * - `no_era_filter`: music or brands that could not be tied to the person's years:
+ *   none had a year to check, and the check for what older people like gave no answer;
  * - `years_widened`: too little came back for the person's years, so the list
  *   was asked for again with five more years either side and shows those too;
  * - `qloo_error`: a Qloo call failed and its result is missing or replaced;

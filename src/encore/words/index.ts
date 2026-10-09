@@ -43,10 +43,39 @@ function namesOf(tags: readonly TagRef[], max: number): string[] {
   return uniqueCaseless(tags.map((tag) => cleanLine(tag.name)).filter((name) => name !== '')).slice(0, max);
 }
 
+/**
+ * What the model is told about spelling: American only for the United States.
+ * It is not told the country itself, only this one word.
+ */
+export type Spelling = 'British' | 'American';
+
+const isUnitedStates = (country: string | undefined): boolean => country?.trim().toUpperCase() === 'US';
+
+/** American for a person who grew up in the United States, British for anyone else and for no country. */
+export function spellingFor(country: string | undefined): Spelling {
+  return isUnitedStates(country) ? 'American' : 'British';
+}
+
+/** American only when every resident of a room grew up in the United States. */
+export function spellingForRoom(countries: ReadonlyArray<string | undefined>): Spelling {
+  return countries.length > 0 && countries.every(isUnitedStates) ? 'American' : 'British';
+}
+
+/**
+ * The key a year goes under. The year of a musician is when they began
+ * performing and the year of a brand is when it was founded, so the model is
+ * told that and cannot take either for the year of a release.
+ */
+function yearKey(item: MapItem): string {
+  if (item.domain === 'music') return 'performingFrom';
+  if (item.domain === 'brand') return 'founded';
+  return 'year';
+}
+
 /** The only facts about an item the model is shown. No IDs, scores, links or reasons. */
 function itemForModel(item: MapItem): Record<string, unknown> {
   const shown: Record<string, unknown> = { name: cleanLine(item.entity.name), domain: item.domain };
-  if (item.entity.year !== undefined) shown['year'] = item.entity.year;
+  if (item.entity.year !== undefined) shown[yearKey(item)] = item.entity.year;
   const description = cleanLine(item.description ?? '');
   if (description !== '') shown['description'] = capText(description, MAX_DESCRIPTION_CHARS);
   const tags = namesOf(item.tags ?? [], MAX_TAGS_PER_ITEM);
@@ -118,7 +147,7 @@ export function createWordsmith(llm: LlmProvider, options: WordsmithOptions = {}
 
       const reply = await ask(
         DRESS_SESSIONS_SYSTEM,
-        JSON.stringify({ nickname, tasteWords, avoid, sessions }),
+        JSON.stringify({ nickname, tasteWords, avoid, spelling: spellingFor(context.country), sessions }),
         dressSchema(drafts.length, allowedNames),
         dressTokens(drafts.length),
       );
@@ -136,7 +165,7 @@ export function createWordsmith(llm: LlmProvider, options: WordsmithOptions = {}
       return reply ?? fallbackNote();
     },
 
-    async describeSharedGround(tags, nicknames) {
+    async describeSharedGround(tags, nicknames, countries = []) {
       const tagNames = namesOf(tags, 12);
       if (tagNames.length === 0) return [];
 
@@ -146,7 +175,7 @@ export function createWordsmith(llm: LlmProvider, options: WordsmithOptions = {}
       );
       const reply = await ask(
         SHARED_GROUND_SYSTEM,
-        JSON.stringify({ residents, sharedTags: tagNames }),
+        JSON.stringify({ residents, sharedTags: tagNames, spelling: spellingForRoom(countries) }),
         sharedGroundSchema([...tagNames, ...residents]),
         250,
       );

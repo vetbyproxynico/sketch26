@@ -222,6 +222,7 @@ export function registerEncoreRoutes(app: Hono<{ Bindings: Env }>): void {
       sharedGround: await wordsmith.describeSharedGround(
         filterTags(profiles, tags),
         profiles.map((profile) => profile.nickname),
+        profiles.map((profile) => profile.country),
       ),
       warnings,
     };

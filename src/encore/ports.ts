@@ -75,13 +75,22 @@ export type SessionDraft = Omit<Session, 'theme' | 'opener' | 'prompts'>;
 export interface Wordsmith {
   /** Turns the carer's free text into structured input. */
   parseIntake(text: string): Promise<PersonInput>;
-  /** Names a theme, an opener and conversation prompts for each drafted session. */
+  /**
+   * Names a theme, an opener and conversation prompts for each drafted session.
+   * `country` is the person's ISO country code. The model is never shown it: it
+   * only decides the spelling (American for the United States, British otherwise).
+   */
   dressSessions(
     drafts: readonly SessionDraft[],
-    context: { nickname: string; tasteWords: readonly TagRef[]; avoidNotes: readonly string[] },
+    context: { nickname: string; tasteWords: readonly TagRef[]; avoidNotes: readonly string[]; country?: string },
   ): Promise<Array<Pick<Session, 'theme' | 'opener' | 'prompts'>>>;
   /** Reads a carer's note after a session and returns anything to avoid from now on. */
   readNote(note: string, items: readonly MapItem[]): Promise<{ avoidNotes: string[] }>;
-  /** Puts shared tags into one or two plain sentences for a coordinator. */
-  describeSharedGround(tags: readonly TagRef[], nicknames: readonly string[]): Promise<string[]>;
+  /**
+   * Puts shared tags into one or two plain sentences for a coordinator.
+   * `countries` are the residents' country codes, in any order (an entry is
+   * undefined for a resident with none). They only decide the spelling:
+   * American when every resident grew up in the United States, British otherwise.
+   */
+  describeSharedGround(tags: readonly TagRef[], nicknames: readonly string[], countries?: ReadonlyArray<string | undefined>): Promise<string[]>;
 }

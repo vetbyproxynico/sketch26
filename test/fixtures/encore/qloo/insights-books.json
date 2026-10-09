@@ -4,7 +4,7 @@
   "results": {
     "entities": [
       { "entity_id": "EX-BOOK-301", "name": "Example Novel One", "subtype": "urn:entity:book", "properties": { "publication_year": 1957, "description": "An invented novel." }, "query": { "affinity": 0.83 } },
-      { "entity_id": "EX-BOOK-302", "name": "Example Novel Two", "subtype": "urn:entity:book", "properties": { "publication_year": 1966 }, "query": { "affinity": 0.61 } }
+      { "entity_id": "EX-BOOK-302", "name": "Example Novel Two", "subtype": "urn:entity:book", "properties": { "publication_year": 1966, "short_description": "An invented story told in letters." }, "query": { "affinity": 0.61 } }
     ]
   }
 }

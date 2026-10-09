@@ -67,7 +67,17 @@ function typeLabel(entityType: string): string {
 export function disambiguate(ref: EntityRef): string {
   const kind = ref.domain !== undefined ? KIND[ref.domain] : typeLabel(ref.entityType);
   if (ref.year === undefined) return kind;
-  return ref.domain === 'person' ? `${kind}, born ${ref.year}` : `${kind}, ${ref.year}`;
+  // The year of a person is when they were born, of a musician when they began performing, of a brand when it was founded.
+  switch (ref.domain) {
+    case 'person':
+      return `${kind}, born ${ref.year}`;
+    case 'music':
+      return `${kind}, performing from ${ref.year}`;
+    case 'brand':
+      return `${kind}, founded ${ref.year}`;
+    default:
+      return `${kind}, ${ref.year}`;
+  }
 }
 
 function unresolved(query: string): ResolvedFavourite {

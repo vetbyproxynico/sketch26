@@ -4,7 +4,8 @@ import type { Domain, MapItem } from './types';
  * What a carer asked Encore to leave out, and what Gentle mode leaves out.
  *
  * Everything here is plain, deterministic text matching on what Encore can see
- * of a suggestion: its name, its description and its tags. There is no model
+ * of a suggestion: its name, its description, its short summary and its tags
+ * (the summary is read as part of the description). There is no model
  * and no scoring. Given the same notes and the same item, the answer is always
  * the same, and it always says which note (or which Gentle theme) caused it.
  *
@@ -162,7 +163,12 @@ function containsPhrase(haystack: readonly Word[], phrase: Phrase): boolean {
 interface Seen {
   domain: Domain;
   name: readonly Word[];
-  description: readonly Word[];
+  /**
+   * The description, then the summary when it says something else. Kept apart
+   * so that a phrase is never found across the end of one and the start of the
+   * other.
+   */
+  descriptions: ReadonlyArray<readonly Word[]>;
   /** One list of words for each tag, from its name and from the last part of its ID. */
   tags: ReadonlyArray<readonly Word[]>;
   /**
@@ -221,8 +227,9 @@ function seen(item: MapItem): Seen {
     if (fromId.length > 0) tags.push(fromId);
   }
   const name = wordsOf(item.entity.name);
-  const description = wordsOf(item.description);
-  const shown: Seen = { domain: item.domain, name, description, tags, forms: { name: formSet([name]), description: formSet([description]), tags: formSet(tags) } };
+  const descriptions = [wordsOf(item.description)];
+  if (item.summary !== undefined && item.summary !== item.description) descriptions.push(wordsOf(item.summary));
+  const shown: Seen = { domain: item.domain, name, descriptions, tags, forms: { name: formSet([name]), description: formSet(descriptions), tags: formSet(tags) } };
   SEEN.set(item, shown);
   return shown;
 }
@@ -515,7 +522,7 @@ function foundIn(clause: Clause, item: Seen): MatchField | undefined {
   const where: ReadonlyArray<[MatchField, ReadonlyArray<readonly Word[]>]> = [
     ['tag', item.tags],
     ['name', [item.name]],
-    ['description', [item.description]],
+    ['description', item.descriptions],
   ];
   if (clause.together) {
     return where.find(([field, lists]) => mayHold(item.forms[FORMS_OF[field]], clause.phrase) && lists.some((list) => containsPhrase(list, clause.phrase)))?.[0];
@@ -669,7 +676,7 @@ export function gentleMatch(item: MapItem): GentleMatch | undefined {
   const places: ReadonlyArray<[MatchField, (phrase: Phrase) => boolean, 'inTags' | 'inText']> = [
     ['tag', (phrase) => mayHold(shown.forms.tags, phrase) && shown.tags.some((list) => containsPhrase(list, phrase)), 'inTags'],
     ['name', (phrase) => mayHold(shown.forms.name, phrase) && containsPhrase(shown.name, phrase), 'inText'],
-    ['description', (phrase) => mayHold(shown.forms.description, phrase) && containsPhrase(shown.description, phrase), 'inText'],
+    ['description', (phrase) => mayHold(shown.forms.description, phrase) && shown.descriptions.some((words) => containsPhrase(words, phrase)), 'inText'],
   ];
   for (const [field, isThere, list] of places) {
     let best: GentleMatch | undefined;

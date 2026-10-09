@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. These entries top up the short television, book, people and brand fixtures, so that the default answers of the test helper describe a person every list is full enough for.",
+  "_comment": "Hand-written fixture with invented values. It mirrors a plausible response shape only and is not Qloo data. These entries top up the short television, book, people and brand fixtures, so that the default answers of the test helper describe a person every list is full enough for. Brand 4 has no year, brand 5 was founded long after the era window of a person born in 1940 or 1941, and brand 6 was founded inside it.",
   "tv": [
     { "entity_id": "EX-TV-203", "name": "Example Series Three", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1955 }, "query": { "affinity": 0.6 } },
     { "entity_id": "EX-TV-204", "name": "Example Series Four", "subtype": "urn:entity:tv_show", "properties": { "release_year": 1958 }, "query": { "affinity": 0.55 } },
@@ -20,7 +20,7 @@
   ],
   "brands": [
     { "entity_id": "BRAND-4", "name": "Example Tea", "subtype": "urn:entity:brand", "query": { "affinity": 0.45 } },
-    { "entity_id": "BRAND-5", "name": "Example Polish", "subtype": "urn:entity:brand", "query": { "affinity": 0.4 } },
-    { "entity_id": "BRAND-6", "name": "Example Bicycles", "subtype": "urn:entity:brand", "query": { "affinity": 0.35 } }
+    { "entity_id": "BRAND-5", "name": "Example Polish", "subtype": "urn:entity:brand", "properties": { "founded_year": 1999 }, "query": { "affinity": 0.4 } },
+    { "entity_id": "BRAND-6", "name": "Example Bicycles", "subtype": "urn:entity:brand", "properties": { "founded_year": 1964 }, "query": { "affinity": 0.35 } }
   ]
 }
