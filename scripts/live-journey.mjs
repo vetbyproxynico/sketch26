@@ -34,6 +34,7 @@ function fail(title, text) {
 async function post(path, payload) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const started = Date.now();
   try {
     const response = await fetch(`${base}${path}`, {
       method: 'POST',
@@ -41,13 +42,16 @@ async function post(path, payload) {
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    const raw = await response.text();
     let body = null;
     try {
-      body = await response.json();
+      body = JSON.parse(raw);
     } catch {
       body = null;
     }
-    return { status: response.status, body };
+    // When the answer is not Encore's own JSON it came from the host. Its error number is the host's, not Qloo's.
+    const host = body === null ? (/\b(1101|1102|1015|1027|1042)\b/.exec(raw)?.[1] ?? (/exceeded/i.test(raw) ? 'exceeded' : 'unknown')) : undefined;
+    return { status: response.status, body, host, ms: Date.now() - started };
   } catch (error) {
     return { status: 0, body: null, error: error?.name ?? 'error' };
   } finally {
@@ -72,7 +76,7 @@ function tally(values) {
  */
 function errorCode(result) {
   const code = result.body?.error?.code;
-  const safeCode = typeof code === 'string' && /^[a-z_]{1,40}$/.test(code) ? code : 'none';
+  const safeCode = typeof code === 'string' && /^[a-z_]{1,40}$/.test(code) ? code : result.host !== undefined ? `none; the host answered, error ${result.host}` : 'none';
   const message = result.body?.error?.message;
   if (safeCode === 'bad_request' && typeof message === 'string' && /^[A-Za-z0-9_.[\] ]{1,90} (must|is longer|has more|needs|is required)[A-Za-z0-9 ,.:-]{0,80}$/.test(message)) {
     return `${safeCode}: ${message}`;
@@ -130,7 +134,7 @@ async function journey(example) {
   const mostTags = Math.max(0, ...items.map((item) => (Array.isArray(item?.tags) ? item.tags.length : 0)));
   const longest = Math.max(0, ...items.map((item) => (typeof item?.description === 'string' ? item.description.length : 0)));
   const mapLine =
-    `lists: ${perList}; era check: ${tally(items.map((item) => item?.eraCheck)) || 'none'}; ` +
+    `map took ${mapped.ms} ms; lists: ${perList}; era check: ${tally(items.map((item) => item?.eraCheck)) || 'none'}; ` +
     `with a score ${withScore}, with reasons ${withReasons}, with a year ${withYear} of ${items.length}; most tags on one ${mostTags}, longest description ${longest}; ` +
     `taste words ${Array.isArray(map.tasteWords) ? map.tasteWords.length : 0}; ` +
     `warnings: ${tally((map.warnings ?? []).map((w) => w?.code)) || 'none'}; ` +
