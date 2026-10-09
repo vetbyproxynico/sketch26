@@ -5,7 +5,7 @@ import { mapWorkBlock } from '../components/map-work.js';
 import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
 import { announce, focusEl, h, scrollToEl } from '../dom.js';
 import { buildMap, noteNames } from '../flow.js';
-import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, SAMPLE_FILTER_NOTE, hasFilters, personSummary, plural } from '../format.js';
+import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, SAMPLE_FILTER_NOTE, eraLegend, hasFilters, personSummary, plural } from '../format.js';
 import { navigate } from '../router.js';
 import { getPerson } from '../store.js';
 
@@ -76,7 +76,7 @@ export function mapView(id) {
         h(
           'p',
           { class: 'lede' },
-          `Films, television, books and people here come from ${map.window.fromYear} to ${map.window.toYear}, when ${person.input.nickname} was about 10 to 30.`,
+          `Films, television, books and people here come from ${map.window.fromYear} to ${map.window.toYear}, when ${person.input.nickname} was about 10 to 30. Where the taste service gives a year, the singers, bands and brands were already around by ${map.window.toYear}.`,
         ),
       );
     }
@@ -95,6 +95,8 @@ export function mapView(id) {
     // Warnings that say suggestions were left out because of the avoid list or gentle mode.
     const filterWarnings = (map.warnings || []).filter((w) => w.code === 'avoided' || w.code === 'gentle');
     const emptiedByFilters = new Set(filterWarnings.flatMap((w) => (Array.isArray(w.emptied) ? w.emptied : [])));
+    // Music or brands that the taste service did suggest, all from outside the person's years.
+    const outsideYears = new Set((map.warnings || []).filter((w) => w.code === 'outside_years' && typeof w.domain === 'string').map((w) => w.domain));
 
     const notes = noteNames(person);
     const messages = (map.warnings || []).map((w) => w.message);
@@ -152,16 +154,7 @@ export function mapView(id) {
         h(
           'dl',
           null,
-          h('dt', null, 'From their years'),
-          h('dd', null, `The date of the film, programme or book was checked against the years ${person.input.nickname} was about 10 to 30. For a person, it was the year they were born, in the decades around ${person.input.nickname}'s own.`),
-          h('dt', null, 'From a little outside their years'),
-          h('dd', null, 'Too little came back for their own years, so Encore also looked a few years either side. The label names the years it first asked for.'),
-          h('dt', null, 'Popular with older people'),
-          h('dd', null, 'Music and brands have no date to check, so Encore looked at how popular they are with people over 55.'),
-          h('dt', null, 'Era not checked'),
-          h('dd', null, 'There was no way to check, so treat it as a maybe.'),
-          h('dt', null, 'Because they liked'),
-          h('dd', null, 'The favourites that led to this suggestion, with the bar showing how strong the link is.'),
+          eraLegend(person.input.nickname).flatMap(([term, meaning]) => [h('dt', null, term), h('dd', null, meaning)]),
         ),
       ),
     );
@@ -180,9 +173,11 @@ export function mapView(id) {
         warn.map((w) => h('p', { class: 'hint' }, w.message)),
         items.length
           ? h('ul', { class: 'entries' }, items.map((item) => h('li', null, entry(item, { headingLevel: 3, nickname: person.input.nickname, window: map.window }))))
-          : emptiedByFilters.has(domain)
-            ? emptyBlock('Nothing is left here after your filters', 'Everything Encore found in this group matched something you asked to avoid, or gentle mode. The other groups are not affected. To see more, change the things to avoid, or turn gentle mode off, on the details page.')
-            : emptyBlock(DOMAIN_EMPTY[domain], 'The taste service had nothing to suggest here. The other groups are not affected.'),
+          : outsideYears.has(domain)
+            ? emptyBlock('Nothing here fits their years', 'The taste service did suggest some, but every one began, or was founded, after the years above, or the singer or band had stopped before them. The other groups are not affected.')
+            : emptiedByFilters.has(domain)
+              ? emptyBlock('Nothing is left here after your filters', 'Everything Encore found in this group matched something you asked to avoid, or gentle mode. The other groups are not affected. To see more, change the things to avoid, or turn gentle mode off, on the details page.')
+              : emptyBlock(DOMAIN_EMPTY[domain], 'The taste service had nothing to suggest here. The other groups are not affected.'),
       );
       sections.push(section);
       jump.appendChild(

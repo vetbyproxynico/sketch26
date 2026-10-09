@@ -177,15 +177,23 @@ function sampleIntake(text) {
 
 // --------------------------------------------------------------- resolve
 
+/** What the year of a thing is called next to its kind: a singer or band has performed "from" a year, a brand was "founded". */
+function yearLine(domain, year) {
+  if (domain === 'music') return `${KIND[domain]}, from ${year}`;
+  if (domain === 'brand') return `${KIND[domain]}, founded ${year}`;
+  return `${KIND[domain]}, ${year}`;
+}
+
 function favouriteRef(index, domain, suffix) {
   const year = 1946 + ((index + 1) * 7) % 24;
+  const shown = year + (suffix ? 6 : 0);
   return {
     id: `sample:fav:${index}${suffix || ''}`,
     name: `Sample Favourite ${WORDS[index]}${suffix ? ` ${suffix.toUpperCase()}` : ''}`,
     entityType: ENTITY_TYPE[domain],
     domain,
-    disambiguation: `${KIND[domain]}, ${year + (suffix ? 6 : 0)}`,
-    ...(domain === 'brand' ? {} : { year: year + (suffix ? 6 : 0) }),
+    disambiguation: yearLine(domain, shown),
+    year: shown,
   };
 }
 
@@ -253,9 +261,13 @@ function sampleMap(profile) {
     const firstCount = dropsCountry || widensYears ? 1 : items.length;
     traceEntries.push(trace(`cultural map: ${HEADING[domain]}`, '/v2/insights', params, firstCount));
     if (domain === 'music' || domain === 'brand') {
-      traceEntries.push(
-        trace(`age check: ${HEADING[domain]}`, '/v2/insights', { 'filter.type': 'urn:demographics', 'signal.interests.entities': items.map((i) => i.entity.id).join(',') }, items.length),
-      );
+      // A singer, band or brand with a year of its own was checked by that year, with no question. Only the rest is asked about.
+      const asked = items.filter((i) => i.eraCheck !== 'dated');
+      if (asked.length > 0) {
+        traceEntries.push(
+          trace(`age check: ${HEADING[domain]}`, '/v2/insights', { 'filter.type': 'urn:demographics', 'signal.interests.entities': asked.map((i) => i.entity.id).join(',') }, asked.length),
+        );
+      }
     }
     if (dropsCountry) {
       const { 'filter.release_country': _country, ...anyCountry } = params;
@@ -301,16 +313,8 @@ function sampleMap(profile) {
   if (!birth) {
     warnings.push({ code: 'no_birth_year', message: 'No birth year was given, so the suggestions are not limited to a set of years.' });
   }
-  warnings.push({
-    domain: 'music',
-    code: 'no_era_filter',
-    message: 'Music cannot be limited to a range of years, so Encore checked how popular each one is with people over 55 instead.',
-  });
-  warnings.push({
-    domain: 'brand',
-    code: 'no_era_filter',
-    message: 'Brands cannot be limited to a range of years either, so the same check was used.',
-  });
+  // With a birth year, most music and brands carry a year of their own and are checked by it, so there is nothing to warn about.
+  // Without one, every singer, band and brand is asked about by age, and that check answers in this sample too.
 
   return {
     map: {
@@ -325,20 +329,27 @@ function sampleMap(profile) {
 }
 
 function sampleItem(domain, n, index, window, favourites) {
-  const dated = domain !== 'music' && domain !== 'brand';
+  const filtered = domain !== 'music' && domain !== 'brand';
+  // With a birth year, the singers, bands and brands that come with a year are checked by it (the year a singer or band
+  // began performing, the year a brand was founded) and cost no question. The last of each has no year, so it is
+  // asked about by age as before. Without a birth year there is nothing to check a year against.
+  const noYear = !filtered && Boolean(window) && index === (domain === 'music' ? 3 : 2);
   let year;
-  if (window && dated) {
+  if (window && filtered) {
     const span = window.toYear - window.fromYear;
     year = domain === 'person' ? window.fromYear - 22 - n * 2 : window.fromYear + ((n * 4 + index) % (span + 1));
   } else if (domain === 'music') {
-    year = 1925 + n * 3;
+    year = window ? window.fromYear - 22 + index * 6 : 1925 + n * 3;
+  } else if (domain === 'brand') {
+    year = window ? window.fromYear - 40 + index * 9 : 1900 + n * 11;
   }
+  if (noYear) year = undefined;
   const entity = {
     id: `sample:${domain}:${n}`,
     name: POOL_NAME[domain](n),
     entityType: ENTITY_TYPE[domain],
     domain,
-    ...(year ? { year, disambiguation: `${KIND[domain]}, ${year}` } : { disambiguation: KIND[domain] }),
+    ...(year ? { year, disambiguation: yearLine(domain, year) } : { disambiguation: KIND[domain] }),
   };
   const contributions = [];
   const count = Math.min(3, favourites.length);
@@ -348,14 +359,27 @@ function sampleItem(domain, n, index, window, favourites) {
   }
   let eraCheck = 'unchecked';
   let ageSkew55Plus;
-  if (window && dated) {
+  if (window && filtered) {
     eraCheck = 'filter';
+  } else if (window && !noYear) {
+    eraCheck = 'dated';
   } else if (domain === 'music') {
     eraCheck = 'age_skew';
     ageSkew55Plus = round2(0.6 - index * 0.15);
   } else if (domain === 'brand' && index < 2) {
     eraCheck = 'age_skew';
     ageSkew55Plus = round2(0.5 - index * 0.6);
+  }
+  const kind = KIND[domain].toLowerCase();
+  // All four ways a card can read: a summary with the long description behind it, the description alone, a summary alone, and neither.
+  const text = {};
+  if (index % 4 === 0) {
+    text.summary = `A short invented line about this ${kind}.`;
+    text.description = `An invented ${kind} that shows how this page looks. This longer text is the full description, which opens behind "More about it" when the card has a short summary above it. Nothing in it is real.`;
+  } else if (index % 4 === 1) {
+    text.description = `An invented ${kind} that shows how this page looks.`;
+  } else if (index % 4 === 2) {
+    text.summary = `A short invented line about this ${kind}.`;
   }
   return {
     entity,
@@ -364,7 +388,7 @@ function sampleItem(domain, n, index, window, favourites) {
     contributions,
     eraCheck,
     ...(ageSkew55Plus === undefined ? {} : { ageSkew55Plus }),
-    ...(index % 2 === 0 ? { description: `An invented ${KIND[domain].toLowerCase()} that shows how this page looks.` } : {}),
+    ...text,
     tags: [{ id: `sample:tag:${TASTE_WORDS[(n + index) % TASTE_WORDS.length].replace(/\s+/g, '-')}`, name: `Sample ${TASTE_WORDS[(n + index) % TASTE_WORDS.length]}`, type: 'genre' }],
   };
 }

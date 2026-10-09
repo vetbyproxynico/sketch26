@@ -5,7 +5,7 @@ import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components
 import { announce, focusEl, h, uid } from '../dom.js';
 import { EXAMPLES } from '../examples.js';
 import { FlowError, ensureMap, readRoomAnswer } from '../flow.js';
-import { percent, personSummary, plural } from '../format.js';
+import { percent, personSummary, plural, yearNote } from '../format.js';
 import { allPeople, createPerson, getPerson, savePerson } from '../store.js';
 
 const MIN_PEOPLE = 2;
@@ -266,7 +266,7 @@ export function roomView() {
               ? h(
                   'ul',
                   { class: 'flag-list' },
-                  p.companions.map((c) => h('li', null, `Something for ${names.get(c.profileId) || 'them'} to join in with: `, h('span', { class: 'flag-item' }, c.item.entity.name), c.item.entity.year ? ` (${c.item.entity.year})` : '')),
+                  p.companions.map((c) => h('li', null, `Something for ${names.get(c.profileId) || 'them'} to join in with: `, h('span', { class: 'flag-item' }, c.item.entity.name), yearNote(c.item.entity))),
                 )
               : h('p', { class: 'hint' }, 'No companion suggestion was found for them.'),
           )

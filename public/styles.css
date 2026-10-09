@@ -618,6 +618,7 @@ a:hover {
 }
 
 .stamp-kind,
+.stamp-lead,
 .stamp-none {
   font-family: var(--font-ui);
   font-size: 0.875rem;
@@ -863,6 +864,9 @@ a:hover {
     border-bottom: 4px dotted var(--panel);
   }
   .entry > .stamp .stamp-kind {
+    order: -2;
+  }
+  .entry > .stamp .stamp-lead {
     order: -1;
   }
   .entry-name {

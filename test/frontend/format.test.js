@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECIDED_BY, SAMPLE_FILTER_NOTE, eraInfo, hasFilters, mapWorkSentence } from '../../public/js/format.js';
+import { DECIDED_BY, SAMPLE_FILTER_NOTE, domainOf, entityLine, eraInfo, eraLegend, hasFilters, mapWorkSentence, yearMeaning, yearNote } from '../../public/js/format.js';
 
 /*
  * Wording the map and plan pages show. Every value below is invented for
@@ -69,12 +69,161 @@ describe('eraInfo: a person is checked by their birth year, not by the window', 
   });
 });
 
+describe('eraInfo: music and brands whose own year was checked', () => {
+  const music = (year, extra = {}) => ({ domain: 'music', eraCheck: 'dated', entity: { id: 'INV-M', name: 'Invented Band', year }, ...extra });
+  const brand = (year, extra = {}) => ({ domain: 'brand', eraCheck: 'dated', entity: { id: 'INV-B', name: 'Invented Biscuits', year }, ...extra });
+
+  it('says a singer or band was performing from that year, and ties it to the person\'s years', () => {
+    expect(eraInfo(music(1958), WINDOW)).toEqual({
+      tone: 'filter',
+      label: 'Around in their years',
+      text: 'Performing from 1958, in time for 1951 to 1971, when this person was about 10 to 30.',
+    });
+  });
+
+  it('says a brand was founded in that year, and ties it to the person\'s years', () => {
+    expect(eraInfo(brand(1925), WINDOW)).toEqual({
+      tone: 'filter',
+      label: 'Around in their years',
+      text: 'Founded in 1925, in time for 1951 to 1971, when this person was about 10 to 30.',
+    });
+  });
+
+  it('works for the first year and the last year of the years', () => {
+    expect(eraInfo(music(1971), WINDOW).text).toBe('Performing from 1971, in time for 1951 to 1971, when this person was about 10 to 30.');
+    expect(eraInfo(brand(1971), WINDOW).text).toBe('Founded in 1971, in time for 1951 to 1971, when this person was about 10 to 30.');
+  });
+
+  it('uses the window the map reports, and reads years sent as text', () => {
+    expect(eraInfo(music('1930'), { fromYear: '1925', toYear: '1945' }).text).toBe('Performing from 1930, in time for 1925 to 1945, when this person was about 10 to 30.');
+  });
+
+  it('does not name years when the map reports none, and still says what the year is', () => {
+    for (const window of [undefined, null, {}, { fromYear: 'x', toYear: 'y' }]) {
+      expect(eraInfo(music(1958), window).text).toBe('Performing from 1958, in time for the years this person was about 10 to 30.');
+      expect(eraInfo(brand(1925), window).text).toBe('Founded in 1925, in time for the years this person was about 10 to 30.');
+    }
+  });
+
+  it('reads the kind from the entity when the item does not carry it', () => {
+    const item = { eraCheck: 'dated', entity: { id: 'INV-B', name: 'Invented Biscuits', entityType: 'urn:entity:brand', year: 1925 } };
+    expect(eraInfo(item, WINDOW).text).toBe('Founded in 1925, in time for 1951 to 1971, when this person was about 10 to 30.');
+  });
+
+  it('says nothing false when the year is missing, which a dated item should never be', () => {
+    const info = eraInfo({ domain: 'music', eraCheck: 'dated', entity: { id: 'INV-M', name: 'Invented Band' } }, WINDOW);
+    expect(info.label).toBe('Around in their years');
+    expect(info.text).toBe('Its year was checked against the years this person was about 10 to 30.');
+  });
+
+  it('never says "10 to 30" of a year it has not got, or "outside their years"', () => {
+    for (const info of [eraInfo(music(1958), WINDOW), eraInfo(brand(1925), WINDOW)]) {
+      expect(info.label).not.toContain('outside');
+      expect(info.text).not.toContain('Picked');
+    }
+  });
+});
+
+describe('what the year of an entity means', () => {
+  it('is "from" for a singer or band, "founded" for a brand, "born" for a person, and the plain year for the rest', () => {
+    expect(yearMeaning('music').phrase(1958)).toBe('from 1958');
+    expect(yearMeaning('brand').phrase(1925)).toBe('founded 1925');
+    expect(yearMeaning('person').phrase(1921)).toBe('born 1921');
+    for (const domain of ['film', 'tv', 'book', undefined]) expect(yearMeaning(domain).phrase(1960)).toBe('1960');
+  });
+
+  it('has a word for the stamp for music and brands only, and the words a screen reader is told for each kind', () => {
+    expect(yearMeaning('music')).toMatchObject({ lead: 'from', hidden: 'Performing from: ' });
+    expect(yearMeaning('brand')).toMatchObject({ lead: 'founded', hidden: 'Founded: ' });
+    expect(yearMeaning('person')).toMatchObject({ lead: null, hidden: 'Born: ' });
+    expect(yearMeaning('film')).toMatchObject({ lead: null, hidden: 'Year: ' });
+  });
+
+  it('finds the kind of an entity from its domain, else its type', () => {
+    expect(domainOf({ domain: 'brand' })).toBe('brand');
+    expect(domainOf({ entityType: 'urn:entity:artist' })).toBe('music');
+    expect(domainOf({ domain: 'nonsense', entityType: 'urn:entity:book' })).toBe('book');
+    expect(domainOf({ entityType: 'urn:entity:place' })).toBeNull();
+    expect(domainOf(null)).toBeNull();
+  });
+});
+
+describe('entityLine and yearNote: the year in a line of text', () => {
+  it('says "from" for a singer or band and "founded" for a brand, and leaves the other kinds as they were', () => {
+    expect(entityLine({ domain: 'music', year: 1958 })).toBe('Singer or band, from 1958');
+    expect(entityLine({ domain: 'brand', year: 1925 })).toBe('Brand, founded 1925');
+    expect(entityLine({ domain: 'film', year: 1958 })).toBe('Film, 1958');
+    expect(entityLine({ domain: 'person', year: 1921 })).toBe('Person, 1921');
+    expect(entityLine({ entityType: 'urn:entity:artist', year: 1958 })).toBe('Singer or band, from 1958');
+  });
+
+  it('is only the kind when the year is not known', () => {
+    expect(entityLine({ domain: 'music' })).toBe('Singer or band');
+    expect(entityLine({ domain: 'brand', year: 0 })).toBe('Brand');
+  });
+
+  it('puts the same words in brackets for a line of text, and nothing when there is no year', () => {
+    expect(yearNote({ domain: 'music', year: 1958 })).toBe(' (from 1958)');
+    expect(yearNote({ domain: 'brand', year: 1925 })).toBe(' (founded 1925)');
+    expect(yearNote({ domain: 'film', year: 1958 })).toBe(' (1958)');
+    expect(yearNote({ domain: 'music' })).toBe('');
+    expect(yearNote(undefined)).toBe('');
+  });
+});
+
+describe('eraLegend: the words under "What do the labels under each name mean?"', () => {
+  const legend = eraLegend('Odette');
+  const meaning = (label) => legend.find(([term]) => term === label)?.[1];
+
+  it('has every label a card can carry, and the year on the stamp', () => {
+    expect(legend.map(([term]) => term)).toEqual([
+      'From their years',
+      'From a little outside their years',
+      'Around in their years',
+      'Popular with older people',
+      'Era not checked',
+      'Because they liked',
+      'The year on the left',
+    ]);
+  });
+
+  it('explains the label of a dated card in the person\'s name, for a singer or band and for a brand', () => {
+    expect(meaning('Around in their years')).toBe(
+      'Music and brands cannot be limited by date, so Encore checked the year the taste service gives for each one. A singer or band had begun performing by the time Odette was about 30, and had not stopped before Odette was about 10. A brand had been founded by the time Odette was about 30.',
+    );
+  });
+
+  it('explains the year on the stamp for every kind, with "from" and "founded" in the words the stamp uses', () => {
+    const stamp = meaning('The year on the left');
+    expect(stamp).toContain('For music, the year the singer or band began performing, shown as "from".');
+    expect(stamp).toContain('For a brand, the year it was founded.');
+    expect(stamp).toContain('For a person, the year they were born.');
+  });
+
+  it('no longer says music and brands have no date to check', () => {
+    const all = legend.map(([, text]) => text).join(' ');
+    expect(all).not.toContain('no date to check');
+    expect(meaning('Popular with older people')).toBe('Encore could not check this singer, band or brand against their years, so it looked at how popular it is with people over 55.');
+  });
+
+  it('uses plain words and no dashes', () => {
+    for (const [term, text] of legend) {
+      expect(`${term} ${text}`).not.toMatch(/[\u2013\u2014]/);
+    }
+  });
+
+  it('still reads when there is no name', () => {
+    expect(eraLegend('')[0][1]).toContain('the years this person was about 10 to 30');
+    expect(eraLegend(undefined)[2][1]).toContain('by the time this person was about 30');
+  });
+});
+
 describe('eraInfo: the other checks are as they were', () => {
   it('says what an age check found: older, and not especially older', () => {
     expect(eraInfo({ eraCheck: 'age_skew', ageSkew55Plus: 0.3 }, WINDOW)).toEqual({
       tone: 'skew',
       label: 'Popular with older people',
-      text: 'This has no date to check, so we looked at who likes it: people over 55 like it more than most.',
+      text: 'There was no way to check this against their years, so we looked at who likes it: people over 55 like it more than most.',
     });
     expect(eraInfo({ eraCheck: 'age_skew', ageSkew55Plus: -0.1 }, WINDOW).label).toBe('Not especially older');
     expect(eraInfo({ eraCheck: 'age_skew' }, WINDOW).label).toBe('Popular with older people');

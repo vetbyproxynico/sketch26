@@ -59,9 +59,52 @@ export function kindLabel(entity) {
   return 'Something else';
 }
 
+/** The kind of thing an entity is, as one of the six lists, or null when it is none of them. */
+export function domainOf(entity) {
+  if (!entity) return null;
+  if (entity.domain && DOMAIN_KIND[entity.domain]) return entity.domain;
+  const found = Object.entries(TYPE_DOMAIN).find(([type]) => type === entity.entityType);
+  return found ? found[1] : null;
+}
+
+const TYPE_DOMAIN = {
+  'urn:entity:artist': 'music',
+  'urn:entity:movie': 'film',
+  'urn:entity:tv_show': 'tv',
+  'urn:entity:book': 'book',
+  'urn:entity:person': 'person',
+  'urn:entity:brand': 'brand',
+};
+
+/**
+ * What the year of an entity means, which depends on the kind: the year a
+ * singer or band began performing, the year a brand was founded. `lead` is the
+ * short word that goes before the year on a stamp, `phrase` the same in a line
+ * of text, `hidden` what a screen reader is told. For the other kinds the year
+ * is when it came out, or (for a person) was born, and the stamp says so
+ * without a lead word.
+ */
+export function yearMeaning(domain) {
+  if (domain === 'music') return { lead: 'from', phrase: (year) => `from ${year}`, hidden: 'Performing from: ' };
+  if (domain === 'brand') return { lead: 'founded', phrase: (year) => `founded ${year}`, hidden: 'Founded: ' };
+  if (domain === 'person') return { lead: null, phrase: (year) => `born ${year}`, hidden: 'Born: ' };
+  return { lead: null, phrase: (year) => String(year), hidden: 'Year: ' };
+}
+
+/** "Film, 1958", "Singer or band, from 1958", "Brand, founded 1925". Just the kind when the year is not known. */
 export function entityLine(entity) {
   const kind = kindLabel(entity);
-  return entity.year ? `${kind}, ${entity.year}` : kind;
+  if (!entity.year) return kind;
+  const domain = domainOf(entity);
+  // A person's year has always been shown as the plain year here; only music and brands say what theirs is.
+  return domain === 'music' || domain === 'brand' ? `${kind}, ${yearMeaning(domain).phrase(entity.year)}` : `${kind}, ${entity.year}`;
+}
+
+/** The year of an entity in brackets for a line of text, or an empty string: " (1958)", " (from 1958)", " (founded 1925)". */
+export function yearNote(entity) {
+  if (!entity || !entity.year) return '';
+  const domain = domainOf(entity);
+  return ` (${domain === 'music' || domain === 'brand' ? yearMeaning(domain).phrase(entity.year) : entity.year})`;
 }
 
 export const COUNTRIES = [
@@ -121,8 +164,14 @@ export function plural(count, one, many) {
  * and not that it is from when they were about 10 to 30. People are checked by
  * the year they were born, in the decades around the person's own, which is not
  * the same window, so the window is not used for them.
+ *
+ * Music and brands have no date filter. When the answer gave a year (the year a
+ * singer or band began performing, the year a brand was founded) Encore checked
+ * it against the window itself, and the item is `dated`; its badge says what the
+ * year is and ties it to the person's years.
  */
 export function eraInfo(item, window) {
+  if (item.eraCheck === 'dated') return datedInfo(item, window);
   if (item.eraCheck === 'filter') {
     const domain = item.domain || (item.entity && item.entity.domain);
     if (domain === 'person') {
@@ -149,12 +198,12 @@ export function eraInfo(item, window) {
       ? {
           tone: 'skew',
           label: 'Popular with older people',
-          text: 'This has no date to check, so we looked at who likes it: people over 55 like it more than most.',
+          text: 'There was no way to check this against their years, so we looked at who likes it: people over 55 like it more than most.',
         }
       : {
           tone: 'unchecked',
           label: 'Not especially older',
-          text: 'This has no date to check. People over 55 like it no more than most, so treat it as a maybe.',
+          text: 'There was no way to check this against their years. People over 55 like it no more than most, so treat it as a maybe.',
         };
   }
   return {
@@ -162,6 +211,51 @@ export function eraInfo(item, window) {
     label: 'Era not checked',
     text: 'There was no way to check this against their years, so treat it as a maybe.',
   };
+}
+
+/**
+ * The words under "What do the labels under each name mean?" on the map page:
+ * each label an item can carry, and the year on the stamp, in plain words. A
+ * list of [label, meaning] pairs. `nickname` is the person the map is for.
+ */
+export function eraLegend(nickname) {
+  const name = nickname || 'this person';
+  return [
+    [
+      'From their years',
+      `The date of the film, programme or book was checked against the years ${name} was about 10 to 30. For a person, it was the year they were born, in the decades around ${name}'s own.`,
+    ],
+    ['From a little outside their years', 'Too little came back for their own years, so Encore also looked a few years either side. The label names the years it first asked for.'],
+    [
+      'Around in their years',
+      `Music and brands cannot be limited by date, so Encore checked the year the taste service gives for each one. A singer or band had begun performing by the time ${name} was about 30, and had not stopped before ${name} was about 10. A brand had been founded by the time ${name} was about 30.`,
+    ],
+    ['Popular with older people', 'Encore could not check this singer, band or brand against their years, so it looked at how popular it is with people over 55.'],
+    ['Era not checked', 'There was no way to check, so treat it as a maybe.'],
+    ['Because they liked', 'The favourites that led to this suggestion, with the bar showing how strong the link is.'],
+    [
+      'The year on the left',
+      'For a film, programme or book, the year it came out. For a person, the year they were born. For music, the year the singer or band began performing, shown as "from". For a brand, the year it was founded.',
+    ],
+  ];
+}
+
+/** The badge of a singer, band or brand whose own year was checked against the person's years. */
+function datedInfo(item, window) {
+  const domain = item.domain || domainOf(item.entity);
+  const brand = domain === 'brand';
+  const label = 'Around in their years';
+  const year = item.entity ? Number(item.entity.year) : NaN;
+  const from = window ? Number(window.fromYear) : NaN;
+  const to = window ? Number(window.toYear) : NaN;
+  const what = Number.isFinite(year) ? (brand ? `Founded in ${year}` : `Performing from ${year}`) : null;
+  if (what === null) {
+    return { tone: 'filter', label, text: 'Its year was checked against the years this person was about 10 to 30.' };
+  }
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return { tone: 'filter', label, text: `${what}, in time for the years this person was about 10 to 30.` };
+  }
+  return { tone: 'filter', label, text: `${what}, in time for ${from} to ${to}, when this person was about 10 to 30.` };
 }
 
 // ------------------------------------------------------- how a map was built

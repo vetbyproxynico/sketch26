@@ -2,14 +2,31 @@
 // why it is here, and the favourites that led to it.
 
 import { h, srOnly } from '../dom.js';
-import { DOMAIN_SHORT, eraInfo, percent, shortDescription } from '../format.js';
+import { DOMAIN_SHORT, eraInfo, percent, shortDescription, yearMeaning } from '../format.js';
 import { bar } from './meter.js';
 
+/** Text compared without regard to spacing, so a summary that repeats the description is not shown twice. */
+const squash = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
 /**
- * A description as it comes from the taste service can run to several
- * sentences. The card shows its opening; the rest opens in place.
+ * What a card says about the thing. When the taste service gave a short summary,
+ * the card shows that, and the long description (if there is one that says
+ * something else) opens behind "More about it". Without a summary a description
+ * as it comes from the taste service can run to several sentences: the card
+ * shows its opening and the rest opens in place.
  */
-function describe(description, name) {
+function describe(item, name) {
+  const summary = typeof item.summary === 'string' ? squash(item.summary) : '';
+  const description = typeof item.description === 'string' ? item.description : '';
+  if (summary !== '') {
+    if (squash(description) === '' || squash(description) === summary) return h('p', { class: 'entry-desc' }, summary);
+    return h(
+      'div',
+      { class: 'entry-desc' },
+      h('p', { class: 'entry-desc-short' }, summary),
+      h('details', { class: 'entry-more' }, h('summary', null, 'More about it', srOnly(`: ${name}`)), h('p', null, description)),
+    );
+  }
   if (!description) return null;
   const short = shortDescription(description);
   if (short === null) return h('p', { class: 'entry-desc' }, description);
@@ -23,7 +40,9 @@ function describe(description, name) {
 
 export function stamp(entity, domain, showKind) {
   const known = Boolean(entity.year);
-  // For a person the year is when they were born, so say so.
+  // The year means something different for each kind. For a person it is when they were born, for a singer or band
+  // when they began performing ("from"), for a brand when it was founded; the stamp says so.
+  const meaning = yearMeaning(domain);
   const born = domain === 'person' && known;
   let kindText = null;
   if (showKind) kindText = born ? 'Person, born' : DOMAIN_SHORT[domain] || 'Other';
@@ -31,7 +50,9 @@ export function stamp(entity, domain, showKind) {
   return h(
     'p',
     { class: `stamp stamp--${domain}${known ? '' : ' stamp--undated'}` },
-    known ? srOnly(born ? 'Born: ' : 'Year: ') : null,
+    known ? srOnly(meaning.hidden) : null,
+    // The word before the year is for the eye only: the hidden text above already says it to a screen reader.
+    known && meaning.lead ? h('span', { class: 'stamp-lead', 'aria-hidden': 'true' }, meaning.lead) : null,
     known ? h('span', { class: 'stamp-year' }, String(entity.year)) : h('span', { class: 'stamp-none' }, 'Year not known'),
     kindText ? h('span', { class: 'stamp-kind' }, kindText) : null,
   );
@@ -84,7 +105,7 @@ export function entry(item, options) {
     h(
       'div',
       { class: 'entry-body' },
-      describe(item.description, entity.name),
+      describe(item, entity.name),
       o.reason ? h('p', { class: 'entry-reason' }, o.reason) : null,
       era ? h('p', { class: `era era--${era.tone}` }, h('strong', { class: 'era-label' }, era.label), h('span', { class: 'era-text' }, era.text)) : null,
       typeof item.affinity === 'number' && o.showFit !== false ? h('p', { class: 'entry-fit' }, `How well it fits: ${percent(item.affinity)}%`) : null,
