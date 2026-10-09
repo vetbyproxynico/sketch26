@@ -90,7 +90,9 @@ count, then:
 - *shape of the answer*: the tree of field names and types, with array
   lengths. `[n/m]` after a field means it is present in only n of m objects.
   A shape that has the same fields and types as one already printed is not
-  printed again.
+  printed again. A `*` in a path stands for each value of an object, whatever
+  its key; it is how the probe reads an object whose key is not a field name,
+  such as the explainability object, without ever printing the key.
 - *adapter reads*: one line per assumption in `adapter.ts`.
 
 Words used on the adapter lines:
@@ -209,11 +211,14 @@ only), and run the probe again.
 | `name` | `refOf`: `name` | Use the real field. Entities without a name are dropped. |
 | `entity type` | `typeOf`: `subtype`, else `type`, else the first of `types` | Required for `/search`, because there is no `filter.type` to fall back on. Optional for insights, where the call's own `filter.type` is used. |
 | `image url` | `refOf`: `properties.image.url` | Use the real path. Without it the app shows no pictures. |
-| `year` | `refOf`: `properties.release_year`, `publication_year`, `date_of_birth` | The probe checks the field that belongs to each type (films and television: release year; books: publication year; people: date of birth). Fix the one that failed. Without it the disambiguation text has no year. |
+| `year` | `refOf`: the field that fits the kind: `properties.release_year` (films, television), `publication_year` (books), `date_of_birth` (people), `start_year` (music), `founded_year` else `inception` (brands) | The probe checks the field that belongs to each type, and for a `/search` answer, which mixes types, any of them. Fix the one that failed. Without it the card shows "Year not known", and a musician or brand cannot be judged by its year. A musician never takes a date of birth for a year. |
+| `end year` | `entityOf`: `properties.end_year`, music only | Optional. Without it a band that has stopped is judged by its start year alone. |
 | `description` | `entityOf`: `properties.short_description`, else `properties.description` | Use the real path. |
+| `summary` | `summaryOf`: the first non-empty string in `properties.short_descriptions`, else `properties.short_description` | Optional. Without it the card shows the description as it did before. `[]` in the path means each string in the list. |
 | `entity tag list`, `entity tag id`, `entity tag name`, `entity tag type` | `tagsOf` and `tagOf`: `tags[]` with `id` or `tag_id`, `name`, `type` | Use the real names. Without them items carry no tags. |
 | `affinity` | `entityOf`: `query.affinity`, else `affinity` | Use the real path. Without it nothing is scored. In `score candidates` it is `[required]`, because scoring returns only affinities. The probe checks the type but not the scale; see below. |
-| `explainability rows` | `contributionRows`: an array at `query.explainability`, or `entities` or `signals` inside it | Add the real location. Without it the "why this" explanation is empty. |
+| `explainability` | `contributionRows`: `query.explainability`, an array or an object | Present on each result when `feature.explainability=true` is sent. |
+| `explainability rows` | `contributionRows`: an array at `query.explainability`, or `entities` or `signals` inside it, or every array among the values of the object (`query.explainability.*`: the live API keys the object by the name of the signal parameter, `signal.interests.entities`) | Add the real location. Without it the "why this" explanation is empty. |
 | `explainability entity id`, `explainability name`, `explainability score` | `contributionsOf` | Use the real names. The name is optional, because the adapter falls back to the name of the signal entity. |
 | `tag list`, `tag id`, `tag name`, `tag type` | `readTags` and `tagListOf`: `results.tags`, else `tags`; `id` or `tag_id`, `name`, `type` | Used for the taste words and the shared ground between people; both are empty until this is right. |
 | `age bands object` | `readAgeBands`: the containers it tries, in order, with `query.age` before `age` | Add the real container. The probe tries the 14 places the adapter looks, in the adapter's order, and the `age bands object` line shows which one held. |

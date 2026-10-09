@@ -33,8 +33,14 @@ Notes:
   fails for every resident does the route answer an error, and a refused or
   missing Qloo key is always an error.
 - Warnings on a map (`map.warnings`) and on a programme (`programme.warnings`)
-  have a `code` of `empty`, `no_era_filter`, `years_widened`, `qloo_error`,
-  `unverified_shape`, `no_birth_year`, `country_relaxed`, `avoided` or `gentle`.
+  have a `code` of `empty`, `no_era_filter`, `outside_years`, `years_widened`,
+  `qloo_error`, `unverified_shape`, `no_birth_year`, `country_relaxed`, `avoided`
+  or `gentle`. `no_era_filter` is given for music or brands that could not be tied
+  to the person's years at all: none had a year of its own to check, and the check
+  for what older people like gave no answer. `outside_years` means Qloo did
+  suggest music or brands, but every one began (or was founded) after the person's
+  years, or the musician had stopped before them, so the list is empty; the
+  message says so and does not say that Qloo had nothing.
   `country_relaxed` means Qloo had nothing for the person's country, so that
   domain was asked for again without the country and shows items from anywhere;
   the `domain` field says which, and the message says so in words ("No French
@@ -50,6 +56,60 @@ Notes:
   sample data, when it meets the 503.
 - Limits: at most 12 favourites per person, 200 characters per name, 2,000
   characters of intake text.
+
+## Years of music and brands, and the summary
+
+These are additions to the shapes above. No field of a response is renamed or
+removed, and a client that ignores them reads everything as before.
+
+**`EntityRef.year`** is the year that fits the kind of thing, read by the server
+from the field Qloo holds it in: the release year of a film or programme, the
+publication year of a book, the year a person was born, the year a musician or
+band began performing (`start_year`, never a date of birth), the year a brand was
+founded (`founded_year`, else the year at the front of `inception`). Music and
+brands used to carry none. Absent when Qloo gave none.
+
+**`MapItem.eraCheck`** has a fourth value, `dated`. The values are now `filter`
+(a Qloo date filter bounded it: films, television, books, people), `dated` (music
+or a brand, whose own year was checked against the person's years by Encore),
+`age_skew` (no year, so the 55-and-older affinity was checked) and `unchecked`.
+
+The rule for `dated`, for a person with a birth year, whose window (`map.window`)
+is the years they were about 10 to 30:
+
+- a brand is in their world when it was founded no later than the last year of the
+  window (`toYear`);
+- a musician or band is in their world when they began performing no later than
+  `toYear` and, where Qloo gives the year they stopped, had not stopped before the
+  first year of the window (`fromYear`).
+
+Both ends are inclusive. One that has a year and fails is left out while the map is
+built, before the list is cut to eight and before it is judged short, as the avoid
+list is, so the list is filled again from further down Qloo's answer or asked for
+again like any short list. It is not shown, not counted as left out by a filter,
+and not named in any warning or trace entry. A suggestion with no year keeps the
+older check: one `urn:demographics` question, and `age_skew` or `unchecked`. A
+person with no birth year has no window, so nothing is judged this way and every
+suggestion keeps the older check. A suggestion that has a year costs no
+`urn:demographics` question, which cuts a map by up to twelve Qloo calls.
+
+In the trace, the decision about a music or brand list that came back short says
+how many suggestions were left out for their year ("Only 2 music suggestions. 6
+more were left out because they began after 1971 or had stopped before 1951.").
+That count is also given to the language model that advises the builder, as
+`setAside`, without any name.
+
+**`MapItem.summary`** is optional text, at most 300 characters (the request
+validator refuses a longer one; the server cuts it to fit before it is sent): the
+first non-empty string in Qloo's `short_descriptions`, else its `short_description`.
+It is left out when Qloo gave neither. `MapItem.description` is unchanged and is
+what it was: the avoid list and Gentle mode read it, and now read the summary as
+well, as part of the description. The page shows the summary on the card with the
+long description behind "More about it", and shows the description as before when
+there is no summary.
+
+**Request bodies.** `/api/plan`, `/api/feedback` and `/api/room` accept
+`eraCheck: "dated"` and a `summary` on any item of a map or plan they are given.
 
 ## Filters: the avoid list and gentle mode
 
@@ -74,7 +134,7 @@ death and funerals, illness and hospitals, violence and crime, horror,
 religion, politics, alcohol, animals being hurt, westerns, science fiction,
 musicals) also brings in that theme's related words, so "the war" also
 leaves out "wartime", "soldiers" and "battle". "war" does not match "Warwick" or
-"award". A note is matched against an item's name, description and tags.
+"award". A note is matched against an item's name, description, summary and tags.
 
 Gentle mode leaves out items whose tags name one of eight upsetting themes (war
 and combat, graphic violence, horror, murder and true crime, abuse, disaster,
@@ -114,7 +174,7 @@ and `emptied` have the shapes above. A decision in the trace may now say that a
 list was short, where before the filters it would not have, because the list
 is judged after what the person must not see has gone.
 
-Both filters use only the name, description and tags in the map. They cannot
+Both filters use only the name, description, summary and tags in the map. They cannot
 know what an item is about beyond those words. Qloo is not asked to do any of
 this: the only exclusions sent to Qloo are the entity and tag IDs already on the
 profile (items marked "Not today").

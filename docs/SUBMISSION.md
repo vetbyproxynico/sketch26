@@ -74,7 +74,11 @@ sessions, and into one programme for a whole common room.
 3. **Cultural map.** Qloo suggests films, television, music, books, people and
    brands. Films, television, books and people are limited to the years the
    person was about 10 to 30. Music and brands have no date filter, so Encore
-   checks how much people over 55 like them. Each suggestion says which
+   reads the year in each answer (when a singer or band began performing, when a
+   brand was founded) and leaves out what began after those years, or a band
+   that had stopped before them. If there is no year, it checks how much people
+   over 55 like it. Each card shows a short line about the suggestion when Qloo
+   gave one. Each suggestion says which
    favourites led to it and how strongly. A box called "How Encore built this
    map" says how many questions Encore asked Qloo and how often it changed
    course, then lists each decision in plain words, marked as made by fixed rules
@@ -178,13 +182,17 @@ inside their country. People are limited by birth date to the stars of that
 time. If a list is thin, Encore decides whether to drop the country or widen
 the years by five either side, and tells the carer what it relaxed. Without these filters the map would drift to recent titles.
 
-**Older-audience signal and age check (`signal.demographics.age=55_and_older`,
-and `filter.type=urn:demographics`).** The age band is sent with every map
-call, to lean results toward what older people like. Music and brands have no
-date filter in Qloo's documentation, so the top six in each group get a
-`urn:demographics` call, and those that skew older come first and carry the label
-"Popular with older people". Without the check, music and brands would have no
-era test at all and would be marked "Era not checked".
+**Older-audience signal, the year of music and brands, and the age check
+(`signal.demographics.age=55_and_older`, and `filter.type=urn:demographics`).**
+The age band is sent with every map call, to lean results toward what older
+people like. Music and brands have no date filter in Qloo's documentation, but
+their answers carry a year (`start_year` and `end_year` for a singer or band,
+`founded_year` or `inception` for a brand). Encore judges each by that year in
+its own code, with no extra question, and leaves out one that began or was
+founded after the years the person was about 10 to 30, or had stopped before
+them. Only those with no year are checked with a `urn:demographics` call (the top
+six in each group); those that skew older come first and carry the label "Popular
+with older people". Without either check they would be marked "Era not checked".
 
 [AFTER LIVE TEST: whether `urn:demographics` returned a `55_and_older` value for older entities, as counts of entities with and without one. Counts only, no response data.]
 
