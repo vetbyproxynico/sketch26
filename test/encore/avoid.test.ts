@@ -23,6 +23,7 @@ interface Shape {
   domain?: Domain;
   tags?: string[];
   description?: string;
+  summary?: string;
 }
 
 /** An invented item. Each tag gets an ID made from its name, as `urn:tag:test:<name>`. */
@@ -35,6 +36,7 @@ function thing(name: string, shape: Shape = {}): MapItem {
     tags: (shape.tags ?? []).map((tag) => ({ id: `urn:tag:test:${tag.toLowerCase().replace(/\s+/g, '_')}`, name: tag })),
   };
   if (shape.description !== undefined) built.description = shape.description;
+  if (shape.summary !== undefined) built.summary = shape.summary;
   return built;
 }
 
@@ -252,6 +254,41 @@ describe('whole words and simple variants', () => {
     const item: MapItem = { ...thing('X'), affinity: 0.9, entity: { id: 'x', name: 'X', entityType: 'urn:entity:movie', year: 1945 } };
     expect(avoided(['1945'], item)).toBeUndefined();
     expect(avoided(['film'], item)).toBeUndefined();
+  });
+});
+
+describe('the summary is read as part of the description', () => {
+  it('finds a word the carer asked to avoid in the summary alone', () => {
+    const item = thing('Quiet title', { summary: 'A boxing match in a village hall.' });
+    expect(avoided(['boxing'], item)).toMatchObject({ found: 'boxing', field: 'description' });
+    expect(avoided(['boxing'], thing('Quiet title'))).toBeUndefined();
+    expect(avoided(['boxing'], thing('Quiet title', { description: 'A tea dance.', summary: 'A boxing match.' }))?.field).toBe('description');
+  });
+
+  it('finds it in the description when the summary says something else', () => {
+    expect(avoided(['boxing'], thing('Quiet title', { description: 'A boxing match.', summary: 'A village hall.' }))?.field).toBe('description');
+  });
+
+  it('follows a related word of a theme into the summary', () => {
+    expect(avoided(['the war'], thing('Quiet title', { summary: 'Soldiers come home.' }))).toBeDefined();
+  });
+
+  it('applies Gentle mode to the summary, with the strong words only', () => {
+    expect(gentleMatch(thing('Quiet title', { summary: 'A horror film about a lighthouse.' }))).toMatchObject({ theme: 'horror', field: 'description' });
+    expect(gentleMatch(thing('Quiet title', { summary: 'A farmer returns from the war.' }))).toBeUndefined();
+    expect(whyLeftOut([], true, thing('Quiet title', { summary: 'A true crime series.' }))).toMatchObject({ by: 'gentle', match: { theme: 'murder and true crime' } });
+  });
+
+  it('does not find a phrase across the end of the description and the start of the summary', () => {
+    const rule = compileAvoidNotes(['wild west']);
+    expect(matchAvoid(rule, thing('X', { description: 'A story of the wild', summary: 'west coast ferries.' }))).toBeUndefined();
+    expect(matchAvoid(rule, thing('X', { description: 'A story of the wild', summary: 'The wild west.' }))).toBeDefined();
+  });
+
+  it('leaves out an item that is clean without the summary and not with it, and keeps one that is clean with it', () => {
+    expect(whyLeftOut(compileAvoidNotes(['boxing']), true, thing('Quiet title', { description: 'A tea dance.' }))).toBeUndefined();
+    expect(whyLeftOut(compileAvoidNotes(['boxing']), true, thing('Quiet title', { description: 'A tea dance.', summary: 'Boxing returns.' }))?.by).toBe('avoid');
+    expect(whyLeftOut(compileAvoidNotes(['boxing']), true, thing('Quiet title', { description: 'A tea dance.', summary: 'A tea dance.' }))).toBeUndefined();
   });
 });
 

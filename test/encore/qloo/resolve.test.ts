@@ -201,6 +201,11 @@ describe('disambiguate', () => {
     expect(disambiguate(entityRef('A', 'n', { entityType: 'urn:entity:brand', domain: 'brand' }))).toBe('brand');
   });
 
+  it('says what the year of a musician and of a brand is: when they began performing, when it was founded', () => {
+    expect(disambiguate(entityRef('A', 'n', { entityType: 'urn:entity:artist', domain: 'music', year: 1957 }))).toBe('musician, performing from 1957');
+    expect(disambiguate(entityRef('A', 'n', { entityType: 'urn:entity:brand', domain: 'brand', year: 1925 }))).toBe('brand, founded 1925');
+  });
+
   it('says "born" for a person', () => {
     expect(disambiguate(entityRef('A', 'n', { entityType: 'urn:entity:person', domain: 'person', year: 1921 }))).toBe('person, born 1921');
   });

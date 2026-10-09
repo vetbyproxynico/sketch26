@@ -13,6 +13,8 @@ import {
   PARSE_INTAKE_SYSTEM,
   READ_NOTE_SYSTEM,
   SHARED_GROUND_SYSTEM,
+  spellingFor,
+  spellingForRoom,
 } from '../../../src/encore/words';
 import { entity, item, profile } from '../plan/builders';
 
@@ -401,6 +403,119 @@ describe('dressSessions', () => {
     expect(result).toEqual(fallbackDressings(twoDrafts));
     expect(result).toHaveLength(2);
     expect(result[0]?.prompts).toHaveLength(4);
+  });
+});
+
+describe('spelling: British English unless the person grew up in the United States', () => {
+  const payloadOf = (llm: MockLlmProvider): Record<string, unknown> => JSON.parse(firstCall(llm).user) as Record<string, unknown>;
+
+  it('tells the model, in the prompt it is sent, to spell in British English and in which case to use American', async () => {
+    const { llm, wordsmith } = wordsmithWith([JSON.stringify(dressedReply(2))]);
+    await wordsmith.dressSessions(twoDrafts, context);
+    const { system } = firstCall(llm);
+    expect(system).toContain('Spell in British English');
+    expect(system).toContain('"colour"');
+    expect(system).toContain('"American"');
+    expect(system).toContain('United States');
+    expect(system).toContain('American English');
+    expect(system).toContain('"spelling": "British" or "American"');
+  });
+
+  it('puts the same instruction in the prompt for the room, whose residents may come from anywhere', async () => {
+    const { llm, wordsmith } = wordsmithWith([JSON.stringify({ sentences: ['Fine.'] })]);
+    await wordsmith.describeSharedGround([{ id: 'urn:tag:t1', name: 'Swing' }], ['Ann', 'Bea']);
+    const { system } = firstCall(llm);
+    expect(system).toContain('Spell in British English');
+    expect(system).toContain('United States');
+    expect(SHARED_GROUND_SYSTEM).toContain('"spelling"');
+  });
+
+  it('asks for British spelling when there is no country, and for any country but the United States', async () => {
+    for (const country of [undefined, 'GB', 'FR', 'IE', 'CA', 'AU', 'ZZ', '', '  ']) {
+      const { llm, wordsmith } = wordsmithWith([JSON.stringify(dressedReply(2))]);
+      await wordsmith.dressSessions(twoDrafts, country === undefined ? context : { ...context, country });
+      expect(payloadOf(llm)['spelling'], String(country)).toBe('British');
+    }
+  });
+
+  it('asks for American spelling for a person who grew up in the United States, however the code is written', async () => {
+    for (const country of ['US', 'us', ' Us ']) {
+      const { llm, wordsmith } = wordsmithWith([JSON.stringify(dressedReply(2))]);
+      await wordsmith.dressSessions(twoDrafts, { ...context, country });
+      expect(payloadOf(llm)['spelling'], country).toBe('American');
+    }
+  });
+
+  it('never sends the country itself, only the word for the spelling', async () => {
+    const { llm, wordsmith } = wordsmithWith([JSON.stringify(dressedReply(2))]);
+    await wordsmith.dressSessions(twoDrafts, { ...context, country: 'US' });
+    const { user } = firstCall(llm);
+    expect(Object.keys(payloadOf(llm))).not.toContain('country');
+    expect(user).not.toContain('"US"');
+    expect(user).not.toContain('United States');
+  });
+
+  it('puts the instruction in the prompt as two plain sentences', () => {
+    expect(DRESS_SESSIONS_SYSTEM).toMatch(/Spell in British English .*unless/);
+    expect(DRESS_SESSIONS_SYSTEM).toMatch(/only when the person grew up in the United States/);
+  });
+
+  it('decides the spelling of a room: American only when every resident grew up in the United States', async () => {
+    const tags = [{ id: 'urn:tag:t1', name: 'Swing' }];
+    const spellingOf = async (countries: ReadonlyArray<string | undefined> | undefined) => {
+      const { llm, wordsmith } = wordsmithWith([JSON.stringify({ sentences: ['Fine.'] })]);
+      await wordsmith.describeSharedGround(tags, ['Ann', 'Bea'], countries);
+      return payloadOf(llm)['spelling'];
+    };
+    expect(await spellingOf(['US', 'US'])).toBe('American');
+    expect(await spellingOf(['us', ' US '])).toBe('American');
+    expect(await spellingOf(['US', 'GB'])).toBe('British');
+    expect(await spellingOf(['US', undefined])).toBe('British');
+    expect(await spellingOf(['GB', 'FR'])).toBe('British');
+    expect(await spellingOf([])).toBe('British');
+    expect(await spellingOf(undefined)).toBe('British');
+  });
+
+  it('has the two small rules on their own', () => {
+    expect(spellingFor('US')).toBe('American');
+    expect(spellingFor('GB')).toBe('British');
+    expect(spellingFor(undefined)).toBe('British');
+    expect(spellingForRoom(['US'])).toBe('American');
+    expect(spellingForRoom([])).toBe('British');
+  });
+});
+
+describe('the year of an item, in the words the model is given', () => {
+  const dressWith = async (...built: Parameters<typeof draftOf>[2][]) => {
+    const { llm, wordsmith } = wordsmithWith([JSON.stringify(dressedReply(1))]);
+    await wordsmith.dressSessions([draftOf('s1', 1, ...built)], context);
+    const payload = JSON.parse(firstCall(llm).user) as { sessions: Array<{ items: Array<Record<string, unknown>> }> };
+    return payload.sessions[0]?.items ?? [];
+  };
+
+  it('calls the year a singer or band began performing "performingFrom", and the year a brand began "founded"', async () => {
+    const band = item({ id: 'm', name: 'Some Band', domain: 'music', year: 1957 });
+    const maker = item({ id: 'b', name: 'Some Biscuits', domain: 'brand', year: 1925 });
+    const [first, second] = await dressWith(band, maker);
+    expect(first).toEqual({ name: 'Some Band', domain: 'music', performingFrom: 1957 });
+    expect(second).toEqual({ name: 'Some Biscuits', domain: 'brand', founded: 1925 });
+    expect(first).not.toHaveProperty('year');
+    expect(second).not.toHaveProperty('year');
+  });
+
+  it('keeps "year" for the rest, and sends none for music or a brand that has none', async () => {
+    const film = item({ id: 'f', name: 'Some Film', domain: 'film', year: 1942 });
+    const person = item({ id: 'p', name: 'Some Person', domain: 'person', year: 1921 });
+    const bare = item({ id: 'm', name: 'Some Band', domain: 'music' });
+    const [first, second, third] = await dressWith(film, person, bare);
+    expect(first).toMatchObject({ year: 1942 });
+    expect(second).toMatchObject({ year: 1921 });
+    expect(third).toEqual({ name: 'Some Band', domain: 'music' });
+  });
+
+  it('explains the three keys in the prompt', () => {
+    expect(DRESS_SESSIONS_SYSTEM).toContain('"performingFrom"');
+    expect(DRESS_SESSIONS_SYSTEM).toContain('"founded"');
   });
 });
 

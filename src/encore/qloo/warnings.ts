@@ -134,6 +134,26 @@ export function noEraFilterWarning(subject: string, domain: Domain): MapWarning 
   );
 }
 
+/**
+ * Warning for a list of music or brands that is empty because every suggestion
+ * Qloo sent has a year that does not fit the person's years. It is not the
+ * same as "Qloo had nothing", and says so.
+ */
+export function outsideYearsWarning(domain: Domain, window: YearWindow | undefined): MapWarning {
+  const advice = 'Adding a few favourites from their younger years usually helps.';
+  if (window === undefined) {
+    return warn('outside_years', `Everything Qloo suggested for ${DOMAIN_LABEL[domain]} came from outside the years this person grew up, so none is shown. ${advice}`, domain);
+  }
+  if (domain === 'brand') {
+    return warn('outside_years', `Every brand Qloo suggested was founded after ${window.toYear}, so none is shown. ${advice}`, domain);
+  }
+  return warn(
+    'outside_years',
+    `All the music Qloo suggested began after ${window.toYear} or had stopped before ${window.fromYear}, so none is shown. ${advice}`,
+    domain,
+  );
+}
+
 export const NO_BIRTH_YEAR_WARNING: MapWarning = {
   code: 'no_birth_year',
   message:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SLIM_CONTRIBUTIONS, SLIM_DESCRIPTION, SLIM_TAGS, slimItem, slimMap, slimTags, slimText } from '../../../src/encore/plan/slim';
+import { SLIM_CONTRIBUTIONS, SLIM_DESCRIPTION, SLIM_SUMMARY, SLIM_TAGS, slimItem, slimMap, slimTags, slimText } from '../../../src/encore/plan/slim';
 import { parseCulturalMap } from '../../../src/encore/validate';
 import { contribution, item, mapOf, tag } from './builders';
 
@@ -68,6 +68,48 @@ describe('slimItem and slimMap', () => {
     expect(slim.contributions).toHaveLength(SLIM_CONTRIBUTIONS);
     expect(slim.contributions[0]?.name).toBe('Fave 0');
     expect(before).toEqual(copy);
+  });
+
+  describe('the summary', () => {
+    it('is kept as it is when short, and tidied', () => {
+      expect(slimItem(item({ id: 'F-1', summary: 'A short  invented\nline.' })).summary).toBe('A short invented line.');
+    });
+
+    it('is capped at the length the request validator allows, at the end of a sentence when one ends late enough', () => {
+      expect(SLIM_SUMMARY).toBe(300);
+      const long = `${'word '.repeat(40).trim()}. ${'more '.repeat(60)}`;
+      const slim = slimItem(item({ id: 'F-1', summary: long })).summary ?? '';
+      expect(slim.length).toBeLessThanOrEqual(SLIM_SUMMARY);
+      expect(slim.endsWith('word.')).toBe(true);
+    });
+
+    it('is cut at a word and marked when no sentence ends in reach, and never exceeds the cap', () => {
+      const slim = slimItem(item({ id: 'F-1', summary: 'word '.repeat(300) })).summary ?? '';
+      expect(slim.length).toBeLessThanOrEqual(SLIM_SUMMARY);
+      expect(slim.endsWith('word…')).toBe(true);
+      expect((slimItem(item({ id: 'F-1', summary: 'x'.repeat(2000) })).summary ?? '').length).toBeLessThanOrEqual(SLIM_SUMMARY);
+    });
+
+    it('is left out when the item has none, and the description is trimmed on its own limit', () => {
+      expect(slimItem(item({ id: 'F-1', description: 'A line.' }))).not.toHaveProperty('summary');
+      const both = slimItem(item({ id: 'F-1', description: 'word '.repeat(300), summary: 'word '.repeat(300) }));
+      expect(both.description?.length).toBeLessThanOrEqual(SLIM_DESCRIPTION);
+      expect(both.summary?.length).toBeLessThanOrEqual(SLIM_SUMMARY);
+      expect((both.description ?? '').length).toBeGreaterThan((both.summary ?? '').length);
+    });
+
+    it('does not change the input', () => {
+      const before = item({ id: 'F-1', summary: 'word '.repeat(300) });
+      const copy = JSON.parse(JSON.stringify(before)) as typeof before;
+      slimItem(before);
+      expect(before).toEqual(copy);
+    });
+
+    it('makes a map whose summaries were too long one the request validator accepts', () => {
+      const map = mapOf('p1', [item({ id: 'F-1', summary: 'word '.repeat(300) })]);
+      expect(() => parseCulturalMap(JSON.parse(JSON.stringify(map)))).toThrow();
+      expect(() => parseCulturalMap(JSON.parse(JSON.stringify(slimMap(map))))).not.toThrow();
+    });
   });
 
   it('makes a map of heavy items one the request validator accepts', () => {

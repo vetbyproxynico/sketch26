@@ -42,6 +42,16 @@ describe('reasonFor', () => {
     expect(reasonFor(item({ id: 'a', eraCheck: 'unchecked' }), 'Dot')).toBe("Close to Dot's tastes");
   });
 
+  it('says a singer, a band or a brand with a year of its own was already around, which is all it knows', () => {
+    expect(reasonFor(item({ id: 'a', domain: 'music', eraCheck: 'dated', year: 1957 }), 'Dot')).toBe('Already around when Dot was young');
+    expect(reasonFor(item({ id: 'b', domain: 'brand', eraCheck: 'dated', year: 1925 }), 'Dot')).toBe('Already around when Dot was young');
+  });
+
+  it('still names the favourite that led to a dated item, which is the better reason', () => {
+    const built = item({ id: 'a', domain: 'music', eraCheck: 'dated', contributions: [contribution('Casablanca', 0.6)] });
+    expect(reasonFor(built, 'Dot')).toBe('Because Dot loved Casablanca');
+  });
+
   it('ignores contributions without a usable name', () => {
     const built = item({ id: 'a', eraCheck: 'filter', contributions: [contribution('  ', 0.9)] });
     expect(reasonFor(built, 'Dot')).toBe('From the years Dot was young');
@@ -256,6 +266,17 @@ describe('buildPlan', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]?.drafts).toHaveLength(2);
     expect(seen[0]?.context).toEqual({ nickname: 'Nan', tasteWords, avoidNotes: ['no war films'] });
+  });
+
+  it('hands the wordsmith the country of the person, which it turns into a spelling and never passes on', async () => {
+    const seen: Array<{ drafts: readonly SessionDraft[]; context: unknown }> = [];
+    const wordsmith = stubWordsmith((drafts) => drafts.map(() => ({ theme: 'T', prompts: ['Q?'] })), seen);
+    const rich = richMap();
+    const map = mapOf('p1', [...rich.byDomain.film, ...rich.byDomain.tv]);
+    await buildPlan(profile({ country: 'US' }), map, wordsmith, { days: 2 });
+    await buildPlan(profile(), map, wordsmith, { days: 2 });
+    expect(seen[0]?.context).toMatchObject({ country: 'US' });
+    expect(seen[1]?.context).not.toHaveProperty('country');
   });
 
   it('uses the deterministic fallback for sessions the wordsmith did not return', async () => {

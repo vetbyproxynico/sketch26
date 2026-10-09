@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { countryAdjective, countryName } from '../../../src/encore/qloo/countries';
-import { countryRelaxedWarning, nounFor, scoringFailedWarning, yearsWidenedWarning } from '../../../src/encore/qloo/warnings';
+import { countryRelaxedWarning, noEraFilterWarning, nounFor, outsideYearsWarning, scoringFailedWarning, yearsWidenedWarning } from '../../../src/encore/qloo/warnings';
 import { DOMAINS, MAP_WARNING_CODES } from '../../../src/encore/types';
 import type { QlooErrorKind } from '../../../src/qloo/client';
 
@@ -90,6 +90,46 @@ describe('MAP_WARNING_CODES', () => {
       expect.arrayContaining(['country_relaxed', 'years_widened', 'empty', 'no_birth_year', 'no_era_filter', 'qloo_error', 'unverified_shape']),
     );
     expect(new Set(MAP_WARNING_CODES).size).toBe(MAP_WARNING_CODES.length);
+  });
+});
+
+describe('noEraFilterWarning', () => {
+  it('says the list could not be tied to the person\'s years, and not that there is no way to do so', () => {
+    expect(noEraFilterWarning('music', 'music')).toEqual({
+      domain: 'music',
+      code: 'no_era_filter',
+      message: 'The music could not be tied to the years this person grew up, and the check for what older people like gave no answer, so they are matched on taste alone.',
+    });
+    expect(noEraFilterWarning('brands', 'brand').message).toContain('The brands could not be tied');
+    expect(noEraFilterWarning('music', 'music').message).not.toContain('no way');
+  });
+});
+
+describe('outsideYearsWarning', () => {
+  const window = { fromYear: 1951, toYear: 1971 };
+
+  it('names both ends of the window for music, since a band can be left out at either', () => {
+    expect(outsideYearsWarning('music', window)).toEqual({
+      domain: 'music',
+      code: 'outside_years',
+      message: 'All the music Qloo suggested began after 1971 or had stopped before 1951, so none is shown. Adding a few favourites from their younger years usually helps.',
+    });
+  });
+
+  it('names only the last year for brands, since a brand is left out only for being too recent', () => {
+    expect(outsideYearsWarning('brand', window).message).toBe(
+      'Every brand Qloo suggested was founded after 1971, so none is shown. Adding a few favourites from their younger years usually helps.',
+    );
+  });
+
+  it('still reads well without a window', () => {
+    expect(outsideYearsWarning('music', undefined).message).toBe(
+      'Everything Qloo suggested for music came from outside the years this person grew up, so none is shown. Adding a few favourites from their younger years usually helps.',
+    );
+  });
+
+  it('is a code that a map may carry and the request validator accepts', () => {
+    expect(MAP_WARNING_CODES).toContain('outside_years');
   });
 });
 

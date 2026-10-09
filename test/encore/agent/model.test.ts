@@ -50,6 +50,9 @@ describe('what the model is asked', () => {
     expect(ADVISE_SYSTEM).toContain('no names');
     expect(ADVISE_SYSTEM).toContain('medical');
     expect(ADVISE_SYSTEM).not.toContain('—');
+    // The one field that is about the year of a singer, a band or a brand, and what to do about it.
+    expect(ADVISE_SYSTEM).toContain('"setAside"');
+    expect(ADVISE_SYSTEM).toMatch(/Do not pick "drop_age_signal" for it/);
   });
 });
 

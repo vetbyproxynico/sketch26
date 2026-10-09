@@ -111,6 +111,130 @@ describe('field fallbacks', () => {
     expect(year({ release_year: 'soon', publication_year: 1960 })).toBe(1960);
   });
 
+  describe('the year of each kind comes from the field that fits it', () => {
+    const FIELDS = {
+      release_year: 1950,
+      publication_year: 1960,
+      date_of_birth: '1970-01-01',
+      start_year: 1955,
+      founded_year: 1925,
+      inception: '1890-05-06T00:00:00Z',
+    };
+    const yearOfKind = (type: string, properties: Record<string, unknown>) => read({ id: 'A', name: 'N', type, properties })?.ref.year;
+
+    it('uses release_year for films and television, and nothing else', () => {
+      expect(yearOfKind('urn:entity:movie', FIELDS)).toBe(1950);
+      expect(yearOfKind('urn:entity:tv_show', FIELDS)).toBe(1950);
+      expect(yearOfKind('urn:entity:movie', { publication_year: 1960, date_of_birth: '1970-01-01', start_year: 1955 })).toBeUndefined();
+    });
+
+    it('uses publication_year for books, and date_of_birth for people', () => {
+      expect(yearOfKind('urn:entity:book', FIELDS)).toBe(1960);
+      expect(yearOfKind('urn:entity:book', { release_year: 1950 })).toBeUndefined();
+      expect(yearOfKind('urn:entity:person', FIELDS)).toBe(1970);
+      expect(yearOfKind('urn:entity:person', { release_year: 1950, start_year: 1955 })).toBeUndefined();
+    });
+
+    it('uses start_year for music, the year they began performing', () => {
+      expect(yearOfKind('urn:entity:artist', FIELDS)).toBe(1955);
+      expect(yearOfKind('urn:entity:artist', { start_year: '1948' })).toBe(1948);
+    });
+
+    it('never gives a musician the year of their birth, or of anything else', () => {
+      expect(yearOfKind('urn:entity:artist', { date_of_birth: '1938-02-14' })).toBeUndefined();
+      expect(yearOfKind('urn:entity:artist', { date_of_birth: '1938-02-14', release_year: 1950, founded_year: 1925 })).toBeUndefined();
+      expect(yearOfKind('urn:entity:artist', { start_year: 'long ago', date_of_birth: '1938-02-14' })).toBeUndefined();
+    });
+
+    it('uses founded_year for brands, else the year at the front of inception', () => {
+      expect(yearOfKind('urn:entity:brand', FIELDS)).toBe(1925);
+      expect(yearOfKind('urn:entity:brand', { inception: '1890-05-06T00:00:00Z', release_year: 1950 })).toBe(1890);
+      expect(yearOfKind('urn:entity:brand', { inception: '1890' })).toBe(1890);
+      // A founding year that cannot be read leaves the inception to answer.
+      expect(yearOfKind('urn:entity:brand', { founded_year: { odd: true }, inception: '1890-05-06' })).toBe(1890);
+      expect(yearOfKind('urn:entity:brand', { founded_year: 12, inception: '1890-05-06' })).toBe(1890);
+      expect(yearOfKind('urn:entity:brand', { date_of_birth: '1938-02-14', release_year: 1950 })).toBeUndefined();
+    });
+
+    it('takes the type of the call when the entity names none', () => {
+      const brand = readEntities({ results: { entities: [{ id: 'A', name: 'N', properties: { founded_year: 1925 } }] } }, { fallbackType: 'urn:entity:brand' });
+      expect(brand.entities[0]?.ref.year).toBe(1925);
+      const artist = readEntities({ results: { entities: [{ id: 'A', name: 'N', properties: { start_year: 1955, release_year: 1950 } }] } }, { fallbackType: 'urn:entity:artist' });
+      expect(artist.entities[0]?.ref.year).toBe(1955);
+    });
+
+    it('copes with missing and wrongly typed fields without throwing', () => {
+      for (const properties of [undefined, null, 'x', 7, [], {}, { start_year: null }, { start_year: [1955] }, { start_year: true }, { start_year: {} }, { founded_year: 1925.5 }]) {
+        expect(() => yearOfKind('urn:entity:artist', properties as Record<string, unknown>)).not.toThrow();
+        expect(() => yearOfKind('urn:entity:brand', properties as Record<string, unknown>)).not.toThrow();
+      }
+      expect(yearOfKind('urn:entity:artist', { start_year: 19.5 })).toBeUndefined();
+      expect(yearOfKind('urn:entity:brand', { founded_year: 1925.5 })).toBeUndefined();
+    });
+  });
+
+  describe('the year a musician stopped', () => {
+    const endOf = (type: string, properties: Record<string, unknown>) => read({ id: 'A', name: 'N', type, properties })?.endYear;
+
+    it('reads end_year for music, and for nothing else', () => {
+      expect(endOf('urn:entity:artist', { start_year: 1955, end_year: 1990 })).toBe(1990);
+      expect(endOf('urn:entity:artist', { end_year: '1990' })).toBe(1990);
+      expect(endOf('urn:entity:brand', { founded_year: 1925, end_year: 1990 })).toBeUndefined();
+      expect(endOf('urn:entity:movie', { release_year: 1950, end_year: 1990 })).toBeUndefined();
+    });
+
+    it('leaves it out when it is missing or cannot be read', () => {
+      for (const end_year of [undefined, null, 'later', 12, 1990.5, [1990], {}]) {
+        expect(endOf('urn:entity:artist', { start_year: 1955, end_year })).toBeUndefined();
+      }
+    });
+  });
+
+  describe('the summary', () => {
+    const summary = (properties: unknown) => read({ id: 'A', name: 'N', type: 'urn:entity:movie', properties })?.summary;
+
+    it('is the first non-empty string in short_descriptions', () => {
+      expect(summary({ short_descriptions: ['A first line.', 'A second line.'] })).toBe('A first line.');
+      expect(summary({ short_descriptions: ['', '   ', 'The third try.'] })).toBe('The third try.');
+      expect(summary({ short_descriptions: [4, null, {}, ' Spaces trimmed ', 'Later'] })).toBe('Spaces trimmed');
+    });
+
+    it('is short_description when short_descriptions gives none', () => {
+      expect(summary({ short_description: 'A single line.' })).toBe('A single line.');
+      expect(summary({ short_descriptions: [], short_description: 'A single line.' })).toBe('A single line.');
+      expect(summary({ short_descriptions: ['', ' '], short_description: 'A single line.' })).toBe('A single line.');
+      expect(summary({ short_descriptions: 'not a list', short_description: 'A single line.' })).toBe('A single line.');
+    });
+
+    it('prefers short_descriptions to short_description when both are there', () => {
+      expect(summary({ short_descriptions: ['From the list.'], short_description: 'From the string.' })).toBe('From the list.');
+    });
+
+    it('is left out when there is nothing to use, and the long description alone does not make one', () => {
+      expect(summary({})).toBeUndefined();
+      expect(summary({ description: 'A long text that is not a summary.' })).toBeUndefined();
+      expect(summary({ short_descriptions: [], short_description: '   ' })).toBeUndefined();
+      expect(summary({ short_descriptions: ['', 5] })).toBeUndefined();
+      expect(summary({ short_descriptions: { 0: 'An object, not a list' } })).toBeUndefined();
+      expect(summary(undefined)).toBeUndefined();
+    });
+
+    it('leaves the description as it was: short_description, else description', () => {
+      const entity = read({ id: 'A', name: 'N', type: 'urn:entity:movie', properties: { short_descriptions: ['Summary.'], description: 'The long text.' } });
+      expect(entity?.summary).toBe('Summary.');
+      expect(entity?.description).toBe('The long text.');
+    });
+
+    it('is read from the invented fixtures: the first line, the first non-empty line, and none', () => {
+      const [alpha, beta, gamma, delta] = readEntities(films).entities;
+      expect(alpha?.summary).toBe('An invented lighthouse story, in one line.');
+      expect(beta?.summary).toBe('An invented comedy about two neighbours.');
+      expect(gamma?.summary).toBeUndefined();
+      expect(gamma?.description).toContain('longer invented description');
+      expect(delta?.summary).toBeUndefined();
+    });
+  });
+
   it('rejects years that are not whole four-digit years', () => {
     const year = (properties: unknown) => read({ id: 'A', name: 'N', type: 't', properties })?.ref.year;
     expect(year({ release_year: 19.5 })).toBeUndefined();

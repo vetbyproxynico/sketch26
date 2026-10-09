@@ -47,6 +47,52 @@ describe('observed: what the builder saw, in one sentence', () => {
     expect(observed(thinList('music', 2, AGENT_MOVES, { tried: ['taste_tags'] }), FRANCE)).toBe('Still only 2 music suggestions.');
   });
 
+  describe('music and brands that have a year of their own', () => {
+    const window = { fromYear: 1951, toYear: 1971 };
+
+    it('says how many were left out and why, for music: began too late, or had stopped', () => {
+      expect(observed(thinList('music', 2, AGENT_MOVES, { setAside: 5 }), FRANCE, window)).toBe(
+        'Only 2 music suggestions. 5 more were left out because they began after 1971 or had stopped before 1951.',
+      );
+      expect(observed(thinList('music', 1, AGENT_MOVES, { setAside: 1 }), FRANCE, window)).toBe(
+        'Only 1 music suggestion. 1 more was left out because it began after 1971 or had stopped before 1951.',
+      );
+    });
+
+    it('says it of brands, which are left out only for being founded too late', () => {
+      expect(observed(thinList('brand', 3, AGENT_MOVES, { setAside: 4 }), FRANCE, window)).toBe('Only 3 brands. 4 more were left out because they were founded after 1971.');
+      expect(observed(thinList('brand', 1, AGENT_MOVES, { setAside: 1 }), FRANCE, window)).toBe('Only 1 brand. 1 more was left out because it was founded after 1971.');
+    });
+
+    it('goes on to say still, and goes on from none', () => {
+      expect(observed(thinList('brand', 0, AGENT_MOVES, { setAside: 3, tried: ['drop_age_signal'] }), FRANCE, window)).toBe(
+        'Still no brands. 3 more were left out because they were founded after 1971.',
+      );
+    });
+
+    it('says nothing more when none was left out, and without a window falls back to words that need none', () => {
+      expect(observed(thinList('music', 2), FRANCE, window)).toBe('Only 2 music suggestions.');
+      expect(observed(thinList('music', 2, AGENT_MOVES, { setAside: 0 }), FRANCE, window)).toBe('Only 2 music suggestions.');
+      expect(observed(thinList('music', 2, AGENT_MOVES, { setAside: 2 }), FRANCE)).toBe(
+        'Only 2 music suggestions. 2 more were left out because they did not fit the years the person was young.',
+      );
+    });
+
+    it('is not said of the lists that have a date filter, which have their own sentence for it', () => {
+      expect(observed(thinList('film', 2, AGENT_MOVES, { usable: 7, setAside: 3 }), FRANCE, window)).toBe(
+        'Only 2 French films from 1942 to 1962. 5 more came back from outside those years.',
+      );
+    });
+
+    it('comes through in the whole reason of a decision, ahead of what is done about it', () => {
+      const music = thinList('music', 2, AGENT_MOVES, { setAside: 5 });
+      const observation = observationOf([music], { window });
+      expect(reasonFor(rules('music', 'taste_tags'), music, observation)).toBe(
+        'Only 2 music suggestions. 5 more were left out because they began after 1971 or had stopped before 1951. Trying their taste words as the starting point, in place of the favourites.',
+      );
+    });
+  });
+
   it('says how many came back from outside the years', () => {
     expect(observed(thinList('film', 2, AGENT_MOVES, { usable: 7 }), FRANCE)).toBe('Only 2 French films from 1942 to 1962. 5 more came back from outside those years.');
   });
@@ -159,6 +205,24 @@ describe('the lists themselves', () => {
     expect(inEra(item('A', { eraCheck: 'age_skew', ageSkew55Plus: 0 }))).toBe(false);
     expect(inEra(item('A', { eraCheck: 'age_skew', ageSkew55Plus: -0.3 }))).toBe(false);
     expect(inEra(item('A', { eraCheck: 'age_skew' }))).toBe(false);
+  });
+
+  it('counts an item whose own year was checked against the person\'s years as in the era, whatever else it carries', () => {
+    expect(inEra(item('A', { eraCheck: 'dated' }))).toBe(true);
+    expect(inEra(item('A', { eraCheck: 'dated', ageSkew55Plus: -0.4 }))).toBe(true);
+  });
+
+  it('puts the items that were checked by their year ahead of the ones that were not', () => {
+    const state = stateOf([item('A', { eraCheck: 'unchecked' }), item('B', { eraCheck: 'dated' }), item('C', { eraCheck: 'age_skew', ageSkew55Plus: -0.1 }), item('D', { eraCheck: 'dated' })]);
+    expect(shownItems(state, 8).map((i) => i.entity.id)).toEqual(['B', 'D', 'A', 'C']);
+  });
+
+  it('remembers what was set aside by ID, once, and does not count an item that stays', () => {
+    const state = stateOf([item('A', { eraCheck: 'dated' })]);
+    expect(mergeItems(state, [item('B', { eraCheck: 'dated' })], [], ['X', 'Y'])).toEqual({ added: 1, remarked: 0 });
+    expect(mergeItems(state, [], [], ['Y', 'Z'])).toEqual({ added: 0, remarked: 0 });
+    expect([...(state.setAside ?? [])].sort()).toEqual(['X', 'Y', 'Z']);
+    expect(stateOf([]).setAside).toBeUndefined();
   });
 
   it('merges new entities after the old ones, once each, and says how many were new', () => {

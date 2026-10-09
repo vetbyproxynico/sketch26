@@ -49,6 +49,24 @@ describe('ruleChoice, for every set of open moves', () => {
     }
   });
 
+  it('picks the usual order, not the empty one, for a list that is empty only because every suggestion was set aside for its year', () => {
+    for (const options of subsets) {
+      const expected = ORDER.find((move) => options.includes(move)) ?? 'accept';
+      expect(ruleChoice(thinList('music', 0, options, { setAside: 5 }), 5), `options: ${options.join(', ') || 'none'}`).toEqual({
+        domain: 'music',
+        action: expected,
+        decidedBy: 'rules',
+      });
+    }
+    // The point of it: the lean towards what older people like is the last thing to give up, not the first.
+    expect(ruleChoice(thinList('music', 0, ['drop_age_signal', 'same_kind_favourites'], { setAside: 5 }), 5).action).toBe('same_kind_favourites');
+    expect(ruleChoice(thinList('music', 0, ['drop_age_signal', 'same_kind_favourites']), 5).action).toBe('drop_age_signal');
+  });
+
+  it('keeps the empty order for a list with nothing in it and nothing set aside, whatever setAside says when it is zero', () => {
+    expect(ruleChoice(thinList('brand', 0, ['drop_age_signal', 'taste_tags'], { setAside: 0 }), 5).action).toBe('drop_age_signal');
+  });
+
   it('picks the first open move of the empty order for a list with nothing in it', () => {
     for (const options of subsets) {
       const expected = ORDER_WHEN_EMPTY.find((move) => options.includes(move)) ?? 'accept';

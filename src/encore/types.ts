@@ -144,6 +144,9 @@ export interface MapItem {
  * - `empty`: Qloo had nothing to suggest;
  * - `no_era_filter`: music or brands that could not be tied to the person's years:
  *   none had a year to check, and the check for what older people like gave no answer;
+ * - `outside_years`: music or brands that Qloo did suggest, but every one began
+ *   (or was founded) after the person's years, or the musician had stopped
+ *   before them, so the list is empty;
  * - `years_widened`: too little came back for the person's years, so the list
  *   was asked for again with five more years either side and shows those too;
  * - `qloo_error`: a Qloo call failed and its result is missing or replaced;
@@ -159,6 +162,7 @@ export interface MapItem {
 export const MAP_WARNING_CODES = [
   'empty',
   'no_era_filter',
+  'outside_years',
   'years_widened',
   'qloo_error',
   'unverified_shape',

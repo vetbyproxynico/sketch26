@@ -97,6 +97,30 @@ describe('viewForModel', () => {
   });
 });
 
+describe('viewForModel: suggestions left out for their year', () => {
+  const left = thinList('music', 1, UNDATED, { setAside: 6 });
+  const view = viewForModel(observationOf([left, thinList('brand', 2, UNDATED)]));
+  const lists = view['lists'] as Array<Record<string, unknown>>;
+
+  it('says how many were left out, for a list that is due a decision', () => {
+    expect(lists.find((list) => list['domain'] === 'music')).toMatchObject({ items: 1, fit: 1, setAside: 6 });
+  });
+
+  it('says nothing of it for a list where none was left out', () => {
+    expect(lists.find((list) => list['domain'] === 'brand')).not.toHaveProperty('setAside');
+  });
+
+  it('lets a reason repeat the number, as it may repeat any number the model was shown', () => {
+    expect(numbersShown(observationOf([left])).has(6)).toBe(true);
+    expect(numbersShown(observationOf([thinList('music', 1, UNDATED)])).has(6)).toBe(false);
+  });
+
+  it('adds nothing to the view of a list that is not due a decision', () => {
+    const accepted = viewForModel(observationOf([thinList('music', 1, UNDATED, { setAside: 6, accepted: true })]));
+    expect((accepted['lists'] as Array<Record<string, unknown>>)[2]).toEqual({ domain: 'music', thin: true, items: 1, fit: 1, accepted: true });
+  });
+});
+
 describe('numbersShown and wordsAllowed', () => {
   it('collects every number in the view, and adds 5 and 55', () => {
     const observation = observationOf([thinList('film', 2, ['widen_years'], { widerYears: { fromYear: 1937, toYear: 1967 } })], { callsLeft: 6 });

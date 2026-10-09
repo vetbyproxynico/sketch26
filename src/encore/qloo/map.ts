@@ -17,6 +17,7 @@ import {
   countryRelaxedWarning,
   emptyWarning,
   noEraFilterWarning,
+  outsideYearsWarning,
   qlooErrorWarning,
   yearsWidenedWarning,
 } from './warnings';
@@ -86,7 +87,7 @@ async function tasteWords(traced: TracedQloo, signals: readonly string[]): Promi
 }
 
 /** What a list contributes to the finished map: its items, and what the carer should know about them. */
-function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; warnings: MapWarning[] } {
+function outcomeOf(state: ListState, perDomain: number, window: YearWindow | undefined): { items: MapItem[]; warnings: MapWarning[] } {
   const domain = state.domain;
   const label = DOMAIN_LABEL[domain];
   if (state.status === 'failed') return { items: [], warnings: [qlooErrorWarning(label, state.failure ?? 'client_error', domain)] };
@@ -95,6 +96,8 @@ function outcomeOf(state: ListState, perDomain: number): { items: MapItem[]; war
   if (items.length === 0) {
     // Qloo did answer, and the caller's `keep` refused all of it: that is the caller's to explain, not "Qloo had no ...".
     if ((state.dropped?.length ?? 0) > 0) return { items, warnings: [] };
+    // Qloo did answer, and every suggestion had a year that does not fit the person's years: not "Qloo had nothing".
+    if ((state.setAside?.size ?? 0) > 0) return { items, warnings: [outsideYearsWarning(domain, window)] };
     return { items, warnings: [emptyWarning(label, state.status === 'unreadable', domain)] };
   }
 
@@ -203,7 +206,7 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
 
   const turnedAway: Partial<Record<Domain, MapItem[]>> = {};
   for (const state of states) {
-    const outcome = outcomeOf(state, perDomain);
+    const outcome = outcomeOf(state, perDomain, window);
     map.byDomain[state.domain] = outcome.items;
     map.warnings.push(...outcome.warnings);
     const left = leftOut(state, perDomain);

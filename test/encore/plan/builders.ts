@@ -33,6 +33,7 @@ export interface ItemOptions {
   /** Tag IDs; the tag name is the ID's last segment with an upper-case first letter. */
   tags?: string[];
   description?: string;
+  summary?: string;
   year?: number;
 }
 
@@ -58,6 +59,7 @@ export function item(options: ItemOptions): MapItem {
   };
   if (options.affinity !== undefined) built.affinity = options.affinity;
   if (options.description !== undefined) built.description = options.description;
+  if (options.summary !== undefined) built.summary = options.summary;
   return built;
 }
 
