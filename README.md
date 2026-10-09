@@ -75,6 +75,13 @@ Nicknames stay in the browser. The server has no field for one and refuses a
 request that carries any key beginning "nick". Covers load from an address Qloo
 gives, so they are off until the adult turns them on.
 
+Nothing is kept unless the adult presses "Save on this device", and the ladder
+and the board say so while it is unsaved. When a request fails (a refusal, a
+busy server, a network error, an answer of the wrong shape) the page shows the
+server's own words or a plain message, keeps nothing from the bad answer, and
+offers a way on: try again (with a countdown after a 429), use sample data, go
+back, or close the message. A build that takes more than a few seconds says so.
+
 ### Sample mode
 
 When the server reports that Qloo is not configured (`/api/health` says
@@ -82,9 +89,11 @@ When the server reports that Qloo is not configured (`/api/health` says
 from `public/js/sample.js`. A banner says so on every screen and on paper.
 Every book in sample mode is invented ("Specimen Title 12", "Example Author 3")
 and every score is made up from a hash. The only real titles in the page are the
-example inputs a person would type; they come back as the person's own words, not
-as a result. Sample mode makes no request to the server beyond the health check.
-It shows that the page works. It says nothing about the quality of Qloo's
+example inputs a person would type; they come back as the person's own words, with
+no year or other fact added. Wherever the live page would credit a book, a tag or
+a score to Qloo, sample mode says "the sample data" instead, because there is no
+Qloo behind it. Sample mode makes no request to the server beyond the health
+check. It shows that the page works. It says nothing about the quality of Qloo's
 answers.
 
 ## Running it locally
@@ -99,8 +108,20 @@ npm run dev:fake    # the Worker and the page, pointed at the stand-in
 
 Then open `http://127.0.0.1:8787`. The stand-in answers with obviously invented
 names ("Specimen Title 12", IDs that start with `EX-`), and a name you search for
-comes back as itself. It shows that the server, the stand-in and the page agree
+comes back as itself. A name that starts `zzz` is not found, which shows the
+"not found" screens. It shows that the server, the stand-in and the page agree
 with each other, not that any of them agrees with the real service.
+
+If a port is taken, use others:
+
+```sh
+FAKE_QLOO_PORT=8899 node scripts/fake-qloo.mjs
+npx wrangler dev -c wrangler.local.jsonc --port 8891 --ip 127.0.0.1 \
+  --var QLOO_API_KEY:local-stand-in --var QLOO_BASE_URL:http://127.0.0.1:8899
+```
+
+Any non-empty `QLOO_API_KEY` works against the stand-in. The real key is never
+needed, and never belongs, in a command line or a file in this repository.
 
 To see sample mode, run the Worker with no key (`npm run dev:local`), or add
 `?sample=1` to any address.
