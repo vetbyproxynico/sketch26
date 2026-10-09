@@ -478,13 +478,9 @@ function sampleFeedback(body) {
     map,
     plan,
     changes,
-    trace: [
-      trace('replan: rebuild the map', '/v2/insights', {
-        'filter.type': 'urn:entity:movie',
-        'filter.exclude.entities': profile.excludedEntityIds.join(','),
-        'signal.interests.entities': (profile.liked || []).map((e) => e.id).join(','),
-      }, (map.byDomain.film || []).length),
-    ],
+    // A real replan builds the map again, so its trace is a map's trace, decisions included. The page saves that
+    // record with the map, and "How Encore built this map" must not lose its decisions after an update.
+    trace: sampleMap(profile).trace,
   };
 }
 

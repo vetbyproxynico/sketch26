@@ -56,6 +56,20 @@ const EVERYDAY: readonly string[] = [
   'start', 'starting', 'look', 'looking', 'go', 'going', 'stay', 'staying', 'stick', 'sticking', 'add', 'adding', 'give',
   'giving', 'take', 'taking', 'hold', 'holding', 'set', 'setting', 'let', 'letting', 'leave', 'leaving', 'change', 'changing',
   'move', 'moving', 'choose', 'choosing', 'pick', 'picking', 'find', 'finding', 'make', 'making',
+  // More of the same: the ways a reason about a move tends to begin. Each is a plain verb form, never a name.
+  'narrowing', 'broadening', 'expanding', 'extending', 'combining', 'focusing', 'limiting', 'opening', 'getting', 'checking',
+  'testing', 'skipping', 'returning', 'seeking', 'allowing', 'including', 'excluding', 'matching', 'reaching', 'relying',
+  'bringing', 'repeating', 'working', 'helping', 'settling', 'waiting', 'building', 'spending', 'saving', 'considering',
+  'given', 'whichever', 'whatever', 'whether', 'whenever', 'wherever',
+  // Adverbs that open a reason: "Probably the country is the tight filter."
+  'probably', 'certainly', 'clearly', 'honestly', 'simply', 'generally', 'usually', 'typically', 'mostly', 'mainly',
+  'sensibly', 'safely', 'gently', 'quickly', 'briefly', 'firstly', 'secondly', 'finally', 'sadly', 'luckily',
+  // The plain nouns of the task, which a reason may start with: "Results are thin here."
+  'result', 'results', 'suggestion', 'suggestions', 'item', 'items', 'list', 'lists', 'year', 'years', 'country', 'countries',
+  'favourite', 'favourites', 'range', 'limit', 'limits', 'filter', 'filters', 'step', 'steps', 'choice', 'choices', 'taste',
+  'tag', 'tags', 'signal', 'signals', 'shortage', 'lack', 'zero', 'plenty', 'budget', 'answer', 'answers', 'question',
+  'questions', 'decade', 'decades', 'setting', 'settings', 'programme', 'programmes', 'singers', 'bands', 'authors', 'shows',
+  'programs', 'movies', 'novels', 'actors', 'artists', 'writers', 'songs',
 ];
 
 /** The lower-case words of a text, letters only: digits and punctuation split words and are dropped. */

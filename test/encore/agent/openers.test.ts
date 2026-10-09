@@ -24,6 +24,9 @@ const ONE_WORD_NAMES = [
   'Elvis', 'Bogart', 'Hepburn', 'Dylan', 'Sting', 'Cher', 'Madonna', 'Prince', 'Vera', 'Doris', 'Marilyn', 'Bowie', 'Hope',
   'Bing', 'Gene', 'Fred', 'Ginger', 'Judy', 'Cliff', 'Shirley', 'Bourvil', 'Piaf', 'Brassens', 'Gabin', 'Presley', 'Sinatra',
   'Monroe', 'Chaplin', 'Lennon', 'Dietrich', 'Garbo', 'Streisand', 'Tarkovsky', 'Fellini', 'Jolson', 'Lynn', 'Mastroianni',
+  // Names that end like an ordinary word (-ing, -ly, -ed), or that are also everyday words.
+  'Fleming', 'Browning', 'Irving', 'Channing', 'Kelly', 'Holly', 'Sally', 'Billy', 'Reed', 'Ted', 'Ray', 'Dawn', 'Faith', 'Joy',
+  'Don', 'Pat', 'Sandy', 'Rock', 'Dean', 'Lee', 'Neil', 'Nat', 'Rex', 'Stan', 'Tab', 'Roy', 'Sean', 'Ruby', 'Pearl',
 ];
 
 const observation = observationOf([thinList('film', 2)]);
@@ -62,6 +65,41 @@ describe('checkReason: the first word', () => {
       expect(check(`${word} keeps things close.`), word).toBe(`${word} keeps things close.`);
     },
   );
+
+  // The ways a reason about a move plausibly begins, written the way a model writes them. Each must get through: a reason
+  // the guard refuses is replaced by the rules' own sentence, and the page then credits the rules for a choice the model made.
+  it.each([
+    'Narrowing to the strongest favourites keeps the list on taste.',
+    'Broadening the years is gentler than changing the favourites.',
+    'Expanding the years by five either side is the smallest step.',
+    'Combining the strongest favourites may give more.',
+    'Focusing on the same kind of favourites should help.',
+    'Limiting to what they loved most keeps it personal.',
+    'Results are thin here, so the country goes first.',
+    'Zero results usually mean the setting does not apply.',
+    'Given the thin list, dropping the lean is sensible.',
+    'Opening up the country gives more choice.',
+    'Getting more results needs a looser country limit.',
+    'Checking without the older lean is the next step.',
+    'Skipping the lean may help the list.',
+    'Returning to the favourites alone may help.',
+    'Allowing other countries brings more choice.',
+    'Including nearby years gives a fuller list.',
+    'Matching on taste alone is the fallback.',
+    'Reaching a few years further keeps it familiar.',
+    'Whichever move is chosen, the years stay close.',
+    'Lack of results suggests a filter problem.',
+    'Plenty of films are likely outside the years.',
+    'Probably the country is the tight filter.',
+    'Clearly the list is too thin.',
+    'Considering the budget, accept the list.',
+    'Whether or not the lean helps, try without it.',
+    'Singers from other countries may still fit.',
+    'Shows from other countries are likely to match.',
+    'Years that are a little wider keep it familiar.',
+  ])('allows an ordinary reason that begins: %s', (reason) => {
+    expect(check(reason)).toBe(reason);
+  });
 
   it('does not mind the case of an ordinary first word', () => {
     expect(check('trying films from any country.')).toBe('trying films from any country.');
