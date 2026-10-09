@@ -109,14 +109,20 @@ Other points about how the calls are made:
 
 ## Status
 
-Encore is built and tested against invented fixtures and a stand-in server. It has not yet been run against the live Qloo API, because the hackathon key has not arrived.
+Encore runs against the live Qloo hackathon API. The demo has been on live data since 9 October 2026.
 
-What that means:
+What has been checked on the live API, by a probe and a journey check that record structure and counts only (see `docs/LIVE_PROBE.md`):
 
-- The tests run offline. They use hand-written fixtures in `test/fixtures/` whose values are invented, and stub models for the wording layer. The wording layer has not been run against a real model in the tests.
-- `npm run dev:fake` runs the page and every server route against a stand-in Qloo server (`scripts/fake-qloo.mjs`) that serves the same invented fixtures. It shows that the page and the server agree with each other. It does not show that either agrees with Qloo.
-- The shape of Qloo's answers is assumed from Qloo's published documentation. Only `src/encore/qloo/adapter.ts` reads those answers, with the assumptions written at the top, so a mismatch found on the first live call is a fix in one file.
-- Not yet known, and to be checked on the live API: coverage for artists, films and brands from the 1940s to the 1970s, especially outside the United States; whether the demographic check returns a `55_and_older` value for older entities; whether `filter.results.entities` gives a comparable score for each resident; and Qloo's own rate limits in practice.
+- For each of the three example people, all seven favourites were matched, every list came back with five to eight suggestions, every suggestion carried a score and its "because they loved" reasons, and a five-day plan was built. A map takes about four to six seconds.
+- The year filters change the results for films, television, books and people. The release-country filter works when it is given the country's English name, and returns nothing for a country code. Only France, the United Kingdom and the United States have been tried; other countries follow the same pattern but are not confirmed.
+- Of 98 assumptions about the shape of Qloo's answers, 90 held on the first run. The ones that did not are fixed in `src/encore/qloo/adapter.ts` and recorded at the top of that file.
+- Qloo refuses short bursts of calls, so the deployed Worker makes at most two at once and spaces them out.
+
+What is still not known or not done:
+
+- The tests run offline against hand-written fixtures in `test/fixtures/` whose values are invented, and stub models for the wording layer. `npm run dev:fake` runs the page and every server route against a stand-in Qloo server that serves the same fixtures.
+- Coverage for people who grew up outside France, the United Kingdom and the United States has not been tried. Scoring a common room's candidates against each resident (`filter.results.entities`) has been tried by the probe only, not yet through the page on live data.
+- The free Cloudflare Workers plan allows a request very little processor time. Building a map from live answers sits close to that limit, and one run was refused by the host before the filters were made cheaper.
 - When the server has no Qloo key, the page shows a banner and runs on sample data. Every name in it is invented. Adding `?sample=1` to the address forces this mode.
 - The avoid list is a hard filter in Encore's own code, not in Qloo: any suggestion whose name, description or tags match a note, or a related word from a short hand-written list of themes such as war or horror, is left out of the map, the plan and the common room, and the page says how many (a list that loses suggestions to the filter is filled again from further down Qloo's answer, and the count is of what was left out of what would have been shown); it matches words and not meaning, so it misses a film that never uses those words where Encore can see them, and it removes harmless items that do (a note of "war" also removes "Star Wars").
 - Gentle mode, on by default, leaves out suggestions whose tags name one of eight upsetting themes (war and combat, graphic violence, horror, murder and true crime, abuse, disaster, terminal illness, suicide) or whose name or description uses a strong word for one; it runs in Encore's own code on Qloo's answers, so it can only judge the tags and text Qloo returns, and it can miss something or remove a harmless item.
