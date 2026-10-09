@@ -158,4 +158,37 @@ for (let i = 0; i < 10; i += 1) {
   }
 }
 console.log(`  ten one after another with no pause: ${tally(serial)}`);
+// 5. What can date a brand, a musician or a person? Property NAMES only (schema, not data), and how many results carry each.
+console.log('\n5. Property names on results, by kind (names that look like field names only; counts of results carrying each)');
+for (const [label, type] of [['brands', 'urn:entity:brand'], ['music', 'urn:entity:artist'], ['people', 'urn:entity:person'], ['books', 'urn:entity:book'], ['television', 'urn:entity:tv_show'], ['films', 'urn:entity:movie']]) {
+  const params = { 'filter.type': type, take: '16' };
+  if (seedId) params['signal.interests.entities'] = seedId;
+  const answer = await get('/v2/insights', params);
+  const results = entitiesOf(answer.body);
+  const counts = {};
+  for (const entity of results) {
+    for (const [key, value] of Object.entries(entity?.properties ?? {})) {
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(key)) continue;
+      const kind = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
+      counts[`${key}:${kind}`] = (counts[`${key}:${kind}`] ?? 0) + 1;
+    }
+  }
+  const listed = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)).map(([key, n]) => `${key} ${n}`).join(', ');
+  console.log(`  ${label}: status ${answer.status}, ${results.length} results; ${listed || 'no properties'}`);
+  // For anything that looks like a year or a date, how many fall before 1975 (a count, not the values).
+  const dated = {};
+  for (const entity of results) {
+    for (const [key, value] of Object.entries(entity?.properties ?? {})) {
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(key) || !/year|date|founded|inception|established|born|birth|start|release|first|active/i.test(key)) continue;
+      const year = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.slice(0, 4)) : NaN;
+      if (!Number.isInteger(year) || year < 1000 || year > 2100) continue;
+      dated[key] = dated[key] ?? { total: 0, early: 0 };
+      dated[key].total += 1;
+      if (year < 1975) dated[key].early += 1;
+    }
+  }
+  const lines = Object.entries(dated).map(([key, d]) => `${key}: ${d.total} readable as a year, ${d.early} before 1975`).join('; ');
+  if (lines) console.log(`    year-like fields: ${lines}`);
+}
+
 console.log('\n==================== END OF POINTED QUESTIONS ====================');
