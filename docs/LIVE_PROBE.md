@@ -268,3 +268,29 @@ calls and the report), `scripts/lib/probe-plan.mjs` (the call list),
 value-free description of answers), `.github/workflows/live-probe.yml`.
 The `.d.mts` files beside the modules only give TypeScript the types for the
 tests.
+
+## Reading the result without the log
+
+The build workspace cannot read workflow logs, so the workflow also saves the
+probe's output, which holds field names, types, counts and timings only, to a
+branch named `probe-reports` (`probe-report.txt` and `probe-meta.txt`). Each run
+replaces the last. Fetch it with `git fetch origin probe-reports` and read
+`git show FETCH_HEAD:probe-report.txt`.
+
+Delete the `probe-reports` and `run-probe` branches before the repository is
+made public: `git push origin --delete probe-reports run-probe`.
+
+## Starting it without the button
+
+Pushing any commit to a branch named `run-probe` starts the workflow, for
+example `git push -f origin HEAD:run-probe`.
+
+## After a deploy: the journey check
+
+Once the key is set, the "Deploy" workflow passes it to the Worker and then runs
+`scripts/live-journey.mjs` against the deployed demo: for each example person it
+looks the favourites up, builds the map and plans the week, and writes one
+annotation per person with counts and Encore's own codes only (how many
+favourites matched, how many suggestions each list holds, which warnings came
+back, which moves the map agent made). It fails the run if a route fails or a
+map is empty.

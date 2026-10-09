@@ -53,10 +53,29 @@ jobs:
           npx wrangler deploy 2>&1 | tee deploy.log
           url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -n 1 || true)
           echo "url=$url" >> "$GITHUB_OUTPUT"
+      # The repository owner sets QLOO_API_KEY once, as a repository secret.
+      # This step hands it to the Worker so it never has to be typed twice. The
+      # value goes from the secret to wrangler on standard input and is never
+      # printed; GitHub masks it in the log.
+      - name: Pass the Qloo key to the Worker
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          QLOO_API_KEY: ${{ secrets.QLOO_API_KEY }}
+        run: |
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || unset CLOUDFLARE_ACCOUNT_ID
+          if [ -z "$QLOO_API_KEY" ]; then
+            echo "::notice title=Qloo key::QLOO_API_KEY is not set as a repository secret yet, so the demo stays on sample data."
+            exit 0
+          fi
+          printf '%s' "$QLOO_API_KEY" | npx wrangler secret put QLOO_API_KEY > /dev/null 2>&1 \
+            && echo "::notice title=Qloo key::Passed to the Worker." \
+            || { echo "::error title=Qloo key::wrangler could not store the key on the Worker."; exit 1; }
+          sleep 5
       # The build workspace cannot read workflow logs or reach the demo, so the
       # address and a short health line are published as run annotations. The
       # health answer never contains a key (see test/index.test.ts).
       - name: Check the demo answers
+        id: health
         if: steps.gate.outputs.enabled == 'true'
         env:
           DEMO_URL: ${{ steps.deploy.outputs.url }}
@@ -80,4 +99,12 @@ jobs:
             } catch { console.log("health answer was not JSON"); }
           ')
           echo "::notice title=Demo health::page $page, health $code, $summary"
+          if grep -q '"qlooConfigured":true' health.json 2>/dev/null; then echo "live=true" >> "$GITHUB_OUTPUT"; fi
           [ "$code" = "200" ] && [ "$page" = "200" ]
+      # With the live key in place, walk the demo through a whole journey for
+      # each example person. Counts and Encore's own codes only: see the script.
+      - name: Walk the live demo
+        if: steps.gate.outputs.enabled == 'true' && steps.health.outputs.live == 'true'
+        env:
+          DEMO_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/live-journey.mjs
