@@ -9,7 +9,7 @@ import { KIND_INFO, kindMark } from '../kinds.js';
 import { QUICK_PICKS } from '../quick-picks.js';
 import { draftFromRecord, emptyDraft } from '../records.js';
 import { session } from '../session.js';
-import { AGE_BANDS, CAUTION_WORDS, defaultCautions, PUBLISHED, sentenceStatement } from '../words.js';
+import { AGE_BANDS, CAUTION_WORDS, defaultCautions, PUBLISHED, sampleMode, sentenceStatement, Source } from '../words.js';
 
 /*
  * R1: "What are they into?" The form for one reader: nickname (never sent
@@ -132,7 +132,7 @@ function buildForm({ existing }) {
       draft.ageBand === '8_to_10'
         ? h('label', { class: 'check' },
             h('input', { type: 'checkbox', checked: draft.onlyAgeTagged, onchange: (event) => { draft.onlyAgeTagged = event.target.checked; } }),
-            h('span', null, 'Only books that carry an age-band tag. Qloo may not have these tags, and then this does nothing.'))
+            h('span', null, `Only books that carry an age-band tag. ${Source()} may not have these tags, and then this does nothing.`))
         : null,
     );
   }
@@ -377,7 +377,7 @@ function buildForm({ existing }) {
     ),
     h('section', { class: 'form-block', 'aria-labelledby': 'rule-heading' },
       h('h2', { id: 'rule-heading' }, 'Rule out'),
-      h('p', { class: 'fine' }, 'Rung asks Qloo to leave books with these themes out, and checks the tags again on its own server. A book that is not tagged with a theme can still contain it, so check each pick.'),
+      h('p', { class: 'fine' }, sampleMode() ? 'Rung leaves books with these themes out. A book that is not tagged with a theme can still contain it, so check each pick.' : 'Rung asks Qloo to leave books with these themes out, and checks the tags again on its own server. A book that is not tagged with a theme can still contain it, so check each pick.'),
       cautionHost,
       onlyTagged,
       search.el,

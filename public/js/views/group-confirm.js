@@ -5,6 +5,7 @@ import { button, errorPanel, linkButton, loading, note, setBusy } from '../compo
 import { chosenLove, entryKey } from '../flows.js';
 import { createAndBuild, usedByLine } from '../group-flows.js';
 import { persistGroup, session } from '../session.js';
+import { source } from '../words.js';
 
 /*
  * G2: "Did we get these right?" for a group. A name typed in several rows is
@@ -105,7 +106,7 @@ export async function groupConfirmView() {
   replaceChildren(
     root,
     title,
-    h('p', { class: 'lede' }, `Rung looked up ${plural(entries.length, 'name')} across the rows. A name used in more than one row is shown once. A name Qloo does not know is left out, and nothing is made up to fill the gap.`),
+    h('p', { class: 'lede' }, `Rung looked up ${plural(entries.length, 'name')} across the rows. A name used in more than one row is shown once. A name ${source()} does not know is left out, and nothing is made up to fill the gap.`),
     h('section', { 'aria-labelledby': 'matches-heading' }, h('h2', { id: 'matches-heading', class: 'sr-only' }, 'Matches'), list.el),
     summary,
     errorHost,

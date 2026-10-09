@@ -6,7 +6,7 @@ import { tracePanel } from '../components/trace-panel.js';
 import { button, errorPanel, linkButton, loading, note, noteList, toggleChip } from '../components/ui.js';
 import { buildBoard, headcountWords, loadGroup, rowLabel } from '../group-flows.js';
 import { persistGroup, session } from '../session.js';
-import { verdictWords } from '../words.js';
+import { sampleMode, Source, verdictWords } from '../words.js';
 import { runner } from './try.js';
 
 /*
@@ -46,7 +46,7 @@ export function rebuildView(record) {
     title: 'Rebuilding the board',
     ...runner({
     heading: `Rebuilding the board for ${name}`,
-    summary: 'Rung keeps the rows on this device, not the answers. It asks Qloo again.',
+    summary: sampleMode() ? 'Rung keeps the rows on this device, not the answers. It builds the board again.' : 'Rung keeps the rows on this device, not the answers. It asks Qloo again.',
     backHref: '#/saved',
     backLabel: 'Back to what is saved',
     async start({ signal, progress, isGone }) {
@@ -266,7 +266,7 @@ function buildView(record) {
     const entries = board.titles.map((one, index) => ({ title: one, kicker: `Shared read ${index + 1} of ${board.titles.length}` }));
     if (board.checked) entries.push({ title: board.checked, kicker: 'A book we already have' });
     if (entries.length === 0) {
-      return h('section', { class: 'empty', 'aria-labelledby': 'titles-h' }, h('h2', { id: 'titles-h', tabindex: '-1' }, 'No books came back'), h('p', null, 'Qloo had no books for these rows with these rules. Add more names to the rows, or widen the years, then try again.'), linkButton({ label: 'Change the group', href: `#/group/${record.id}/edit`, variant: 'primary', icon: 'plus' }));
+      return h('section', { class: 'empty', 'aria-labelledby': 'titles-h' }, h('h2', { id: 'titles-h', tabindex: '-1' }, 'No books came back'), h('p', null, `${Source()} had no books for these rows with these rules. Add more names to the rows, or widen the years, then try again.`), linkButton({ label: 'Change the group', href: `#/group/${record.id}/edit`, variant: 'primary', icon: 'plus' }));
     }
     return h(
       'section',
@@ -339,7 +339,7 @@ function buildView(record) {
     return h(
       'section',
       { class: 'side-block', 'aria-labelledby': 'taste-h' },
-      h('h2', { id: 'taste-h' }, 'The group’s taste, in Qloo’s words'),
+      h('h2', { id: 'taste-h' }, sampleMode() ? 'The group’s taste, in sample tags' : 'The group’s taste, in Qloo’s words'),
       h('ul', { class: 'tag-chips' }, board.tasteWords.map((tag) => h('li', null, h('span', { class: 'chip' }, tag.name)))),
     );
   }

@@ -5,6 +5,7 @@ import { matchList } from './match-list.js';
 import { button, errorPanel, field, loading, setBusy } from './ui.js';
 import { chosenLove } from '../flows.js';
 import { session } from '../session.js';
+import { Source } from '../words.js';
 
 /*
  * "Check a book we already have": the adult types a title, Rung finds it, and
@@ -13,7 +14,7 @@ import { session } from '../session.js';
  */
 
 function closenessLine(closeness, rungs) {
-  if (closeness === null) return 'Qloo gave no closeness score for this book, so Rung cannot say how close it is.';
+  if (closeness === null) return `${Source()} gave no closeness score for this book, so Rung cannot say how close it is.`;
   const scores = rungs.map((rung) => rung.closeness);
   if (scores.length === 0) return 'The ladder has no books to compare it with.';
   const high = Math.max(...scores);
@@ -49,7 +50,7 @@ export function checkTool({ getRecord, getApi, owner, onTrace }) {
         answer.alreadyDone ? h('p', { class: 'book-check__done' }, 'This book is already on this reader’s done list, so Rung will not suggest it.') : null,
         answer.links.length > 0
           ? h('div', null, h('p', { class: 'label' }, 'Loves it connects to'), becauseChips(answer.links))
-          : h('p', null, 'Qloo found no link between this book and what they love.'),
+          : h('p', null, `${Source()} found no link between this book and what they love.`),
         flagList(flags),
         h('p', { class: 'fine' }, 'This only shows closeness in taste. It does not say whether the book is suitable or how hard it is. You decide.'),
       ),
@@ -96,8 +97,8 @@ export function checkTool({ getRecord, getApi, owner, onTrace }) {
       onTrace?.();
       const one = found.resolved[0];
       if (!one || one.status === 'unresolved') {
-        replaceChildren(out, h('div', { class: 'note' }, h('p', { class: 'note__title' }, 'Qloo does not know this book'), h('p', null, one?.hint ?? 'Try the title without the subtitle, or check the spelling.')));
-        announce('Qloo does not know this book.');
+        replaceChildren(out, h('div', { class: 'note' }, h('p', { class: 'note__title' }, `${Source()} does not know this book`), h('p', null, one?.hint ?? 'Try the title without the subtitle, or check the spelling.')));
+        announce(`${Source()} does not know this book.`);
         return;
       }
       const candidates = [one.chosen, ...one.alternatives.filter((other) => other.id !== one.chosen.id)].slice(0, 4);

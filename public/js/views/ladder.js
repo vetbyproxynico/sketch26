@@ -9,7 +9,7 @@ import { tracePanel } from '../components/trace-panel.js';
 import { button, errorPanel, linkButton, loading, noteList, note, toggleChip } from '../components/ui.js';
 import { applyLadderAnswer, applyVerdictAnswer, climbed, displayName, isReading, openRungs, possessive, setAside } from '../records.js';
 import { checkStore, persistReader, session } from '../session.js';
-import { GIVE_UP_REASONS, SWAP_REASONS, verdictWords } from '../words.js';
+import { GIVE_UP_REASONS, sampleMode, SWAP_REASONS, Source, verdictWords } from '../words.js';
 import { runner } from './try.js';
 
 /*
@@ -24,7 +24,7 @@ import { runner } from './try.js';
 const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 const numberWord = (count) => NUMBER_WORDS[count] ?? String(count);
 
-const STOP_FALLBACK = 'Three in a row have not worked. The links Qloo has for these loves may be too weak. Add different loves, or stop here.';
+const stopFallback = () => `Three in a row have not worked. The links ${sampleMode() ? 'in the sample data' : 'Qloo has'} for these loves may be too weak. Add different loves, or stop here.`;
 const MAX_TAG_CHOICES = 24;
 
 /** The record for an ID: the one being worked on, or a copy of the saved one. */
@@ -75,7 +75,7 @@ function rebuildLadderView(record) {
     title: 'Rebuilding the ladder',
     ...runner({
       heading: record.nickname ? `Building ${possessive(name)} ladder again` : 'Building the ladder again',
-      summary: 'Rung keeps the loves on this device, not the answers. It asks Qloo again.',
+      summary: sampleMode() ? 'Rung keeps the loves on this device, not the answers. It builds the ladder again.' : 'Rung keeps the loves on this device, not the answers. It asks Qloo again.',
       backHref: '#/saved',
       backLabel: 'Back to what is saved',
       async start({ signal, progress, isGone }) {
@@ -402,7 +402,7 @@ function buildView(record) {
     relabel();
     return wrap(
       'Which themes should Rung leave out from now on?',
-      tags.length === 0 ? 'Qloo has no tags for this book, so there is nothing to rule out. A ruled-out theme can still appear in a book that is not tagged with it.' : 'Press the ones to rule out. These are Qloo’s tags for this book. You can choose none. A ruled-out theme can still appear in a book that is not tagged with it.',
+      tags.length === 0 ? `${Source()} has no tags for this book, so there is nothing to rule out. A ruled-out theme can still appear in a book that is not tagged with it.` : `Press the ones to rule out. These are ${sampleMode() ? 'the sample data’s' : 'Qloo’s'} tags for this book. You can choose none. A ruled-out theme can still appear in a book that is not tagged with it.`,
       tags.length === 0
         ? null
         : h('ul', { class: 'toggle-grid' }, tags.map((tag) => h('li', null, toggleChip({
@@ -492,7 +492,7 @@ function buildView(record) {
   }
 
   function stopPanel() {
-    const message = record.notes.find((one) => one.code === 'stopped')?.message ?? STOP_FALLBACK;
+    const message = record.notes.find((one) => one.code === 'stopped')?.message ?? stopFallback();
     return h(
       'section',
       { class: 'stop', 'aria-labelledby': 'stop-h' },
@@ -524,7 +524,7 @@ function buildView(record) {
       'section',
       { class: 'empty', 'aria-labelledby': 'empty-h' },
       h('h2', { id: 'empty-h', tabindex: '-1' }, 'No books came back'),
-      h('p', null, 'Qloo had no books for these loves with these rules. Add another love, or widen the years, then try again.'),
+      h('p', null, `${Source()} had no books for these loves with these rules. Add another love, or widen the years, then try again.`),
       h('div', { class: 'actions' }, linkButton({ label: 'Change loves or rules', href: `#/reader/edit/${record.id}`, variant: 'primary', icon: 'plus' })),
     );
   }
@@ -565,15 +565,15 @@ function buildView(record) {
       none.length === 0
         ? null
         : others === 0
-          ? `Qloo found no reading link for ${none.map((love) => love.name).join(', ')}, so Rung has nothing to lean on.`
-          : `Qloo found no reading link for ${none.length === 1 ? none[0].name : `${none.slice(0, -1).map((love) => love.name).join(', ')} and ${none[none.length - 1].name}`}, so the ladder leans on the other ${numberWord(others)}.`;
+          ? `${Source()} found no reading link for ${none.map((love) => love.name).join(', ')}, so Rung has nothing to lean on.`
+          : `${Source()} found no reading link for ${none.length === 1 ? none[0].name : `${none.slice(0, -1).map((love) => love.name).join(', ')} and ${none[none.length - 1].name}`}, so the ladder leans on the other ${numberWord(others)}.`;
     return h(
       'section',
       { class: 'side-block', 'aria-labelledby': 'links-h' },
       h('h2', { id: 'links-h' }, 'Reading links'),
-      h('p', { class: 'fine' }, 'How much each thing they love pulled on these picks, from Qloo’s data.'),
+      h('p', { class: 'fine' }, `How much each thing they love pulled on these picks, from ${sampleMode() ? 'the sample data' : 'Qloo’s data'}.`),
       links.length === 0
-        ? h('p', null, 'Qloo gave no reading links for this ladder.')
+        ? h('p', null, `${Source()} gave no reading links for this ladder.`)
         : h('ul', { class: 'chips chips--stack', 'aria-label': 'Reading links' }, loves.map((love) => loveChip(love, { strength: strengthOf(love) ?? 'none' }))),
       sentence ? h('p', { class: 'links-note' }, sentence) : null,
     );
@@ -584,8 +584,8 @@ function buildView(record) {
     return h(
       'section',
       { class: 'side-block', 'aria-labelledby': 'taste-h' },
-      h('h2', { id: 'taste-h' }, 'Their taste, in Qloo’s words'),
-      h('p', { class: 'fine' }, 'Tags Qloo attaches to the books near what they love.'),
+      h('h2', { id: 'taste-h' }, sampleMode() ? 'Their taste, in sample tags' : 'Their taste, in Qloo’s words'),
+      h('p', { class: 'fine' }, sampleMode() ? 'Invented tags on the sample books near what they love.' : 'Tags Qloo attaches to the books near what they love.'),
       h('ul', { class: 'tag-chips' }, record.tasteWords.map((tag) => h('li', null, h('span', { class: 'chip' }, tag.name)))),
     );
   }
@@ -661,10 +661,10 @@ function buildView(record) {
       : finished
         ? 'Every rung on this ladder has been done.'
         : noBooks
-          ? 'Qloo had no books to put on a ladder for these loves and rules.'
+          ? `${Source()} had no books to put on a ladder for these loves and rules.`
           : 'Closest to what they love first. Each rung after it steps a little further out. Check every book yourself before you hand it over.';
 
-    const railNote = status === 'short' && open.length > 0 ? note('Qloo came back with fewer books than a full ladder, so this one is short.') : null;
+    const railNote = status === 'short' && open.length > 0 ? note(`${Source()} came back with fewer books than a full ladder, so this one is short.`) : null;
 
     const ladderCol = h(
       'section',

@@ -6,7 +6,7 @@ import { kindOfQuickPick } from './quick-picks.js';
 import { newRecord, newState } from './records.js';
 import { session } from './session.js';
 import { matchTags } from './tagwords.js';
-import { CAUTION_WORDS } from './words.js';
+import { CAUTION_WORDS, source } from './words.js';
 
 /*
  * The work behind a group: the draft the form edits, the look-up of names, the
@@ -376,13 +376,13 @@ export function loadGroup(id) {
 export async function createAndBuild(draft, results, { signal, progress } = {}) {
   const { rows, dropped } = rowsFromDraft(draft, results);
   if (rows.length < GROUP_LIMITS.rowsMin) {
-    throw new ApiError({ kind: 'client', message: `A group needs at least ${GROUP_LIMITS.rowsMin} rows that have a name Qloo knows. Go back and add more names, or another row.` });
+    throw new ApiError({ kind: 'client', message: `A group needs at least ${GROUP_LIMITS.rowsMin} rows that have a name ${source()} knows. Go back and add more names, or another row.` });
   }
   const existing = draft.editing ? loadGroup(draft.editing) : undefined;
   const record = existing ? updateGroupRecord(structuredClone(existing), draft, rows) : newGroupRecord({ draft, rows, mode: session.mode });
   if (existing) record.mode = session.mode;
   const built = await buildBoard(record, { signal, progress });
-  if (dropped.length > 0) built.notes.push({ code: 'other', message: `${joinNames(dropped)} ${dropped.length === 1 ? 'was' : 'were'} left out, because Qloo knew none of the names.` });
+  if (dropped.length > 0) built.notes.push({ code: 'other', message: `${joinNames(dropped)} ${dropped.length === 1 ? 'was' : 'were'} left out, because ${source()} knew none of the names.` });
   session.adoptTrace('group-draft', record.id);
   session.groups.set(record.id, record);
   session.groupResults.set(record.id, built);

@@ -5,6 +5,20 @@
  * reading outcomes. A test scans this file for the words that would claim that.
  */
 
+/**
+ * Who the taste data comes from, for wording on the screen. Live, it is Qloo.
+ * In sample mode (the banner says so) there is no Qloo, so a line that would
+ * credit a book, a tag or a score to Qloo says "the sample data" instead.
+ * The page marks the mode on the root element when it starts.
+ */
+export function sampleMode() {
+  return typeof document !== 'undefined' && document.documentElement?.dataset?.mode === 'sample';
+}
+/** "Qloo", or "the sample data". For the middle of a sentence. */
+export const source = () => (sampleMode() ? 'the sample data' : 'Qloo');
+/** "Qloo", or "The sample data". For the start of a sentence. */
+export const Source = () => (sampleMode() ? 'The sample data' : 'Qloo');
+
 export const FIXED_LINE = 'Rung matches taste. It does not check age suitability or reading level. You decide what they read.';
 
 export const SAMPLE_BANNER = 'Sample data: the live taste service is not connected. Every book and every score here is invented.';
@@ -42,7 +56,9 @@ export const FLAGS = {
     help: 'This book shares no genre tag with what they love. It is here because of who else loves those things, not because of its genre.',
   },
   adult_skew: {
-    label: 'Mostly liked by adults in Qloo’s data',
+    get label() {
+      return `Mostly liked by adults in ${sampleMode() ? 'the sample data' : 'Qloo’s data'}`;
+    },
     help: 'Check before you hand it over.',
     caution: true,
   },
@@ -52,7 +68,9 @@ export const FLAGS = {
     caution: true,
   },
   no_tags: {
-    label: 'No tags from Qloo',
+    get label() {
+      return `No tags from ${source()}`;
+    },
     help: 'Rung cannot check ruled-out themes on this book. Check it yourself.',
     caution: true,
   },
@@ -109,7 +127,9 @@ export function verdictWords(entry) {
 export const TIER_HELP = {
   warm: 'Near the top of what this group of readers would pick.',
   lukewarm: 'In the middle of what this group of readers would pick.',
-  cold: 'Near the bottom, or Qloo gave no score.',
+  get cold() {
+    return `Near the bottom, or ${source()} gave no score.`;
+  },
 };
 
 /** The model statement beside the free-text box. `provider` comes from /api/health. */

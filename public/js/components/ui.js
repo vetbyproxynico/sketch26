@@ -1,5 +1,6 @@
 import { announce, announceAlert, h, s, uid } from '../dom.js';
 import { describeError } from '../api.js';
+import { sampleMode } from '../words.js';
 
 /* Small shared pieces: icons, buttons, form fields, notices, errors and loading. */
 
@@ -141,7 +142,7 @@ export function noteList(notes, { heading, level = 3 } = {}) {
  */
 export function loading(message) {
   announce(message);
-  const slow = h('p', { class: 'loading__slow', hidden: true }, 'Still working. Rung asks Qloo many questions for one ladder or board, one after another, so this can take a few seconds.');
+  const slow = h('p', { class: 'loading__slow', hidden: true }, sampleMode() ? 'Still working. This can take a few seconds.' : 'Still working. Rung asks Qloo many questions for one ladder or board, one after another, so this can take a few seconds.');
   const el = h('div', { class: 'loading', role: 'status' }, h('span', { class: 'loading__bar', 'aria-hidden': 'true' }, h('span'), h('span'), h('span')), h('div', { class: 'loading__text' }, h('p', null, message), slow));
   // Said only if the wait goes on, and only while this message is still on the page.
   setTimeout(() => {

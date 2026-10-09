@@ -1,7 +1,7 @@
 import { h, uid } from '../dom.js';
 import { loveChip } from './chips.js';
 import { icon, rungBlock } from './ui.js';
-import { FLAG_ORDER, FLAGS, verdictWords } from '../words.js';
+import { FLAG_ORDER, FLAGS, sampleMode, verdictWords } from '../words.js';
 import { session } from '../session.js';
 
 /*
@@ -113,7 +113,7 @@ export function openRung({ rung, number, total, index, current }) {
         becauseChips(rung.links),
         flagList(rung.flags),
         book.description
-          ? h('details', { class: 'rung__about' }, h('summary', null, h('span', null, 'About this book')), h('p', { class: 'rung__description' }, book.description), h('p', { class: 'fine' }, 'The text above is Qloo’s own description, not Rung’s opinion.'))
+          ? h('details', { class: 'rung__about' }, h('summary', null, h('span', null, 'About this book')), h('p', { class: 'rung__description' }, book.description), h('p', { class: 'fine' }, (sampleMode() ? 'The text above is an invented sample description.' : 'The text above is Qloo’s own description, not Rung’s opinion.')))
           : null,
         primary,
         more,

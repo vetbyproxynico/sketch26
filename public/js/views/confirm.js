@@ -4,6 +4,7 @@ import { matchList } from '../components/match-list.js';
 import { button, errorPanel, linkButton, loading, note, setBusy } from '../components/ui.js';
 import { buildReader, chosenLove, entryKey, lovesOfDraft } from '../flows.js';
 import { session } from '../session.js';
+import { source } from '../words.js';
 
 /*
  * R2: "Did we get these right?" Shown only when a name was ambiguous or not
@@ -120,7 +121,7 @@ export async function confirmView() {
   replaceChildren(
     root,
     title,
-    h('p', { class: 'lede' }, 'Rung looked up each name. Check that each one is the thing you meant. A name Qloo does not know is left out, and nothing is made up to fill the gap.'),
+    h('p', { class: 'lede' }, `Rung looked up each name. Check that each one is the thing you meant. A name ${source()} does not know is left out, and nothing is made up to fill the gap.`),
     h('section', { 'aria-labelledby': 'matches-heading' }, h('h2', { id: 'matches-heading', class: 'sr-only' }, 'Matches'), list.el),
     summary,
     errorHost,

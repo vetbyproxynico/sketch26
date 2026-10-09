@@ -311,7 +311,7 @@ function plan(stateIn, options = {}) {
     const extra = [];
     if (none.length > 0) {
       const rest = links.length - none.length;
-      extra.push({ code: 'no_reading_link', message: rest === 0 ? `Qloo found no reading link for ${joinNames(none.map((l) => l.name))}, so there is nothing for the ladder to lean on.` : `Qloo found no reading link for ${joinNames(none.map((l) => l.name))}, so the ladder leans on the other ${rest}.` });
+      extra.push({ code: 'no_reading_link', message: rest === 0 ? `The sample data has no reading link for ${joinNames(none.map((l) => l.name))}, so there is nothing for the ladder to lean on.` : `The sample data has no reading link for ${joinNames(none.map((l) => l.name))}, so the ladder leans on the other ${rest}.` });
     }
     const first = options.done?.links[0]?.name;
     const after = rungs[0]?.links[0]?.name;
@@ -515,7 +515,7 @@ function applyVerdict(input) {
   }
   if (stopped) {
     keep = [];
-    notes.push({ code: 'stopped', message: 'Three in a row have not worked. The links Qloo has for these loves may be too weak. Add different loves, or stop here.' });
+    notes.push({ code: 'stopped', message: 'Three in a row have not worked. The links in the sample data for these loves may be too weak. Add different loves, or stop here.' });
   }
   const anchors = row === 'loved' ? [rung.book.id] : [];
   return { state, keep, anchors, changes, offers, stopped, backToBase, notes, done: rung };

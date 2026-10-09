@@ -42,7 +42,7 @@ export function tracePanel(owner) {
     const calls = log.reduce((sum, group) => sum + group.entries.length, 0);
     const intro = h('p', { class: 'fine' }, 'Each line is one question Rung asked Qloo while building this. You see the question and how many results came back. The answers are not shown or kept. This list is held in memory and is gone when you close the page.');
     if (session.mode === 'sample') {
-      replaceChildren(body, intro, h('p', null, 'Sample mode makes no Qloo calls, so there is nothing to list. With live data this panel shows every question.'));
+      replaceChildren(body, h('p', null, 'Sample mode makes no Qloo calls, so there is nothing to list. With live data this panel shows every question Rung asked Qloo, with its parameters and how many results came back.'));
       return;
     }
     if (log.length === 0) {

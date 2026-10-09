@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { FIXED_LINE, SAMPLE_BANNER, SAMPLE_PAPER, sentenceStatement } from '../../../public/js/words.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { MAX_SENTENCE } from '../../../src/rung/words/scrub';
+import { parseRequest } from '../../../src/rung/validate';
+import { FIXED_LINE, FLAGS, SAMPLE_BANNER, SAMPLE_PAPER, sentenceStatement, source, Source, TIER_HELP } from '../../../public/js/words.js';
 
 /*
  * Everything the page says. Rung matches taste. It does not rate age
@@ -111,11 +113,43 @@ describe('the words on the page', () => {
     expect(sentenceStatement('anthropic', 'sample')).toMatch(/Nothing is sent anywhere/);
   });
 
+  it('says what the server really does with the sentence: refuses one over the limit, and drops a model reply with a name that is not in it', () => {
+    const live = sentenceStatement('anthropic', 'live');
+    expect(live).toContain(`${MAX_SENTENCE} characters at most`);
+    expect(live).not.toMatch(/cut at/);
+    expect(() => parseRequest({ sentence: 'a'.repeat(MAX_SENTENCE + 1) })).toThrow();
+    expect(parseRequest({ sentence: 'a'.repeat(MAX_SENTENCE) }).sentence).toHaveLength(MAX_SENTENCE);
+    expect(live).toMatch(/throws the whole reply away/);
+    const schemas = readFileSync(resolve(__dirname, '../../../src/rung/words/schemas.ts'), 'utf8');
+    expect(schemas).toMatch(/does not appear in the sentence/);
+  });
+
   it('keeps every sentence of the About page free of a claim about reading outcomes', () => {
     const about = visibleText(join(PUBLIC, 'js/views/about.js'));
     expect(about).toMatch(/Rung makes no claim that it improves reading\./);
     expect(about).toMatch(/Rung does not know whether a book is suitable for a child of any age\./);
     expect(about).toMatch(/Rung does not know how long or how hard a book is\./);
     expect(about).toMatch(/A ruled-out theme can still appear in a book if the book is not tagged with it\./);
+  });
+});
+
+describe('in sample mode the page does not credit anything to Qloo', () => {
+  const root = globalThis as { document?: unknown };
+  const before = root.document;
+  afterEach(() => {
+    root.document = before;
+  });
+
+  it('names the source as Qloo when live and as the sample data in sample mode', () => {
+    root.document = { documentElement: { dataset: {} } };
+    expect(source()).toBe('Qloo');
+    expect(Source()).toBe('Qloo');
+    expect(FLAGS.adult_skew.label).toBe('Mostly liked by adults in Qloo’s data');
+    expect(FLAGS.no_tags.label).toBe('No tags from Qloo');
+    expect(TIER_HELP.cold).toBe('Near the bottom, or Qloo gave no score.');
+    root.document = { documentElement: { dataset: { mode: 'sample' } } };
+    expect(source()).toBe('the sample data');
+    expect(Source()).toBe('The sample data');
+    for (const text of [FLAGS.adult_skew.label, FLAGS.no_tags.label, TIER_HELP.cold]) expect(text).not.toMatch(/Qloo/);
   });
 });

@@ -3,6 +3,7 @@ import { LIMITS } from '../api.js';
 import { chosenLove } from '../flows.js';
 import { checkGroupBook } from '../group-flows.js';
 import { session } from '../session.js';
+import { Source } from '../words.js';
 import { matchList } from './match-list.js';
 import { button, errorPanel, field, loading, setBusy } from './ui.js';
 
@@ -59,8 +60,8 @@ export function groupCheckTool({ getRecord, getResults, onResults, owner, onTrac
       onTrace?.();
       const one = found.resolved[0];
       if (!one || one.status === 'unresolved') {
-        replaceChildren(out, h('div', { class: 'note' }, h('p', { class: 'note__title' }, 'Qloo does not know this book'), h('p', null, one?.hint ?? 'Try the title without the subtitle, or check the spelling.')));
-        announce('Qloo does not know this book.');
+        replaceChildren(out, h('div', { class: 'note' }, h('p', { class: 'note__title' }, `${Source()} does not know this book`), h('p', null, one?.hint ?? 'Try the title without the subtitle, or check the spelling.')));
+        announce(`${Source()} does not know this book.`);
         return;
       }
       const candidates = [one.chosen, ...one.alternatives.filter((other) => other.id !== one.chosen.id)].slice(0, 4);

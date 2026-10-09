@@ -7,7 +7,7 @@ import { button, errorPanel, field, linkButton, loading, note, segmented, setBus
 import { allMatched, createAndBuild, draftProblems, emptyGroupDraft, emptyRow, exampleGroupDraft, groupDraftFromRecord, GROUP_LIMITS, headcountWords, loadGroup, parseLines, resolveGroupNames, usedRows } from '../group-flows.js';
 import { kindOfQuickPick, QUICK_PICKS } from '../quick-picks.js';
 import { persistGroup, session } from '../session.js';
-import { CAUTION_WORDS, PUBLISHED } from '../words.js';
+import { CAUTION_WORDS, PUBLISHED, sampleMode } from '../words.js';
 
 /*
  * G1: "Who is in the group?" Rows, each with a nickname, a headcount and a few
@@ -246,7 +246,7 @@ function buildForm({ existing }) {
 
   const trends = h('label', { class: 'check' },
     h('input', { type: 'checkbox', checked: draft.trends, onchange: (event) => { draft.trends = event.target.checked; } }),
-    h('span', null, 'Lean towards what is popular now. Qloo may not do anything with this for books, and then it changes nothing.'),
+    h('span', null, sampleMode() ? 'Lean towards what is popular now. The sample data does nothing with this.' : 'Lean towards what is popular now. Qloo may not do anything with this for books, and then it changes nothing.'),
   );
 
   /* ---- messages */
@@ -324,7 +324,7 @@ function buildForm({ existing }) {
     ),
     h('section', { class: 'form-block', 'aria-labelledby': 'g-rule-h' },
       h('h2', { id: 'g-rule-h' }, 'Rule out'),
-      h('p', { class: 'fine' }, 'Rung looks each switched-on theme up as a book tag, asks Qloo to leave those books out and checks the tags again on its own server. A book that is not tagged with a theme can still contain it, so check each pick.'),
+      h('p', { class: 'fine' }, sampleMode() ? 'Rung leaves out books with each switched-on theme. A book that is not tagged with a theme can still contain it, so check each pick.' : 'Rung looks each switched-on theme up as a book tag, asks Qloo to leave those books out and checks the tags again on its own server. A book that is not tagged with a theme can still contain it, so check each pick.'),
       cautionHost,
       search.el,
     ),

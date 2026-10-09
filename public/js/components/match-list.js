@@ -1,6 +1,7 @@
 import { announce, focusEl, h, normaliseName, replaceChildren, uid } from '../dom.js';
 import { chosenLove } from '../flows.js';
 import { kindMark } from '../kinds.js';
+import { Source } from '../words.js';
 import { button } from './ui.js';
 
 /*
@@ -67,7 +68,7 @@ export function matchList(entries, { onChange, usedBy } = {}) {
         replaceChildren(
           li,
           h('p', { class: 'match__line' }, h('span', { class: 'match__state' }, 'Not found'), h('span', { class: 'match__name' }, quoted(entry.query))),
-          h('p', { class: 'match__why' }, 'Qloo does not know this one. Rung leaves it out and invents nothing.'),
+          h('p', { class: 'match__why' }, `${Source()} does not know this one. Rung leaves it out and invents nothing.`),
           entry.hint ? h('p', { class: 'match__hint' }, entry.hint) : null,
           used,
           remove,

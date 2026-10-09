@@ -4,7 +4,7 @@ import { button, linkButton, note } from '../components/ui.js';
 import { headcountWords, loadGroup, rowLabel } from '../group-flows.js';
 import { displayName, openRungs, positionOf, possessive } from '../records.js';
 import { session } from '../session.js';
-import { FIXED_LINE, FLAGS, SAMPLE_PAPER } from '../words.js';
+import { FIXED_LINE, FLAGS, SAMPLE_PAPER, Source } from '../words.js';
 import { groupReadOnly, missingGroup, rebuildView } from './board.js';
 import { loadRecord, missingReader } from './ladder.js';
 
@@ -131,7 +131,7 @@ export async function sheetView({ id }) {
     h('h2', { class: 'sheet__title', id: 'sheet-h' }, record.label ? `${record.label}: who each title would leave cold` : 'Who each title would leave cold'),
     h('p', { class: 'sheet__how' }, `${headcountWords(board.total)} in ${plural(rows.length, 'row')}. A row is warm, lukewarm or cold for a title by where the title ranks in that row’s own list.`),
     board.noSingleBook ? h('p', { class: 'sheet__nosingle' }, h('strong', null, 'No single book suits this group.'), ' Every candidate would leave half or more cold. See the split below.') : null,
-    entries.length === 0 ? h('p', null, 'Qloo found no books for this group.') : boardTable({ titles: entries, rows, total: board.total, className: 'board-table-wrap--sheet', label: 'Who each title suits, by row' }),
+    entries.length === 0 ? h('p', null, `${Source()} found no books for this group.`) : boardTable({ titles: entries, rows, total: board.total, className: 'board-table-wrap--sheet', label: 'Who each title suits, by row' }),
     entries.length === 0 ? null : tierKey({ open: true }),
     entries.length === 0
       ? null
