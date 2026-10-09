@@ -322,7 +322,7 @@ function buildForm({ existing }) {
           const record = await buildReader(draft, loves, { signal: controller.signal, progress: step });
           replaceChildren(statusHost);
           session.draft = null;
-          session.go(`/reader/${record.id}`);
+          session.go(`/reader/${record.id}`, { replace: true });
           return;
         }
         replaceChildren(statusHost);

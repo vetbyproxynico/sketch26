@@ -280,7 +280,7 @@ function buildForm({ existing }) {
           replaceChildren(statusHost);
           if (session.store.hasGroup(record.id)) persistGroup(record);
           session.groupDraft = null;
-          session.go(`/group/${record.id}`);
+          session.go(`/group/${record.id}`, { replace: true });
           return;
         }
         replaceChildren(statusHost);

@@ -240,7 +240,7 @@ function buildView(record) {
 
   function actionBar() {
     const saved = isSaved();
-    return h(
+    const row = h(
       'div',
       { class: 'actions ladder-head__actions' },
       saved
@@ -259,6 +259,7 @@ function buildView(record) {
       linkButton({ label: 'Print the class sheet', href: `#/group/${record.id}/sheet`, icon: 'print' }),
       linkButton({ label: 'Change the group', href: `#/group/${record.id}/edit`, icon: 'plus' }),
     );
+    return [row, saved ? null : h('p', { class: 'fine ladder-head__unsaved' }, 'Not saved yet. Rung keeps nothing unless you save it, so closing this page loses the group.')];
   }
 
   function titlesSection(board) {
@@ -371,7 +372,7 @@ function buildView(record) {
         h('p', { class: 'label' }, record.mode === 'sample' ? 'Sample group' : 'Group'),
         title,
         h('p', { class: 'lede' }, `${headcountWords(board.total)} in ${plural(rows().length, 'row')}. For each title, Rung shows who it suits and who it would leave cold. Check every book yourself before you hand it over.`),
-        actionBar(),
+        ...actionBar(),
       ),
       sampleNote,
       frozen() ? note('This group was built with live data, but the live service is not available now. You can look at the board. To change it, load the page again when the service is back.', { tone: 'warn', title: 'Read only for now' }) : null,

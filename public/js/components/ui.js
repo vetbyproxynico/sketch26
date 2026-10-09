@@ -141,7 +141,13 @@ export function noteList(notes, { heading, level = 3 } = {}) {
  */
 export function loading(message) {
   announce(message);
-  return h('div', { class: 'loading', role: 'status' }, h('span', { class: 'loading__bar', 'aria-hidden': 'true' }, h('span'), h('span'), h('span')), h('p', null, message));
+  const slow = h('p', { class: 'loading__slow', hidden: true }, 'Still working. Rung asks Qloo many questions for one ladder or board, one after another, so this can take a few seconds.');
+  const el = h('div', { class: 'loading', role: 'status' }, h('span', { class: 'loading__bar', 'aria-hidden': 'true' }, h('span'), h('span'), h('span')), h('div', { class: 'loading__text' }, h('p', null, message), slow));
+  // Said only if the wait goes on, and only while this message is still on the page.
+  setTimeout(() => {
+    if (el.isConnected) slow.hidden = false;
+  }, 6000);
+  return el;
 }
 
 /**

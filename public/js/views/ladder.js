@@ -620,7 +620,7 @@ function buildView(record) {
       linkButton({ label: 'Shelf', href: `#/reader/${record.id}/shelf`, ariaLabel: 'Shelf: what has been read' }),
       linkButton({ label: 'Print the slip', href: `#/reader/${record.id}/slip`, icon: 'print' }),
     );
-    return row;
+    return [row, saved ? null : h('p', { class: 'fine ladder-head__unsaved' }, 'Not saved yet. Rung keeps nothing unless you save it, so closing this page loses the ladder and every tap on it.')];
   }
 
   /* ------------------------------------------------------------ render */
@@ -686,7 +686,7 @@ function buildView(record) {
         h('p', { class: 'label' }, record.mode === 'sample' ? 'Sample ladder' : 'Ladder'),
         title,
         h('p', { class: 'lede' }, lead),
-        actionBar(),
+        ...actionBar(),
       ),
       sampleRecordNote(record),
       frozen() ? note('This reader was built with live data, but the live service is not available now. You can look at the ladder and the shelf. To change it, load the page again when the service is back.', { tone: 'warn', title: 'Read only for now' }) : null,
