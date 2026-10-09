@@ -20,6 +20,7 @@
   --on-mark: #000;
   --stop: #000;
   --tint: #fff;
+  --focus: #000;
   --kind-game: #000;
   --kind-tv: #000;
   --kind-film: #000;
@@ -33,9 +34,11 @@
   margin: 14mm;
 }
 
-@page sheet {
-  size: A4 landscape;
-  margin: 10mm;
+/* The class sheet asks for landscape paper by adding its own @page rule while it is on screen (js/views/print.js). */
+
+*:focus,
+*:focus-visible {
+  outline: none !important;
 }
 
 html,
@@ -120,7 +123,9 @@ a {
   font-weight: 800;
 }
 
-body.print-sheet .sample-banner {
+/* a slip or a sheet says so itself, and carries the fixed line itself */
+body.print-sheet .sample-banner,
+body.print-sheet .site-footer {
   display: none;
 }
 
@@ -151,7 +156,39 @@ body.print-sheet .sample-banner {
 }
 
 .slip__title {
-  font-size: 16pt;
+  font-size: 15pt;
+  margin-bottom: 2pt;
+}
+
+.slip__how {
+  margin-bottom: 6pt;
+  font-size: 9pt;
+}
+
+.slip__item {
+  margin: 0 0 4pt;
+  padding: 3pt 0 3pt 26pt;
+}
+
+.slip__item::before {
+  top: 3pt;
+  width: 18pt;
+  height: 18pt;
+  font-size: 9pt;
+}
+
+.slip__item p {
+  margin-bottom: 1pt;
+}
+
+.slip__because,
+.slip__check {
+  font-size: 9pt;
+}
+
+.slip__ticks {
+  margin-top: 2pt;
+  font-size: 9pt;
 }
 
 .tick {
@@ -162,10 +199,9 @@ body.print-sheet .sample-banner {
 
 /* the class sheet: the board as a table on one landscape page */
 .sheet {
-  page: sheet;
   padding: 0;
   border: 0 !important;
-  font-size: 9.5pt;
+  font-size: 9pt;
 }
 
 .sheet__title {
@@ -187,9 +223,24 @@ body.print-sheet .sample-banner {
 
 .board-table th,
 .board-table td {
-  padding: 3pt 5pt;
+  padding: 2pt 4pt;
   min-width: 0 !important;
   position: static !important;
+}
+
+.board-table__who,
+.board-table__n {
+  display: inline;
+}
+
+.board-table__n {
+  margin-left: 4pt;
+}
+
+.board-table tfoot td,
+.board-table tfoot th {
+  padding-top: 1pt;
+  padding-bottom: 1pt;
 }
 
 .board-table thead th,
@@ -201,6 +252,8 @@ body.print-sheet .sample-banner {
 
 .tier__glyph {
   border: 1.5pt solid #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .tier--warm .tier__glyph {
@@ -215,42 +268,90 @@ body.print-sheet .sample-banner {
   border-style: dashed;
 }
 
-.tier-cell {
-  border: 1.5pt solid #000;
+/*
+ * A cell never depends on a background: many print dialogues leave
+ * "background graphics" off. A warm cell has a thick border, a lukewarm one a
+ * plain border and a cold one a dashed border, and each has its word.
+ */
+.tier-cell,
+.tier-cell--warm,
+.tier-cell--lukewarm,
+.tier-cell--cold {
+  background: #fff;
+  color: #000;
 }
 
 .tier-cell--warm {
-  background: #000;
-  color: #fff;
-}
-
-.tier-cell--warm .tier__glyph {
-  background: #fff;
-  border-color: #fff;
+  border: 3pt solid #000;
 }
 
 .tier-cell--lukewarm {
-  background: repeating-linear-gradient(135deg, #bbb 0 2pt, #fff 2pt 5pt);
-}
-
-.tier-cell--lukewarm .tier {
-  background: #fff;
   border: 1.5pt solid #000;
 }
 
+.tier-cell--lukewarm .tier {
+  border: 0;
+  padding: 0;
+}
+
 .tier-cell--cold {
-  background: #fff;
   border: 1.5pt dashed #000;
 }
 
+.tier-cell--warm .tier__glyph {
+  background: #000;
+  border-color: #000;
+}
+
+.tagmark,
+.tagmark--now,
+.tagmark--new {
+  background: #fff;
+  color: #000;
+}
+
 .tier-key {
-  gap: 2pt;
   margin: 6pt 0;
 }
 
+.tier-key > summary {
+  display: none;
+}
+
+.tier-key__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 12pt;
+  margin: 0;
+  font-size: 8.5pt;
+}
+
 .tier-key__row {
-  display: flex;
-  gap: 8pt;
+  display: block;
+}
+
+.tier-key__list dd {
+  margin: 0;
+}
+
+.sheet__cold {
+  columns: 2;
+  margin-bottom: 4pt;
+}
+
+.sheet__cold li {
+  break-inside: avoid;
+  margin: 0;
+}
+
+.sheet p {
+  margin-bottom: 3pt;
+  max-width: none;
+}
+
+.sheet__notes,
+.sheet__cold {
+  margin-top: 0;
 }
 
 /* the ladder, if someone prints it from the browser's own menu */

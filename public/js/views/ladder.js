@@ -93,10 +93,17 @@ function buildView(record) {
 
   /* --------------------------------------------------------- the actions */
 
-  function arm() {
-    ui.armedAt = Date.now() + 600;
+  /**
+   * A tap just after the screen changed is ignored. A double tap on "I have
+   * checked it" must not land on "Finished and loved it", which takes its place,
+   * and a double tap on "Gave up" must not pick a reason. Nobody reads a book in
+   * the time it takes to start it, so that gap is long; picking a reason is
+   * quicker, so that gap is short.
+   */
+  function arm(ms = 350) {
+    ui.armedAt = Date.now() + ms;
   }
-  const armed = () => Date.now() >= ui.armedAt;
+  const armed = (event) => Date.now() >= ui.armedAt && !(event && event.detail > 1);
 
   function open(mode, extra = {}) {
     ui.mode = mode;
@@ -115,15 +122,15 @@ function buildView(record) {
     render({ focus: 'primary' });
   }
 
-  function startReading(rung) {
-    if (!armed()) return;
+  function startReading(rung, event) {
+    if (!armed(event)) return;
     const progress = record.progress;
     if (!progress.checked.includes(rung.book.id)) progress.checked.push(rung.book.id);
     progress.reading = rung.book.id;
     record.updatedAt = new Date().toISOString();
     keepSaved();
-    arm();
     announce(`Reading ${rung.book.name}. When they have finished or given up, tap how it went.`);
+    arm(1500);
     render({ focus: 'now' });
   }
 
@@ -250,8 +257,8 @@ function buildView(record) {
         label: 'Gave up',
         variant: 'secondary',
         icon: 'cross',
-        onClick: () => {
-          if (armed()) open('gave_up', { focus: 'panel' });
+        onClick: (event) => {
+          if (armed(event)) open('gave_up', { focus: 'panel' });
         },
       }),
     ];
@@ -263,7 +270,7 @@ function buildView(record) {
       return where === 'dock' ? [h('p', { class: 'dock__text' }, 'Answer the question in the card above.'), button({ label: 'Cancel', variant: 'secondary', onClick: cancel })] : [];
     }
     if (!isReading(record, rung)) {
-      const start = button({ label: 'I have checked it. Start reading', variant: 'primary', icon: 'check', onClick: () => startReading(rung) });
+      const start = button({ label: 'I have checked it. Start reading', variant: 'primary', icon: 'check', onClick: (event) => startReading(rung, event) });
       return where === 'dock' ? [h('p', { class: 'dock__text' }, rungLabel(rung)), start] : [start];
     }
     return verdictButtons(rung);
@@ -620,7 +627,6 @@ function buildView(record) {
         check.el,
       ),
       coversHost,
-      h('section', { class: 'side-block', 'aria-label': 'The working' }, trace.el),
     );
 
     replaceChildren(
@@ -633,7 +639,7 @@ function buildView(record) {
       ),
       sampleRecordNote(record),
       frozen() ? note('This reader was built with live data, but the live service is not available now. You can look at the ladder and the shelf. To change it, load the page again when the service is back.', { tone: 'warn', title: 'Read only for now' }) : null,
-      h('div', { class: 'ladder-layout' }, changedPanel(), ladderCol, side),
+      h('div', { class: 'ladder-layout' }, changedPanel(), ladderCol, side, h('section', { class: 'trace-section', 'aria-label': 'The working' }, trace.el)),
       bar,
     );
 

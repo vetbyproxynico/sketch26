@@ -392,7 +392,7 @@ function buildView(record) {
       verdictGrid(),
       rowsSection(),
       tasteWords(board),
-      h('section', { class: 'side-block', 'aria-label': 'The working' }, trace.el),
+      h('section', { class: 'trace-section', 'aria-label': 'The working' }, trace.el),
     );
     trace.refresh();
     document.title = `${name} | Rung`;

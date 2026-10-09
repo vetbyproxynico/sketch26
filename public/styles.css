@@ -1729,8 +1729,9 @@ label.check input[type='checkbox'] {
     grid-template-columns: minmax(0, 44rem) minmax(16rem, 1fr);
     grid-template-areas:
       'ladder changed'
-      'ladder side';
-    grid-template-rows: auto 1fr;
+      'ladder side'
+      'trace trace';
+    grid-template-rows: auto 1fr auto;
     column-gap: 2.5rem;
     row-gap: 0;
     align-items: start;
@@ -1744,6 +1745,9 @@ label.check input[type='checkbox'] {
   }
   .ladder-layout > .side {
     grid-area: side;
+  }
+  .ladder-layout > .trace-section {
+    grid-area: trace;
   }
 }
 
@@ -2273,29 +2277,54 @@ label.check input[type='checkbox'] {
   padding-top: 0.5rem;
 }
 
+.trace__count {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
 .trace-groups {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  gap: 0.5rem;
 }
 
 .trace-group {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: var(--border) solid var(--line);
+  margin: 0;
+  padding: 0 0.75rem;
+  border: var(--border) solid var(--ink);
   border-radius: var(--radius);
   background: var(--card);
 }
 
 .trace-group__title {
-  margin: 0 0 0.25rem;
-  font-weight: 800;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 1rem;
+  min-height: 3rem;
+  padding: 0.5rem 0;
+}
+
+.trace-group__title > span:first-child {
+  flex: 1 1 10rem;
+}
+
+.trace-group__meta {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-2);
 }
 
 .trace-calls {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 0.5rem;
+  counter-reset: call;
 }
 
 .trace-call {
@@ -2304,59 +2333,74 @@ label.check input[type='checkbox'] {
   border-top: 1px dashed var(--line);
 }
 
-.trace-call__step {
+.trace-call p {
   margin: 0 0 0.25rem;
+  max-width: none;
+}
+
+.trace-call__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.125rem 0.5rem;
+}
+
+.trace-call__n {
+  display: inline-block;
+  min-width: 1.5rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.trace-call__endpoint {
   font-weight: 700;
 }
 
-.trace-call__facts {
-  margin: 0;
-}
-
-.trace-call__facts > div {
-  display: grid;
-  gap: 0 0.75rem;
-  margin-bottom: 0.25rem;
-}
-
-@media (min-width: 540px) {
-  .trace-call__facts > div {
-    grid-template-columns: 6.5rem minmax(0, 1fr);
-  }
-}
-
-.trace-call__facts dt {
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.trace-call__answer,
+.trace-call__none {
+  font-size: 0.875rem;
   color: var(--ink-2);
 }
 
-.trace-call__facts dd {
-  margin: 0;
-  min-width: 0;
-}
-
 .trace-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
 .trace-params li {
-  margin: 0 0 0.125rem;
+  margin: 0;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-size: 0.8125rem;
   overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .trace-params code,
 .trace-call code {
+  font-size: 0.8125rem;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .trace-params__name {
   font-weight: 700;
+}
+
+.trace-section {
+  margin: 1.5rem 0 0;
+  padding-top: 1rem;
+  border-top: var(--border) solid var(--ink);
 }
 
 /* ------------------------------------------------------------ group form */
@@ -2455,10 +2499,14 @@ input[type='number'] {
 }
 
 .tier-key {
+  margin: 0 0 1rem;
+  max-width: 44rem;
+}
+
+.tier-key__list {
   display: grid;
   gap: 0.375rem;
-  margin: 0 0 1.25rem;
-  max-width: 44rem;
+  margin: 0.25rem 0 0.5rem;
 }
 
 .tier-key__row {
@@ -2473,12 +2521,12 @@ input[type='number'] {
   }
 }
 
-.tier-key dt,
-.tier-key dd {
+.tier-key__list dt,
+.tier-key__list dd {
   margin: 0;
 }
 
-.tier-key dd {
+.tier-key__list dd {
   font-size: 0.9375rem;
   color: var(--ink-2);
 }
@@ -3129,4 +3177,23 @@ input[type='number'] {
 
 .sheet__companions .companions {
   margin-bottom: 0.75rem;
+}
+
+/* the side column is narrow: its small forms stack, whatever the screen width */
+.side .inline-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* a chip in a list keeps its remove button on the right, and lets a long name wrap */
+.chosen-list .love-chip {
+  flex-wrap: wrap;
+}
+
+.chosen-list .love-chip__name {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.chosen-list .chip-remove {
+  margin-left: auto;
 }

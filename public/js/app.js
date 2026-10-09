@@ -166,6 +166,12 @@ async function boot() {
   serverNotice();
   session.store.subscribe(renderNav);
 
+  // The page address after the "#" is the screen, so the skip link cannot be a plain "#main": it would ask for a screen called "main".
+  document.querySelector('.skip')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    focusEl(document.getElementById('main'), { scroll: true });
+  });
+
   session.router = createRouter(ROUTES, {
     mount,
     failed: (error) => mount(failedView(error)),

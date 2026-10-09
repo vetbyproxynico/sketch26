@@ -99,7 +99,6 @@ export function matchList(entries, { onChange, usedBy } = {}) {
         li,
         h('p', { class: 'match__line' }, h('span', { class: 'match__state' }, entry.status === 'ambiguous' ? 'Best guess' : 'Matched'), ...(love ? loveLine(love) : [h('span', { class: 'match__name' }, quoted(entry.query))])),
         typed,
-        love?.disambiguation ? h('p', { class: 'match__hint' }, love.disambiguation) : null,
         used,
         remove,
       );

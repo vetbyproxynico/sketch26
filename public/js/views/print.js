@@ -18,6 +18,16 @@ import { loadRecord, missingReader } from './ladder.js';
 
 const today = () => longDate(new Date().toISOString());
 
+/** The class sheet wants landscape paper. The rule is added while the sheet is on screen and taken away after. */
+function landscape() {
+  const style = document.createElement('style');
+  style.id = 'page-size';
+  style.media = 'print';
+  style.textContent = '@page { size: landscape; margin: 8mm; }';
+  document.head.append(style);
+  return () => style.remove();
+}
+
 function printBar({ backHref, backLabel, what }) {
   return h(
     'div',
@@ -113,7 +123,7 @@ export async function sheetView({ id }) {
     h('p', { class: 'sheet__how' }, `${headcountWords(board.total)} in ${plural(rows.length, 'row')}. A row is warm, lukewarm or cold for a title by where the title ranks in that row’s own list.`),
     board.noSingleBook ? h('p', { class: 'sheet__nosingle' }, h('strong', null, 'No single book suits this group.'), ' Every candidate would leave half or more cold. See the split below.') : null,
     entries.length === 0 ? h('p', null, 'Qloo found no books for this group.') : boardTable({ titles: entries, rows, total: board.total, className: 'board-table-wrap--sheet', label: 'Who each title suits, by row' }),
-    entries.length === 0 ? null : tierKey(),
+    entries.length === 0 ? null : tierKey({ open: true }),
     entries.length === 0
       ? null
       : h(
@@ -146,6 +156,15 @@ export async function sheetView({ id }) {
     printBar({ what: 'the class sheet', backHref: `#/group/${record.id}`, backLabel: 'Back to the board' }),
     sheet,
   );
-  document.body.classList.add('print-sheet', 'print-wide');
-  return { title: heading, el: root, heading: title, dispose: () => document.body.classList.remove('print-sheet', 'print-wide') };
+  document.body.classList.add('print-sheet');
+  const undoPage = landscape();
+  return {
+    title: heading,
+    el: root,
+    heading: title,
+    dispose: () => {
+      document.body.classList.remove('print-sheet');
+      undoPage();
+    },
+  };
 }

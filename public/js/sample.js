@@ -108,18 +108,32 @@ const copyBook = (book) => ({ ...book, tags: book.tags.map((tag) => ({ ...tag })
 
 /* ------------------------------------------------------------------ scoring */
 
-const pull = (bookId, sourceId) => round2(0.05 + 0.9 * unit(`pull:${bookId}:${sourceId}`));
+/*
+ * Invented taste clusters, so that the sample world has the shape a real one
+ * would: a book is close to the loves in its own cluster and not to the rest.
+ * Without this every title would suit every row, and the sample board could
+ * never show a reader being left cold.
+ */
+const CLUSTER_SALT = 'x';
+const CLUSTERS = 5;
+const numberOf = (id) => Number(/^SAMPLE-B(\d+)$/.exec(id)?.[1] ?? Number.NaN);
+const clusterOf = (id) => (Number.isNaN(numberOf(id)) ? fnv(`cluster:${CLUSTER_SALT}:${id}`) % CLUSTERS : numberOf(id) % CLUSTERS);
+const pull = (bookId, sourceId) => round2(Math.min(0.97, 0.03 + 0.32 * unit(`pull:${bookId}:${sourceId}`) + (clusterOf(bookId) === clusterOf(sourceId) ? 0.58 : 0)));
 
 function closenessOf(bookId, sources) {
   if (sources.length === 0) return 0.3;
   let sum = 0;
   let weights = 0;
+  let best = 0;
   sources.forEach((source, index) => {
     const weight = 1 / (1 + 0.5 * index);
-    sum += weight * pull(bookId, source.id);
+    const one = pull(bookId, source.id);
+    sum += weight * one;
     weights += weight;
+    best = Math.max(best, one);
   });
-  return round2(clamp(0.5 + (sum / weights - 0.5) * 1.1, 0.02, 0.99));
+  // The best single link counts for as much as the average, as it does when one loved thing is enough to pull a book in.
+  return round2(clamp(0.5 + ((sum / weights + best) / 2 - 0.5) * 1.1, 0.02, 0.99));
 }
 
 const chainScore = (anchorId, bookId) => unit(`chain:${anchorId}:${bookId}`);

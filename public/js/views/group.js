@@ -129,7 +129,7 @@ function buildForm({ existing }) {
         ? button({
             label: 'Remove this row',
             variant: 'quiet',
-            ariaLabel: `Remove row ${n}`,
+            ariaLabel: `Remove this row (row ${n})`,
             onClick: () => {
               draft.rows.splice(index, 1);
               renderRows({ focusIndex: Math.min(index, draft.rows.length - 1) });

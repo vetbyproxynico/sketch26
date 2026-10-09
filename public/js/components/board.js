@@ -130,12 +130,17 @@ export function boardTable({ titles, rows, total, label = 'Who each title suits,
   );
 }
 
-/** What the three words mean. Shown once, near the table. */
-export function tierKey() {
+/** What the three words mean. Folded away on the board; open on the printed sheet. */
+export function tierKey({ open = false } = {}) {
   return h(
-    'dl',
-    { class: 'tier-key' },
-    TIERS.map((tier) => h('div', { class: 'tier-key__row' }, h('dt', null, tierMark(tier)), h('dd', null, TIER_HELP[tier]))),
+    'details',
+    { class: 'tier-key', open },
+    h('summary', null, 'What warm, lukewarm and cold mean'),
+    h(
+      'dl',
+      { class: 'tier-key__list' },
+      TIERS.map((tier) => h('div', { class: 'tier-key__row' }, h('dt', null, tierMark(tier)), h('dd', null, TIER_HELP[tier]))),
+    ),
   );
 }
 

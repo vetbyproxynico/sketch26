@@ -8,33 +8,34 @@ import { session } from '../session.js';
  * never shown or kept. The log lives in memory for this visit only.
  */
 
-const SHOWN = 10;
+const SHOWN = 12;
 
-function callItem(call) {
+function callItem(call, index) {
   const params = Object.entries(call.params);
+  const answer = `${call.status === 0 ? 'No status' : `Status ${call.status}`}, ${plural(call.count, 'result')}, ${call.ms} ms, ${call.cached ? 'from Rung’s private store' : 'asked Qloo'}`;
   return h(
     'li',
     { class: 'trace-call' },
-    h('p', { class: 'trace-call__step' }, call.step),
-    h(
-      'dl',
-      { class: 'trace-call__facts' },
-      h('div', null, h('dt', null, 'Endpoint'), h('dd', null, h('code', null, call.endpoint || 'not given'))),
-      h(
-        'div',
-        null,
-        h('dt', null, 'Parameters'),
-        h('dd', null, params.length === 0 ? 'None' : h('ul', { class: 'trace-params' }, params.map(([name, value]) => h('li', null, h('code', { class: 'trace-params__name' }, name), ' = ', h('code', { class: 'trace-params__value' }, value))))),
-      ),
-      h('div', null, h('dt', null, 'Answer'), h('dd', null, `${call.status === 0 ? 'No status' : `Status ${call.status}`}, ${plural(call.count, 'result')}, ${call.ms} ms, ${call.cached ? 'from Rung’s private store' : 'asked Qloo'}`)),
-    ),
+    h('p', { class: 'trace-call__head' }, h('span', { class: 'trace-call__n', 'aria-hidden': 'true' }, String(index + 1)), h('strong', { class: 'trace-call__step' }, call.step), ' ', h('code', { class: 'trace-call__endpoint' }, call.endpoint || 'no endpoint given')),
+    h('p', { class: 'trace-call__answer' }, answer),
+    params.length === 0
+      ? h('p', { class: 'trace-call__none' }, 'No parameters.')
+      : h('ul', { class: 'trace-params', 'aria-label': `Parameters sent for ${call.step}` }, params.map(([name, value]) => h('li', null, h('code', { class: 'trace-params__name' }, name), h('span', { 'aria-hidden': 'true' }, '='), h('span', { class: 'sr-only' }, ' equals '), h('code', { class: 'trace-params__value' }, value)))),
   );
+}
+
+/** The time a step took in Qloo's own calls, in words. */
+function seconds(entries) {
+  const total = entries.reduce((sum, call) => sum + call.ms, 0);
+  return total >= 1000 ? `${(total / 1000).toFixed(1)} s in all` : `${total} ms in all`;
 }
 
 /** @param {string} owner the reader or group the questions belong to */
 export function tracePanel(owner) {
   const body = h('div', { class: 'trace__body' });
   const details = h('details', { class: 'trace' }, h('summary', null, 'Show the working'), body);
+  /** Which steps the adult opened or closed, by their place in the log, so a redraw does not undo it. */
+  const opened = new Map();
 
   function refresh() {
     const log = session.traceFor(owner);
@@ -56,7 +57,17 @@ export function tracePanel(owner) {
       h(
         'ol',
         { class: 'trace-groups' },
-        newest.map((group) => h('li', { class: 'trace-group' }, h('p', { class: 'trace-group__title' }, `${group.label} (${plural(group.entries.length, 'question')})`), h('ul', { class: 'trace-calls' }, group.entries.map(callItem)))),
+        newest.map((group, index) => {
+          const key = log.length - 1 - index;
+          const stepDetails = h(
+              'details',
+              { class: 'trace-group__details', open: opened.has(key) ? opened.get(key) : index === 0 },
+              h('summary', { class: 'trace-group__title' }, h('span', null, group.label), h('span', { class: 'trace-group__meta' }, `${plural(group.entries.length, 'question')}, ${seconds(group.entries)}`)),
+              h('ol', { class: 'trace-calls' }, group.entries.map(callItem)),
+            );
+          stepDetails.addEventListener('toggle', () => opened.set(key, stepDetails.open));
+          return h('li', { class: 'trace-group' }, stepDetails);
+        }),
       ),
     );
   }
