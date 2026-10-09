@@ -165,14 +165,54 @@ interface Seen {
   description: readonly Word[];
   /** One list of words for each tag, from its name and from the last part of its ID. */
   tags: ReadonlyArray<readonly Word[]>;
+  /**
+   * Every form of every word in each place. A phrase can only be there when
+   * each of its words shares a form with the set, which is a quick thing to
+   * check before the words are compared in order. It makes no difference to
+   * what is found, only to how long it takes: a live answer has some sixty
+   * tags on each of about a hundred results.
+   */
+  forms: { name: ReadonlySet<string>; description: ReadonlySet<string>; tags: ReadonlySet<string> };
 }
 
+function formSet(lists: ReadonlyArray<readonly Word[]>): Set<string> {
+  const set = new Set<string>();
+  for (const list of lists) for (const word of list) for (const form of word) set.add(form);
+  return set;
+}
+
+/** Whether every word of the phrase has some form in the set. False means the phrase cannot be there. */
+function mayHold(forms: ReadonlySet<string>, phrase: Phrase): boolean {
+  return phrase.words.length > 0 && phrase.words.every((word) => word.some((form) => forms.has(form)));
+}
+
+/** Items are not changed once built, so what one shows is worked out once. */
+const SEEN = new WeakMap<MapItem, Seen>();
+
+/**
+ * Tag names repeat from one suggestion to the next ("drama", "comedy"), and a
+ * tag's ID usually ends in its name, so the words of a short text are kept.
+ * The store is emptied when it grows large; descriptions are not kept.
+ */
+const WORDS = new Map<string, Word[]>();
+const WORDS_KEPT = 4000;
+const WORDS_LONGEST = 60;
+
 function wordsOf(text: string | undefined): Word[] {
-  return text === undefined ? [] : tokensOf(text).map(formsOf);
+  if (text === undefined) return [];
+  if (text.length > WORDS_LONGEST) return tokensOf(text).map(formsOf);
+  const known = WORDS.get(text);
+  if (known !== undefined) return known;
+  const words = tokensOf(text).map(formsOf);
+  if (WORDS.size >= WORDS_KEPT) WORDS.clear();
+  WORDS.set(text, words);
+  return words;
 }
 
 /** The name, description and tags of an item, ready to be searched. Year and affinity are not used. */
 function seen(item: MapItem): Seen {
+  const known = SEEN.get(item);
+  if (known !== undefined) return known;
   const tags: Array<readonly Word[]> = [];
   for (const tag of item.tags ?? []) {
     const fromName = wordsOf(tag.name);
@@ -180,7 +220,11 @@ function seen(item: MapItem): Seen {
     if (fromName.length > 0) tags.push(fromName);
     if (fromId.length > 0) tags.push(fromId);
   }
-  return { domain: item.domain, name: wordsOf(item.entity.name), description: wordsOf(item.description), tags };
+  const name = wordsOf(item.entity.name);
+  const description = wordsOf(item.description);
+  const shown: Seen = { domain: item.domain, name, description, tags, forms: { name: formSet([name]), description: formSet([description]), tags: formSet(tags) } };
+  SEEN.set(item, shown);
+  return shown;
 }
 
 // ---------------------------------------------------------------------------
@@ -463,6 +507,9 @@ export function compileAvoidNotes(notes: readonly string[]): AvoidRule[] {
     .filter((rule) => rule.clauses.length > 0);
 }
 
+/** Which set of forms belongs to which place. */
+const FORMS_OF: Readonly<Record<MatchField, 'tags' | 'name' | 'description'>> = { tag: 'tags', name: 'name', description: 'description' };
+
 function foundIn(clause: Clause, item: Seen): MatchField | undefined {
   if (clause.domains !== undefined && !clause.domains.includes(item.domain)) return undefined;
   const where: ReadonlyArray<[MatchField, ReadonlyArray<readonly Word[]>]> = [
@@ -471,8 +518,11 @@ function foundIn(clause: Clause, item: Seen): MatchField | undefined {
     ['description', [item.description]],
   ];
   if (clause.together) {
-    return where.find(([, lists]) => lists.some((list) => containsPhrase(list, clause.phrase)))?.[0];
+    return where.find(([field, lists]) => mayHold(item.forms[FORMS_OF[field]], clause.phrase) && lists.some((list) => containsPhrase(list, clause.phrase)))?.[0];
   }
+  // Each word must be somewhere in the item; most items fail this at the first word.
+  const anywhere = (word: Word): boolean => word.some((form) => item.forms.tags.has(form) || item.forms.name.has(form) || item.forms.description.has(form));
+  if (!clause.phrase.words.every(anywhere)) return undefined;
   const fields = clause.phrase.words.map((word) => where.find(([, lists]) => lists.some((list) => list.some((have) => sameWord(word, have))))?.[0]);
   return fields.every((field) => field !== undefined) ? fields[0] : undefined;
 }
@@ -617,9 +667,9 @@ function gentleCompiled(): readonly CompiledGentle[] {
 export function gentleMatch(item: MapItem): GentleMatch | undefined {
   const shown = seen(item);
   const places: ReadonlyArray<[MatchField, (phrase: Phrase) => boolean, 'inTags' | 'inText']> = [
-    ['tag', (phrase) => shown.tags.some((list) => containsPhrase(list, phrase)), 'inTags'],
-    ['name', (phrase) => containsPhrase(shown.name, phrase), 'inText'],
-    ['description', (phrase) => containsPhrase(shown.description, phrase), 'inText'],
+    ['tag', (phrase) => mayHold(shown.forms.tags, phrase) && shown.tags.some((list) => containsPhrase(list, phrase)), 'inTags'],
+    ['name', (phrase) => mayHold(shown.forms.name, phrase) && containsPhrase(shown.name, phrase), 'inText'],
+    ['description', (phrase) => mayHold(shown.forms.description, phrase) && containsPhrase(shown.description, phrase), 'inText'],
   ];
   for (const [field, isThere, list] of places) {
     let best: GentleMatch | undefined;

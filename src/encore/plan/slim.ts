@@ -1,4 +1,4 @@
-import { AVOID_THEMES, compileAvoidNotes, gentleMatch, matchAvoid } from '../avoid';
+import { AVOID_THEMES, GENTLE_THEMES, normalise } from '../avoid';
 import type { CulturalMap, Domain, MapItem, TagRef } from '../types';
 import { DOMAINS } from '../types';
 
@@ -18,17 +18,45 @@ export const SLIM_DESCRIPTION = 600;
 /** Most "because they loved" rows kept on a suggestion. Matches the request validator. */
 export const SLIM_CONTRIBUTIONS = 10;
 
-/** Every theme a carer can name, as rules, so a tag that touches one can be recognised. */
-const THEME_RULES = compileAvoidNotes(AVOID_THEMES.map((theme) => theme.terms[0] ?? theme.label));
+/*
+ * Every word and phrase the filters look for, gathered once. This is a quick
+ * check for ordering tags, not the filter itself: it runs on every tag of every
+ * suggestion, so it must cost almost nothing (the free Workers plan allows a
+ * request about ten milliseconds of processor time).
+ */
+const THEME_WORDS = new Set<string>();
+const THEME_PHRASES: string[] = [];
+for (const term of [...AVOID_THEMES.flatMap((theme) => theme.terms), ...GENTLE_THEMES.flatMap((theme) => [...theme.tags, ...theme.strong])]) {
+  const plain = normalise(term);
+  if (plain === '') continue;
+  if (plain.includes(' ')) {
+    if (!THEME_PHRASES.includes(plain)) THEME_PHRASES.push(plain);
+  } else {
+    THEME_WORDS.add(plain);
+  }
+}
+
+/** "soldiers" as "soldier", "killing" as "kill": the simple endings the filters also see through. */
+function stems(word: string): string[] {
+  const out = [word];
+  for (const ending of ['s', 'es', 'ing', 'er', 'ed']) {
+    if (word.length > ending.length + 2 && word.endsWith(ending)) out.push(word.slice(0, -ending.length));
+  }
+  return out;
+}
 
 /**
  * Whether a tag names something a filter looks for. Such tags are kept first:
  * the filters run again when a map comes back, and for other residents in a
  * common room, so a trimmed map must not lose the tag that would stop an item.
  */
-function touchesATheme(tag: TagRef): boolean {
-  const probe: MapItem = { entity: { id: 'tag', name: '', entityType: 'tag' }, domain: 'film', contributions: [], eraCheck: 'unchecked', tags: [tag] };
-  return gentleMatch(probe) !== undefined || matchAvoid(THEME_RULES, probe) !== undefined;
+export function touchesATheme(tag: TagRef): boolean {
+  const name = normalise(tag.name);
+  if (name === '') return false;
+  for (const word of name.split(' ')) {
+    for (const stem of stems(word)) if (THEME_WORDS.has(stem)) return true;
+  }
+  return name.includes(' ') && THEME_PHRASES.some((phrase) => name.includes(phrase));
 }
 
 /** Theme tags first, then genres, then keywords, then the rest; the order within each group is kept. */
