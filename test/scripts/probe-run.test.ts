@@ -136,7 +136,7 @@ describe("the agent's moves", () => {
     // drop_country: no release country, the era filter still there.
     expect(films.some((call) => call.params['filter.release_country'] === undefined && call.params['filter.release_year.min'] === '1942')).toBe(true);
     // widen_years: five more years either side, the country still there.
-    expect(films.some((call) => call.params['filter.release_country'] === 'FR' && call.params['filter.release_year.min'] === '1937' && call.params['filter.release_year.max'] === '1967')).toBe(true);
+    expect(films.some((call) => call.params['filter.release_country'] === 'France' && call.params['filter.release_year.min'] === '1937' && call.params['filter.release_year.max'] === '1967')).toBe(true);
     // drop_age_signal: the first call without the age band.
     expect(fake.seen.some((call) => call.params['filter.type'] === 'urn:entity:artist' && call.params['feature.explainability'] === 'true' && call.params['signal.demographics.age'] === undefined)).toBe(true);
     // taste_tags: tags with the union operator, and neither entity signals nor explainability.

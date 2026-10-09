@@ -49,7 +49,7 @@ const SHARED = {
   'filter.exclude.entities': `EXCL-1,${FOUR}`,
   'filter.exclude.tags': 'urn:tag:example:dark',
 };
-const FILM_BASE = { ...SHARED, 'filter.type': TYPE.film, 'filter.release_year.min': '1950', 'filter.release_year.max': '1970', 'filter.release_country': 'GB' };
+const FILM_BASE = { ...SHARED, 'filter.type': TYPE.film, 'filter.release_year.min': '1950', 'filter.release_year.max': '1970', 'filter.release_country': 'United Kingdom' };
 const TAGS = 'urn:tag:genre:media:example-drama,urn:tag:keyword:media:example-sea,urn:tag:genre:media:example-comedy';
 
 /** Every parameter name a list query may carry. All are in docs/QLOO_API.md. */
@@ -158,7 +158,7 @@ describe('each move sends exactly its documented parameters', () => {
     expect((await play('tv', 'widen_years')).calls[1]?.params).toEqual({
       ...SHARED,
       'filter.type': TYPE.tv,
-      'filter.release_country': 'GB',
+      'filter.release_country': 'United Kingdom',
       'filter.release_year.min': '1945',
       'filter.release_year.max': '1975',
     });
@@ -517,7 +517,7 @@ describe('the budget and the stop rules', () => {
 
   it('keeps three calls in flight at most, the moves included', async () => {
     const { peak } = await everythingEmpty();
-    expect(peak()).toBe(3);
+    expect(peak()).toBe(2);
   });
 
   it('accepting a list closes it: no later round decides it again', async () => {
@@ -658,7 +658,7 @@ describe('advisors that misbehave', () => {
       // The budget and the rounds hold.
       expect(moveCalls(trace).length).toBeLessThanOrEqual(8);
       expect(Math.max(0, ...decisions.map((d) => d.round ?? 0))).toBeLessThanOrEqual(3);
-      expect(peak()).toBeLessThanOrEqual(3);
+      expect(peak()).toBeLessThanOrEqual(2);
 
       // No move is made twice for a list, and every action is from the closed set.
       const made = decisions.filter((d) => d.action !== 'stop' && d.action !== 'accept').map((d) => `${d.domain}:${d.action}`);
@@ -994,9 +994,9 @@ describe('the trace of a map that needed more', () => {
 
   it('says "still" from the second round, and stops naming a country that is no longer asked for', async () => {
     const { source } = makeSource(alwaysThin('film'));
-    await source.culturalMap(makeProfile({ country: 'lu' }));
+    await source.culturalMap(makeProfile({ country: 'fr' }));
     expect(decisionsOf(source.trace()).map((d) => d.reason)).toEqual([
-      'Only 1 film from Luxembourg, 1950 to 1970. Trying films from any country.',
+      'Only 1 French film from 1950 to 1970. Trying films from any country.',
       'Still only 1 film from 1950 to 1970. Trying 5 more years either side, from 1945 to 1975.',
       'Still only 1 film from 1945 to 1975. Trying with only the films they loved as the starting point.',
       'Stopped after 3 extra questions. Still short: films (1). That was the last round.',
@@ -1020,7 +1020,7 @@ describe('the model advisor, through the loop', () => {
       [2, 'accept', 'model', 'Still only 1 British television programme from 1945 to 1975. Going further would leave their own world behind.'],
       [2, 'stop', 'rules', 'Stopped after 1 extra question. Still short: television programmes (1). Encore kept those as they are.'],
     ]);
-    expect(ofType(calls, TYPE.tv)[1]?.params).toMatchObject({ 'filter.release_country': 'GB', 'filter.release_year.min': '1945' });
+    expect(ofType(calls, TYPE.tv)[1]?.params).toMatchObject({ 'filter.release_country': 'United Kingdom', 'filter.release_year.min': '1945' });
     expect(llm.calls).toHaveLength(2);
   });
 

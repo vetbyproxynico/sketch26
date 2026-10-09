@@ -1,4 +1,5 @@
 import { QlooError } from '../../qloo/client';
+import { DOMAINS, DOMAIN_ENTITY_TYPE } from '../types';
 import type { Domain, EntityRef, ResolvedFavourite } from '../types';
 import { readEntities } from './adapter';
 import type { TracedQloo } from './traced';
@@ -9,6 +10,12 @@ export const MAX_NAME_LENGTH = 200;
 const SEARCH_TAKE = 5;
 
 const STEP = 'resolve favourites';
+/**
+ * The kinds Encore can use as signals. Without this list `/search` mixes in
+ * places, localities and albums, and a place often comes first (seen on the
+ * live API on 9 October 2026).
+ */
+export const SEARCH_TYPES: readonly string[] = DOMAINS.map((domain) => DOMAIN_ENTITY_TYPE[domain]);
 
 /** What each domain is called next to a year when two entities share a name. */
 const KIND: Readonly<Record<Domain, string>> = {
@@ -70,7 +77,7 @@ function unresolved(query: string): ResolvedFavourite {
 async function resolveOne(traced: TracedQloo, query: string): Promise<ResolvedFavourite> {
   let body: unknown;
   try {
-    body = (await traced.search(STEP, query, { take: SEARCH_TAKE })).data;
+    body = (await traced.search(STEP, query, { take: SEARCH_TAKE, types: [...SEARCH_TYPES] })).data;
   } catch (error) {
     // Qloo answers 404 when a search finds nothing. Any other failure is a real
     // problem that the carer should hear about, not a name that does not exist.

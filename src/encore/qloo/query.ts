@@ -2,6 +2,7 @@ import type { InsightsParams, QlooParams } from '../../qloo/client';
 import { MAX_TAG_SIGNALS, YEAR_STEP, type AgentMove, type SignalLens } from '../agent/types';
 import { DOMAIN_ENTITY_TYPE, type Domain, type YearWindow } from '../types';
 import { AGE_55_PLUS } from './adapter';
+import { releaseCountryName } from './countries';
 
 /*
  * How a list's query becomes Qloo parameters, and how each move of the agent
@@ -91,7 +92,8 @@ export function queryParams(shared: SharedQuery, domain: Domain, query: ListQuer
     'filter.exclude.entities': [...shared.excludedIds],
     'filter.exclude.tags': [...shared.excludedTags],
     ...dateParams(domain, query.years),
-    'filter.release_country': query.country,
+    // Qloo wants the country's English name, not its code (see countries.ts).
+    'filter.release_country': releaseCountryName(query.country),
   };
 }
 

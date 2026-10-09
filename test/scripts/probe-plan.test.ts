@@ -448,7 +448,7 @@ describe('describeParams', () => {
     for (const step of steps) expect(describeParams(step.params)).not.toContain('SECRET');
     const film = steps.find((step) => step.role === 'map' && step.domain === 'film');
     expect(describeParams(film?.params ?? {})).toBe(
-      'filter.type=urn:entity:movie, feature.explainability=true, filter.exclude.entities[2], filter.release_country=FR, ' +
+      'filter.type=urn:entity:movie, feature.explainability=true, filter.exclude.entities[2], filter.release_country=France, ' +
         'filter.release_year.max=1962, filter.release_year.min=1942, signal.demographics.age=55_and_older, signal.interests.entities[2], take=16',
     );
     expect(describeParams(ageCheckStep(first, 'music', 'SECRET-ID-3').params)).toBe('filter.type=urn:demographics, signal.interests.entities');

@@ -5,11 +5,12 @@ import type { Env } from '../env';
 import { createLlmProvider } from '../llm/factory';
 import { createQlooClient } from '../qloo/from-env';
 import { rateLimit } from '../ratelimit';
-import { isRecord } from '../util';
+import { isRecord, positiveInt } from '../util';
 import { createModelAdvisor } from './agent';
 import { applyFeedback, buildPlan, candidatePool, chooseProgramme, filterMap, filterRoom, filterTags, keepFor, scoreRoom, type FilteredMap, type TurnedAway } from './plan';
 import type { TasteSource, Wordsmith } from './ports';
 import { createTasteSource } from './qloo';
+import { slimMap } from './plan/slim';
 import { scoreRoomMembers } from './room-scoring';
 import type { MapWarning, Profile, RoomProgramme, TagRef } from './types';
 import {
@@ -55,11 +56,13 @@ function wordsmithFor(env: Env): Wordsmith {
  */
 function tasteFor(env: Env): TasteSource {
   const client = createQlooClient(env);
+  // Unset means no pacing, which is what the tests and the local stand-in want.
+  const paceMs = positiveInt(env.QLOO_PACE_MS, 0);
   try {
-    return createTasteSource(client, { advisor: createModelAdvisor(createLlmProvider(env)) });
+    return createTasteSource(client, { advisor: createModelAdvisor(createLlmProvider(env)), paceMs });
   } catch {
     // No model configured: the rule advisor, which is the default.
-    return createTasteSource(client);
+    return createTasteSource(client, { paceMs });
   }
 }
 
@@ -90,7 +93,9 @@ async function filteredMap(taste: TasteSource, profile: Profile): Promise<Filter
     keep: keepFor(profile),
     onLeftOut: (left) => Object.assign(turnedAway, left),
   });
-  return filterMap(built, profile, turnedAway);
+  // The filters judge the full items; only then is each one trimmed for the round trip.
+  const filtered = filterMap(built, profile, turnedAway);
+  return { ...filtered, map: slimMap(filtered.map) };
 }
 
 /** Tags shared between the first few pairs of residents, most widely shared first. */

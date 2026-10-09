@@ -89,9 +89,9 @@ function decisionEntry(note: DecisionNote): TraceEntry {
   return entry;
 }
 
-export function createTraced(client: QlooClient, maxConcurrent: number = QLOO_CONCURRENCY): TracedQloo {
+export function createTraced(client: QlooClient, maxConcurrent: number = QLOO_CONCURRENCY, paceMs = 0): TracedQloo {
   const entries: TraceEntry[] = [];
-  const limit = createLimiter(maxConcurrent);
+  const limit = createLimiter(maxConcurrent, paceMs);
 
   function call(
     step: string,

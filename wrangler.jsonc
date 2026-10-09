@@ -32,6 +32,8 @@
   "vars": {
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
-    "QLOO_CACHE_TTL_SECONDS": "21600"
+    "QLOO_CACHE_TTL_SECONDS": "21600",
+    // The live Qloo API refuses short bursts of calls, so they are spaced out.
+    "QLOO_PACE_MS": "220"
   }
 }

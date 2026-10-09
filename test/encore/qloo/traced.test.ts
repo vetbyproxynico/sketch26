@@ -235,7 +235,7 @@ describe('concurrency', () => {
     const { traced, peak, calls } = setup();
     await Promise.all(Array.from({ length: 10 }, (_, i) => traced.insights(`call ${i}`, { 'filter.type': 'urn:entity:movie', take: i + 1 })));
     expect(calls).toHaveLength(10);
-    expect(peak()).toBe(3);
+    expect(peak()).toBe(2);
     expect(traced.trace()).toHaveLength(10);
   });
 });
@@ -266,5 +266,25 @@ describe('createLimiter', () => {
     const limit = createLimiter(1);
     await expect(limit(() => Promise.reject(new Error('first fails')))).rejects.toThrow('first fails');
     await expect(limit(() => Promise.resolve('second runs'))).resolves.toBe('second runs');
+  });
+});
+
+describe('pacing', () => {
+  it('starts calls no closer together than the gap asked for', async () => {
+    const { createLimiter } = await import('../../../src/encore/qloo/limiter');
+    const limit = createLimiter(2, 30);
+    const starts: number[] = [];
+    await Promise.all(Array.from({ length: 5 }, () => limit(async () => void starts.push(Date.now()))));
+    const gaps = starts.slice(1).map((time, index) => time - (starts[index] ?? time));
+    // Timers may fire a millisecond or two early.
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(25);
+  });
+
+  it('does not wait at all when no gap is asked for', async () => {
+    const { createLimiter } = await import('../../../src/encore/qloo/limiter');
+    const limit = createLimiter(2);
+    const started = Date.now();
+    await Promise.all(Array.from({ length: 20 }, () => limit(async () => undefined)));
+    expect(Date.now() - started).toBeLessThan(25);
   });
 });

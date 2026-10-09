@@ -41,6 +41,12 @@ export interface Env {
    * `npm run dev:fake` can point the app at the local stand-in server.
    */
   QLOO_BASE_URL?: string;
+  /**
+   * Var. The least time between the starts of two Qloo requests, in
+   * milliseconds. Set on the deployed Worker because the live API refuses
+   * short bursts; unset means no pacing.
+   */
+  QLOO_PACE_MS?: string;
   /** Var. Cache lifetime for Qloo responses, in seconds. */
   QLOO_CACHE_TTL_SECONDS?: string;
   /**

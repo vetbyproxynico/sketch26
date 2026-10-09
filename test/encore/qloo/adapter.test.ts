@@ -177,11 +177,32 @@ describe('explainability on partial and malformed bodies', () => {
     ]);
   });
 
-  it('gives an empty list for missing, wrongly typed or unknown containers', () => {
+  it('gives an empty list for missing or wrongly typed containers', () => {
     expect(contributions(undefined)).toEqual([]);
     expect(contributions('text')).toEqual([]);
-    expect(contributions({ other: [{ entity_id: 'A', name: 'A', score: 1 }] })).toEqual([]);
     expect(contributions({ entities: 'nope' })).toEqual([]);
+    expect(contributions({ 'signal.interests.entities': { nested: true }, count: 3 })).toEqual([]);
+  });
+
+  // The shape seen on the live API on 9 October 2026 (structure only; the values here are invented).
+  it('reads rows held under the name of the signal parameter, which carry no name', () => {
+    const names = new Map([
+      ['A', 'Known A'],
+      ['B', 'Known B'],
+    ]);
+    expect(
+      contributions({ 'signal.interests.entities': [{ entity_id: 'A', score: 0.25 }, { entity_id: 'B', score: 0.75 }, { entity_id: 'Z', score: 0.5 }] }, names),
+    ).toEqual([
+      { entityId: 'B', name: 'Known B', score: 0.75 },
+      { entityId: 'A', name: 'Known A', score: 0.25 },
+    ]);
+  });
+
+  it('reads every array in the object, whatever its key', () => {
+    expect(contributions({ other: [{ entity_id: 'A', name: 'A', score: 1 }], more: [{ entity_id: 'B', name: 'B', score: 0.5 }] })).toEqual([
+      { entityId: 'A', name: 'A', score: 1 },
+      { entityId: 'B', name: 'B', score: 0.5 },
+    ]);
   });
 });
 

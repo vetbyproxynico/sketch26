@@ -183,8 +183,8 @@ describe('POST /api/map with a model configured', () => {
     ]);
     const tvCalls = net.calls.filter((call) => call.params['filter.type'] === 'urn:entity:tv_show');
     expect(tvCalls.map((call) => [call.params['filter.release_country'], call.params['filter.release_year.min']])).toEqual([
-      ['GB', '1950'],
-      ['GB', '1945'],
+      ['United Kingdom', '1950'],
+      ['United Kingdom', '1945'],
       [undefined, '1945'],
     ]);
     expect(model.asked).toHaveLength(2);

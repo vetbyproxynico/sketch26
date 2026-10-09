@@ -116,11 +116,14 @@ describe('resolve statuses', () => {
   });
 });
 
+/** The `types` list as it arrives: the six entity types Encore can use as signals, in the order of DOMAINS. */
+const SIX_KINDS = 'urn:entity:movie,urn:entity:tv_show,urn:entity:artist,urn:entity:book,urn:entity:person,urn:entity:brand';
+
 describe('what resolve sends', () => {
-  it('calls /search with the typed text and take 5, nothing else', async () => {
+  it('calls /search with the typed text, take 5 and the six kinds Encore can use, nothing else', async () => {
     const { source, calls } = makeSource(searchHandler({ 'Example Film One': search }));
     await source.resolve(['Example Film One']);
-    expect(calls.map((c) => [c.path, c.params])).toEqual([['/search', { query: 'Example Film One', take: '5' }]]);
+    expect(calls.map((c) => [c.path, c.params])).toEqual([['/search', { query: 'Example Film One', take: '5', types: SIX_KINDS }]]);
   });
 
   it('records each lookup in the trace under /search', async () => {
@@ -139,7 +142,7 @@ describe('what resolve sends', () => {
   it('accepts and ignores the country hint, since /search has no country filter', async () => {
     const { source, calls } = makeSource(searchHandler({ 'Example Film One': search }));
     await source.resolve(['Example Film One'], { country: 'GB' });
-    expect(calls[0]?.params).toEqual({ query: 'Example Film One', take: '5' });
+    expect(calls[0]?.params).toEqual({ query: 'Example Film One', take: '5', types: SIX_KINDS });
   });
 });
 
@@ -185,7 +188,7 @@ describe('concurrency', () => {
     expect(results.map((r) => r.query)).toEqual(names);
     expect(results.every((r) => r.status === 'resolved')).toBe(true);
     expect(calls).toHaveLength(12);
-    expect(peak()).toBe(3);
+    expect(peak()).toBe(2);
   });
 });
 

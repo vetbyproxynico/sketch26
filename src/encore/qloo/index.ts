@@ -25,12 +25,14 @@ export interface TasteSourceOptions {
   advisor?: Advisor;
   /** Overrides of the agent loop's budget and stop rules. Anything left out keeps its default. */
   limits?: Partial<AgentLimits>;
+  /** The least time between the starts of two Qloo requests, in milliseconds. None by default, so tests do not wait. */
+  paceMs?: number;
 }
 
 /**
  * The Qloo-backed `TasteSource`. One instance keeps one trace, so build one per
- * request to get a trace that covers just that request. At most three Qloo
- * calls run at once per instance.
+ * request to get a trace that covers just that request. At most two Qloo
+ * calls run at once per instance, and the deployed app also paces them.
  *
  * A cultural map is built by a small agent loop (see `loop.ts`): the trace
  * holds its decisions as well as its calls.
@@ -40,7 +42,7 @@ export interface TasteSourceOptions {
  */
 export function createTasteSource(client: QlooClient, options: TasteSourceOptions = {}): TasteSource {
   const now = options.now ?? ((): Date => new Date());
-  const traced = createTraced(client);
+  const traced = createTraced(client, undefined, options.paceMs ?? 0);
 
   return {
     resolve: (names) => resolveNames(traced, names),

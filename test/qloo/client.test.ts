@@ -106,8 +106,8 @@ describe('error mapping', () => {
   ];
 
   it.each(cases)('maps HTTP %i to %s', async (status, kind, message) => {
-    // Two responses so the 429 and 5xx cases survive their retry.
-    const fetchStub = stubFetch(new Response('secret-body', { status }), new Response('secret-body', { status }));
+    // Four responses so the 5xx case survives its one retry and the 429 case its three.
+    const fetchStub = stubFetch(...Array.from({ length: 4 }, () => new Response('secret-body', { status, headers: { 'Retry-After': '0' } })));
     const error = await caught(makeClient(fetchStub).search('x'));
     expect(error.kind).toBe(kind);
     expect(error.status).toBe(status);
@@ -163,7 +163,19 @@ describe('retry', () => {
     expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 
-  it('gives up after exactly one retry', async () => {
+  it('retries a 429 up to three times, then gives up', async () => {
+    const refused = () => new Response(null, { status: 429, headers: { 'Retry-After': '0' } });
+    const third = stubFetch(refused(), refused(), refused(), jsonResponse(search));
+    expect((await makeClient(third).search('x')).data).toEqual(search);
+    expect(third).toHaveBeenCalledTimes(4);
+
+    const never = stubFetch(refused(), refused(), refused(), refused(), jsonResponse(search));
+    const error = await caught(makeClient(never).search('x'));
+    expect(never).toHaveBeenCalledTimes(4);
+    expect(error.kind).toBe('rate_limited');
+  });
+
+  it('gives up on a server error after exactly one retry', async () => {
     const fetchStub = stubFetch(new Response(null, { status: 500 }), new Response(null, { status: 502 }), jsonResponse(search));
     const error = await caught(makeClient(fetchStub).search('x'));
     expect(fetchStub).toHaveBeenCalledTimes(2);

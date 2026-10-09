@@ -149,6 +149,6 @@ describe('scoreForPerson', () => {
     const { source, peak, calls } = makeSource(scoring(() => 0.5));
     await source.scoreForPerson(makeProfile(), ids.map(film));
     expect(calls).toHaveLength(10);
-    expect(peak()).toBe(3);
+    expect(peak()).toBe(2);
   });
 });

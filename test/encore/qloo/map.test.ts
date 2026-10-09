@@ -49,7 +49,7 @@ describe('the request each domain sends', () => {
       'filter.type': 'urn:entity:movie',
       'filter.release_year.min': '1950',
       'filter.release_year.max': '1970',
-      'filter.release_country': 'GB',
+      'filter.release_country': 'United Kingdom',
     });
   });
 
@@ -59,7 +59,7 @@ describe('the request each domain sends', () => {
       '?feature.explainability=true' +
         '&filter.exclude.entities=EXCL-1,FAV-1,FAV-2,LIKED-1' +
         '&filter.exclude.tags=urn%3Atag%3Aexample%3Adark' +
-        '&filter.release_country=GB' +
+        '&filter.release_country=United%20Kingdom' +
         '&filter.release_year.max=1970' +
         '&filter.release_year.min=1950' +
         '&filter.type=urn%3Aentity%3Amovie' +
@@ -76,7 +76,7 @@ describe('the request each domain sends', () => {
       'filter.type': 'urn:entity:tv_show',
       'filter.release_year.min': '1950',
       'filter.release_year.max': '1970',
-      'filter.release_country': 'GB',
+      'filter.release_country': 'United Kingdom',
     });
   });
 
@@ -141,7 +141,7 @@ describe('the request each domain sends', () => {
   it('turns the country into upper case and ignores a malformed one', async () => {
     const country = async (value: string) =>
       ofType((await run(makeProfile({ country: value }))).calls, 'urn:entity:movie')[0]?.params['filter.release_country'];
-    expect(await country(' fr ')).toBe('FR');
+    expect(await country(' fr ')).toBe('France');
     expect(await country('United Kingdom')).toBeUndefined();
     expect(await country('')).toBeUndefined();
   });
@@ -257,7 +257,7 @@ describe('dropping the country', () => {
 
     const film = ofType(calls, 'urn:entity:movie');
     expect(film).toHaveLength(2);
-    expect(film[0]?.params['filter.release_country']).toBe('GB');
+    expect(film[0]?.params['filter.release_country']).toBe('United Kingdom');
     const { ['filter.release_country']: _country, ...withoutCountry } = film[0]?.params ?? {};
     expect(film[1]?.params).toEqual(withoutCountry);
     expect(film[1]?.params['filter.release_year.min']).toBe('1950');
@@ -291,12 +291,11 @@ describe('dropping the country', () => {
     );
   });
 
-  it('names the country by its name when there is no adjective for it', async () => {
-    const { source } = makeSource(mapHandler({ 'urn:entity:movie': noFilmsFromCountry }));
+  it('sends no country, and so gives no country warning, for a country the filter has no name for', async () => {
+    const { source, calls } = makeSource(mapHandler());
     const map = await source.culturalMap(makeProfile({ country: 'lu' }));
-    expect(map.warnings.find((w) => w.domain === 'film')?.message).toBe(
-      'No films from Luxembourg were found for those years, so films from other countries are shown.',
-    );
+    expect(ofType(calls, 'urn:entity:movie').every((call) => call.params['filter.release_country'] === undefined)).toBe(true);
+    expect(map.warnings.some((w) => w.code === 'country_relaxed')).toBe(false);
   });
 
   it('leaves out "for those years" when there is no birth year to bound the list', async () => {
@@ -332,7 +331,7 @@ describe('dropping the country', () => {
     const film = ofType(calls, 'urn:entity:movie');
     // The first call, then one move in each of the three rounds, the country first.
     expect(film).toHaveLength(4);
-    expect(film[0]?.params['filter.release_country']).toBe('GB');
+    expect(film[0]?.params['filter.release_country']).toBe('United Kingdom');
     expect(film.slice(1).every((call) => call.params['filter.release_country'] === undefined)).toBe(true);
     expect(map.byDomain.film).toEqual([]);
     expect(map.warnings).toHaveLength(1);
@@ -465,8 +464,8 @@ describe('a profile with no birth year', () => {
   it('still applies the release country to films and television', async () => {
     const { source, calls } = makeSource(mapHandler());
     await source.culturalMap(makeProfile({ birthYear: undefined }));
-    expect(ofType(calls, 'urn:entity:movie')[0]?.params['filter.release_country']).toBe('GB');
-    expect(ofType(calls, 'urn:entity:tv_show')[0]?.params['filter.release_country']).toBe('GB');
+    expect(ofType(calls, 'urn:entity:movie')[0]?.params['filter.release_country']).toBe('United Kingdom');
+    expect(ofType(calls, 'urn:entity:tv_show')[0]?.params['filter.release_country']).toBe('United Kingdom');
   });
 });
 
@@ -617,6 +616,6 @@ describe('call volume and concurrency', () => {
   it('never has more than three calls in flight, across all domains and age checks', async () => {
     const { source, peak } = makeSource(mapHandler());
     await source.culturalMap(makeProfile());
-    expect(peak()).toBe(3);
+    expect(peak()).toBe(2);
   });
 });

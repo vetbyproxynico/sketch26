@@ -39,7 +39,7 @@ describe('queryParams', () => {
       'filter.exclude.tags': [],
       'filter.release_year.min': 1942,
       'filter.release_year.max': 1962,
-      'filter.release_country': 'FR',
+      'filter.release_country': 'France',
     });
   });
 

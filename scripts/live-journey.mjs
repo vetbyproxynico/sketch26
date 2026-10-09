@@ -64,10 +64,20 @@ function tally(values) {
     .join(', ');
 }
 
-/** Only Encore's own error code is safe to print; the message could quote input. */
+/**
+ * Encore's own error code, and for a refused request its own message too. The
+ * request validator's messages name a field and a limit and never quote a
+ * value (src/encore/validate.ts), so they are safe to print; anything that does
+ * not look like one of them is left out.
+ */
 function errorCode(result) {
   const code = result.body?.error?.code;
-  return typeof code === 'string' && /^[a-z_]{1,40}$/.test(code) ? code : 'none';
+  const safeCode = typeof code === 'string' && /^[a-z_]{1,40}$/.test(code) ? code : 'none';
+  const message = result.body?.error?.message;
+  if (safeCode === 'bad_request' && typeof message === 'string' && /^[A-Za-z0-9_.[\] ]{1,90} (must|is longer|has more|needs|is required)[A-Za-z0-9 ,.:-]{0,80}$/.test(message)) {
+    return `${safeCode}: ${message}`;
+  }
+  return safeCode;
 }
 
 async function journey(example) {
@@ -117,9 +127,11 @@ async function journey(example) {
   const withReasons = items.filter((item) => Array.isArray(item?.contributions) && item.contributions.length > 0).length;
   const withScore = items.filter((item) => typeof item?.affinity === 'number').length;
   const withYear = items.filter((item) => typeof item?.entity?.year === 'number').length;
+  const mostTags = Math.max(0, ...items.map((item) => (Array.isArray(item?.tags) ? item.tags.length : 0)));
+  const longest = Math.max(0, ...items.map((item) => (typeof item?.description === 'string' ? item.description.length : 0)));
   const mapLine =
     `lists: ${perList}; era check: ${tally(items.map((item) => item?.eraCheck)) || 'none'}; ` +
-    `with a score ${withScore}, with reasons ${withReasons}, with a year ${withYear} of ${items.length}; ` +
+    `with a score ${withScore}, with reasons ${withReasons}, with a year ${withYear} of ${items.length}; most tags on one ${mostTags}, longest description ${longest}; ` +
     `taste words ${Array.isArray(map.tasteWords) ? map.tasteWords.length : 0}; ` +
     `warnings: ${tally((map.warnings ?? []).map((w) => w?.code)) || 'none'}; ` +
     `Qloo calls ${calls.length} (statuses ${tally(calls.map((c) => c?.status))}); ` +

@@ -14,6 +14,8 @@
 /** Takes, as in Encore. */
 export const MAP_TAKE = 16; // DEFAULT_PER_DOMAIN (8) * 2, in map.ts
 export const SEARCH_TAKE = 5; // resolve.ts
+/** The six kinds Encore can use, in the order of DOMAINS in src/encore/types.ts. resolve.ts */
+export const SEARCH_TYPES = Object.freeze(['urn:entity:movie', 'urn:entity:tv_show', 'urn:entity:artist', 'urn:entity:book', 'urn:entity:person', 'urn:entity:brand']);
 export const TASTE_WORD_TAKE = 12; // map.ts
 export const SCORE_TAKE = 50; // score.ts
 export const COMPARE_TAKE = 10; // shared.ts
@@ -58,6 +60,8 @@ export const PERSONAS = Object.freeze([
     label: 'French, born 1932',
     birthYear: 1932,
     country: 'FR',
+    // The spelling filter.release_country wants (src/encore/qloo/countries.ts).
+    releaseCountry: 'France',
     names: [
       'Édith Piaf',
       'Charles Aznavour',
@@ -74,6 +78,8 @@ export const PERSONAS = Object.freeze([
     label: 'British, born 1941',
     birthYear: 1941,
     country: 'GB',
+    // The spelling filter.release_country wants (src/encore/qloo/countries.ts).
+    releaseCountry: 'United Kingdom',
     names: [
       'Vera Lynn',
       'Glenn Miller',
@@ -90,6 +96,8 @@ export const PERSONAS = Object.freeze([
     label: 'American, born 1951',
     birthYear: 1951,
     country: 'US',
+    // The spelling filter.release_country wants (src/encore/qloo/countries.ts).
+    releaseCountry: 'United States',
     names: [
       'Elvis Presley',
       'The Beatles',
@@ -222,7 +230,7 @@ export function searchSteps() {
       kind: 'search',
       term,
       endpoint: '/search',
-      params: { query: term, take: SEARCH_TAKE },
+      params: { query: term, take: SEARCH_TAKE, types: SEARCH_TYPES },
     })),
   );
 }
@@ -250,7 +258,7 @@ function mapParams(persona, domain, ids, currentYear) {
     take: MAP_TAKE,
     'filter.exclude.entities': ids,
     ...dateParams(domain, persona.birthYear, currentYear),
-    ...(domain === 'film' || domain === 'tv' ? { 'filter.release_country': persona.country } : {}),
+    ...(domain === 'film' || domain === 'tv' ? { 'filter.release_country': persona.releaseCountry } : {}),
   };
 }
 
@@ -284,7 +292,7 @@ export function personaSteps(persona, signals, currentYear) {
         insights(persona, domain, 'era-country', `isolation: ${label}, era and country filters`, {
           ...base,
           ...dates,
-          'filter.release_country': persona.country,
+          'filter.release_country': persona.releaseCountry,
         }),
       );
     }

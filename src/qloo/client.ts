@@ -14,6 +14,8 @@ export const QLOO_BASE_URL = 'https://hackathon.api.qloo.com';
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_RETRY_DELAY_MS = 500;
 export const DEFAULT_CACHE_TTL_SECONDS = 21_600;
+/** How many more times a call refused with 429 is tried. */
+export const MAX_RATE_LIMIT_RETRIES = 3;
 /** Upper bound for a Retry-After wait, so a request never stalls for long. */
 const MAX_RETRY_DELAY_MS = 3_000;
 
@@ -23,7 +25,7 @@ export interface QlooClientOptions {
   /** Injected in tests. Defaults to the global fetch. */
   fetch?: FetchLike;
   timeoutMs?: number;
-  /** Base wait before the single retry. Retry-After, when sent, takes precedence. */
+  /** Base wait before a retry; the wait grows with each retry. Retry-After, when sent, takes precedence. */
   retryDelayMs?: number;
   /** KV namespace for the private response cache. Omit to disable caching. */
   cache?: KvStore;
@@ -122,9 +124,14 @@ export class QlooClient {
       }
     }
 
+    // A server error gets one more try. A 429 gets up to three, each wait
+    // longer than the last: on the live API a short burst of calls is refused
+    // and the same call succeeds a moment later.
     let attempt = await this.attempt(url, path);
-    if (!attempt.ok && (attempt.error.kind === 'rate_limited' || attempt.error.kind === 'server_error')) {
-      await sleep(this.retryWait(attempt.retryAfterMs));
+    for (let retry = 1; !attempt.ok; retry += 1) {
+      const allowed = attempt.error.kind === 'rate_limited' ? MAX_RATE_LIMIT_RETRIES : attempt.error.kind === 'server_error' ? 1 : 0;
+      if (retry > allowed) break;
+      await sleep(this.retryWait(attempt.retryAfterMs) * retry);
       attempt = await this.attempt(url, path);
     }
     if (!attempt.ok) throw attempt.error;

@@ -2,7 +2,7 @@ import { ruleAdvisor } from '../agent/rules';
 import { DEFAULT_LIMITS, type Advisor, type AgentLimits } from '../agent/types';
 import { DOMAINS, type CulturalMap, type Domain, type MapItem, type MapWarning, type Profile, type TagRef, type YearWindow } from '../types';
 import { domainOfType, readTags } from './adapter';
-import { countryWords } from './countries';
+import { countryWords, releaseCountryName } from './countries';
 import { firstRound, leftOut, shownItems, type DomainContext, type ListState } from './domain';
 import { recoverableFailure } from './faults';
 import { runLoop } from './loop';
@@ -54,7 +54,8 @@ function clampPerDomain(requested: number | undefined): number {
 /** A two-letter country code in upper case, or undefined. */
 function usableCountry(country: string | undefined): string | undefined {
   const code = country?.trim().toUpperCase();
-  return code !== undefined && /^[A-Z]{2}$/.test(code) ? code : undefined;
+  // A country Qloo's filter has no name for is treated as no country at all.
+  return code !== undefined && /^[A-Z]{2}$/.test(code) && releaseCountryName(code) !== undefined ? code : undefined;
 }
 
 /** The Encore domain of each signal entity that has one. */

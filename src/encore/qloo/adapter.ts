@@ -27,10 +27,14 @@ import { DOMAIN_ENTITY_TYPE, DOMAINS, type Contribution, type Domain, type Entit
  *   affinity      `query.affinity`, else `affinity`; a number, clamped to 0..1
  *
  * Explainability (requested with feature.explainability=true)
- *   `query.explainability` is either an array of rows, or an object holding the
- *   rows in `entities` or, failing that, `signals`. A row is
- *   { entity_id | id, name?, score }; the score is a number clamped to 0..1.
- *   A row without a name is named from the profile's own signal entities.
+ *   Seen on the live API on 9 October 2026 (structure only): on each result,
+ *   `query.explainability` is an object with one key, the name of the signal
+ *   parameter that was sent (`signal.interests.entities`), holding an array of
+ *   rows { entity_id, score }, one per signal entity, with the score between 0
+ *   and 1 and no name. The reader accepts that, and also a bare array of rows
+ *   or rows under `entities` or `signals`, and reads every array it finds in
+ *   the object. A row without a name is named from the profile's own signal
+ *   entities.
  *   The top-level `query.explainability` averages are not read.
  *
  * Tag lists (filter.type=urn:tag, and /v2/analysis/compare)
@@ -183,6 +187,8 @@ function contributionRows(raw: Record<string, unknown>): readonly unknown[] {
   if (isRecord(explain)) {
     if (Array.isArray(explain.entities)) return explain.entities;
     if (Array.isArray(explain.signals)) return explain.signals;
+    // The live shape: one array of rows per signal parameter that was sent.
+    return Object.values(explain).flatMap((value) => (Array.isArray(value) ? value : []));
   }
   return [];
 }
