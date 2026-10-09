@@ -73,6 +73,23 @@ export function rowAffinity(row) {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+/**
+ * The explainability rows of a result, as adapter.ts reads them (`contributionRows`):
+ * a bare array at `query.explainability`; else an array in its `entities`; else
+ * in its `signals`; else every array among the values of the object, whatever
+ * the key. The live API keys that object by the name of the signal parameter that
+ * was sent (`signal.interests.entities`). INTERNAL: the rows hold entity IDs and
+ * are never printed.
+ */
+export function explainRows(row) {
+  const explain = isObject(row) && isObject(row.query) ? row.query.explainability : undefined;
+  if (Array.isArray(explain)) return explain;
+  if (!isObject(explain)) return [];
+  if (Array.isArray(explain.entities)) return explain.entities;
+  if (Array.isArray(explain.signals)) return explain.signals;
+  return Object.values(explain).flatMap((value) => (Array.isArray(value) ? value : []));
+}
+
 /** Lower case, accents removed, apostrophes dropped, other punctuation to spaces (mirrors resolve.ts). */
 export function normaliseName(value) {
   return value
@@ -134,7 +151,7 @@ export function printableType(type) {
 
 const STRING = ['string'];
 
-function entityReads({ typeSeverity, typeNote, years, tags, extras }) {
+function entityReads({ typeSeverity, typeNote, years, endYear, tags, extras }) {
   const reads = [
     { id: 'list', label: 'entity list', severity: 'required', any: ['results.entities', 'results', 'entities'], types: ['array'], rows: true },
     { in: 'list', label: 'entity id', severity: 'required', any: ['entity_id', 'id'], types: STRING },
@@ -147,7 +164,20 @@ function entityReads({ typeSeverity, typeNote, years, tags, extras }) {
       ...(years === undefined
         ? []
         : [{ in: 'list', label: 'year', severity: 'optional', any: years, types: ['number', 'string'] }]),
+      // Music only: the year they stopped. The era check uses it to see that a band had already stopped.
+      ...(endYear === undefined
+        ? []
+        : [{ in: 'list', label: 'end year', severity: 'optional', any: endYear, types: ['number', 'string'] }]),
       { in: 'list', label: 'description', severity: 'optional', any: ['properties.short_description', 'properties.description'], types: STRING },
+      {
+        in: 'list',
+        label: 'summary',
+        severity: 'optional',
+        // The first non-empty string in the list, else the plain string. `[]` after the name means each string in the list.
+        any: ['properties.short_descriptions[]', 'properties.short_description'],
+        types: STRING,
+        note: 'shown on the card in place of the long description; without it the card shows the description as before',
+      },
     );
   }
   if (tags) {
@@ -163,13 +193,24 @@ function entityReads({ typeSeverity, typeNote, years, tags, extras }) {
 
 const AFFINITY = { in: 'list', label: 'affinity', severity: 'optional', any: ['query.affinity', 'affinity'], types: ['number'] };
 
+// The adapter takes the rows from a bare array, else from `entities` or `signals` inside the object, else from every
+// array among the values of the object. `*` stands for "each value, whatever its key": the live API keys the object by
+// the name of the signal parameter, which has dots in it and cannot be written as a key in these paths.
 const EXPLAINABILITY = [
+  {
+    in: 'list',
+    label: 'explainability',
+    severity: 'optional',
+    any: ['query.explainability'],
+    types: ['array', 'object'],
+    note: 'present on each result when feature.explainability=true was sent',
+  },
   {
     id: 'explain',
     in: 'list',
     label: 'explainability rows',
     severity: 'optional',
-    any: ['query.explainability', 'query.explainability.entities', 'query.explainability.signals'],
+    any: ['query.explainability', 'query.explainability.entities', 'query.explainability.signals', 'query.explainability.*'],
     types: ['array'],
     rows: true,
   },
@@ -187,9 +228,9 @@ const EXPLAINABILITY = [
 
 const INSIGHTS_TYPE_NOTE = 'the adapter falls back to the filter.type of the call, so this one is not needed here';
 
-function insightsReads(years) {
+function insightsReads(years, endYear) {
   return [
-    ...entityReads({ typeSeverity: 'optional', typeNote: INSIGHTS_TYPE_NOTE, years, tags: true, extras: true }),
+    ...entityReads({ typeSeverity: 'optional', typeNote: INSIGHTS_TYPE_NOTE, years, endYear, tags: true, extras: true }),
     AFFINITY,
   ];
 }
@@ -230,12 +271,17 @@ const SCORE_READS = [
   { ...AFFINITY, severity: 'required' },
 ];
 
+// The field that holds the year of each kind, and no other: adapter.ts `YEAR_FIELDS`. A musician's year is the year they
+// began performing, never a date of birth. A brand's is its founding year, else the year at the front of its inception.
 const YEAR_PATH = {
   film: ['properties.release_year'],
   tv: ['properties.release_year'],
   book: ['properties.publication_year'],
   person: ['properties.date_of_birth'],
+  music: ['properties.start_year'],
+  brand: ['properties.founded_year', 'properties.inception'],
 };
+const END_YEAR_PATH = ['properties.end_year'];
 
 /** Human names for the kinds, as used in the summary. */
 export const KIND_LABEL = Object.freeze({
@@ -255,16 +301,17 @@ const READS = {
   search: entityReads({
     typeSeverity: 'required',
     typeNote: 'a /search result without a type is dropped: there is no filter.type to fall back on',
-    years: ['properties.release_year', 'properties.publication_year', 'properties.date_of_birth'],
+    // A search result is of any kind, so any of the fields that hold a year will do.
+    years: ['properties.release_year', 'properties.publication_year', 'properties.date_of_birth', 'properties.start_year', 'properties.founded_year', 'properties.inception'],
     tags: true,
     extras: true,
   }),
   'insights:film': insightsReads(YEAR_PATH.film),
   'insights:tv': insightsReads(YEAR_PATH.tv),
-  'insights:music': insightsReads(undefined),
+  'insights:music': insightsReads(YEAR_PATH.music, END_YEAR_PATH),
   'insights:book': insightsReads(YEAR_PATH.book),
   'insights:person': insightsReads(YEAR_PATH.person),
-  'insights:brand': insightsReads(undefined),
+  'insights:brand': insightsReads(YEAR_PATH.brand),
   score: SCORE_READS,
   tags: TAG_READS,
   demographics: DEMOGRAPHICS_READS,

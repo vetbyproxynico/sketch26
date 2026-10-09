@@ -13,7 +13,7 @@
 // and are used only to build the follow-up requests. Error text from fetch or
 // JSON.parse is never printed either, because it can quote the body.
 
-import { evaluateReads, KIND_LABEL, entityListOf, normaliseName, printableType, readsFor, resultCount, rowAffinity, rowId, rowName, rowType, tagListOf } from './reads.mjs';
+import { evaluateReads, KIND_LABEL, entityListOf, explainRows, normaliseName, printableType, readsFor, resultCount, rowAffinity, rowId, rowName, rowType, tagListOf } from './reads.mjs';
 import {
   DOMAIN_LABEL,
   DOMAIN_ORDER,
@@ -157,15 +157,14 @@ function tagIdsOf(body) {
 
 /**
  * Adds the explainability scores of one answer to `totals`, by input entity ID,
- * as adapter.ts reads them: `query.explainability` is a list of rows, or an
- * object holding the rows in `entities` or `signals`; a row is
+ * as adapter.ts reads them (see `explainRows` in reads.mjs): a list of rows, or
+ * an object holding the rows in `entities` or `signals`, or in any array among
+ * its values (the live shape: keyed by the signal parameter); a row is
  * { entity_id | id, score }. INTERNAL: the IDs are never printed.
  */
 function addContributions(body, totals) {
   for (const row of entityListOf(body) ?? []) {
-    const explain = isObject(row) && isObject(row.query) ? row.query.explainability : undefined;
-    const rows = Array.isArray(explain) ? explain : isObject(explain) ? (Array.isArray(explain.entities) ? explain.entities : Array.isArray(explain.signals) ? explain.signals : []) : [];
-    for (const entry of rows) {
+    for (const entry of explainRows(row)) {
       if (!isObject(entry)) continue;
       const id = textOf(entry.entity_id) ?? textOf(entry.id);
       if (id === undefined || typeof entry.score !== 'number' || !Number.isFinite(entry.score)) continue;

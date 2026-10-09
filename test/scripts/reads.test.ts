@@ -7,6 +7,7 @@ import {
   READ_KINDS,
   entityListOf,
   evaluateReads,
+  explainRows,
   normaliseName,
   printableType,
   readsFor,
@@ -154,7 +155,34 @@ describe('evaluateReads', () => {
     const born = { results: { entities: [row({ properties: { date_of_birth: '1920-05-17' } })] } };
     expect(find(evaluateReads(born, readsFor('insights:person')), 'year')).toMatchObject({ status: 'OK', via: 'properties.date_of_birth' });
     expect(find(evaluateReads(born, readsFor('insights:film')), 'year').status).toBe('MISSING');
-    expect(readsFor('insights:music').some((read) => read.label === 'year')).toBe(false);
+    // Music and brands used to have no year read at all; they now have the field that holds theirs.
+    expect(readsFor('insights:music').find((read) => read.label === 'year')?.any).toEqual(['properties.start_year']);
+    expect(readsFor('insights:brand').find((read) => read.label === 'year')?.any).toEqual(['properties.founded_year', 'properties.inception']);
+  });
+
+  it('does not take a musician\'s date of birth for a year, as the adapter does not', () => {
+    const body = { results: { entities: [row({ subtype: 'urn:entity:artist', properties: { date_of_birth: '1938-02-14' } })] } };
+    expect(find(evaluateReads(body, readsFor('insights:music')), 'year').status).toBe('MISSING');
+    expect(find(evaluateReads(body, readsFor('insights:person')), 'year').status).toBe('OK');
+  });
+
+  it('reads the start and end year of music, and the founding year or inception of a brand', () => {
+    const band = { results: { entities: [row({ properties: { start_year: 1955, end_year: 1990 } }), row({ entity_id: 'inv-2', properties: { start_year: 1962 } })] } };
+    const music = evaluateReads(band, readsFor('insights:music'));
+    expect(find(music, 'year')).toMatchObject({ status: 'OK', via: 'properties.start_year', present: 2, of: 2, expected: ['number', 'string'] });
+    expect(find(music, 'end year')).toMatchObject({ status: 'OK', via: 'properties.end_year', present: 1, of: 2, severity: 'optional' });
+    const makers = { results: { entities: [row({ properties: { founded_year: 1925, inception: '1925-01-01T00:00:00Z' } }), row({ entity_id: 'inv-2', properties: { inception: '1948-03-01' } })] } };
+    const brands = evaluateReads(makers, readsFor('insights:brand'));
+    expect(find(brands, 'year')).toMatchObject({ status: 'OK', via: 'properties.founded_year', also: ['properties.inception'], present: 1, of: 2 });
+    expect(find(evaluateReads({ results: { entities: [row({ properties: { inception: '1948-03-01' } })] } }, readsFor('insights:brand')), 'year')).toMatchObject({ status: 'OK', via: 'properties.inception' });
+    // Only music has an end year to read.
+    expect(readsFor('insights:brand').some((read) => read.label === 'end year')).toBe(false);
+    expect(readsFor('insights:film').some((read) => read.label === 'end year')).toBe(false);
+  });
+
+  it('reads the year of a search result from any of the fields that hold one', () => {
+    const years = readsFor('search').find((read) => read.label === 'year')?.any;
+    expect(years).toEqual(['properties.release_year', 'properties.publication_year', 'properties.date_of_birth', 'properties.start_year', 'properties.founded_year', 'properties.inception']);
   });
 
   it('reports every alternative that works', () => {
@@ -219,6 +247,187 @@ describe('evaluateReads', () => {
     const insights = readsFor('insights:film').find((read) => read.label === 'entity type');
     expect(search?.severity).toBe('required');
     expect(insights?.severity).toBe('optional');
+  });
+
+  describe('the year, the end year and the summary, field for field as the adapter reads them', () => {
+    const KINDS = [
+      ['film', 'urn:entity:movie', 'insights:film'],
+      ['tv', 'urn:entity:tv_show', 'insights:tv'],
+      ['book', 'urn:entity:book', 'insights:book'],
+      ['person', 'urn:entity:person', 'insights:person'],
+      ['music', 'urn:entity:artist', 'insights:music'],
+      ['brand', 'urn:entity:brand', 'insights:brand'],
+    ] as const;
+    // One well-formed value for every field that can hold a year.
+    const FIELDS: Record<string, unknown> = {
+      release_year: 1950,
+      publication_year: 1951,
+      date_of_birth: '1952-02-03',
+      start_year: 1953,
+      founded_year: 1954,
+      inception: '1955-05-06T00:00:00Z',
+    };
+
+    it.each(KINDS)('finds the year of %s in the same fields as readEntities does', (_domain, subtype, kind) => {
+      for (const field of Object.keys(FIELDS)) {
+        const body = { results: { entities: [row({ subtype, properties: { [field]: FIELDS[field] } })] } };
+        const probe = find(evaluateReads(body, readsFor(kind)), 'year');
+        const adapter = readEntities(body).entities[0]?.ref.year;
+        expect(probe.status === 'OK', `${kind} with only ${field}`).toBe(adapter !== undefined);
+      }
+    });
+
+    it('finds the end year of music in the same field as readEntities does, and of nothing else', () => {
+      for (const [, subtype, kind] of KINDS) {
+        for (const properties of [{ end_year: 1990 }, { end_year: '1990' }, { end_year: null }, { end_year: 'later' }, {}]) {
+          const body = { results: { entities: [row({ subtype, properties })] } };
+          const probe = readsFor(kind).some((read) => read.label === 'end year') ? find(evaluateReads(body, readsFor(kind)), 'end year') : undefined;
+          const adapter = readEntities(body).entities[0]?.endYear;
+          if (kind !== 'insights:music') {
+            expect(probe, kind).toBeUndefined();
+            expect(adapter, kind).toBeUndefined();
+          } else if (typeof (properties as Record<string, unknown>).end_year === 'string' && (properties as Record<string, unknown>).end_year === 'later') {
+            // The probe checks the type (a string can be a year); only the adapter judges whether it is one.
+            expect(probe?.status).toBe('OK');
+            expect(adapter).toBeUndefined();
+          } else {
+            expect(probe?.status === 'OK', JSON.stringify(properties)).toBe(adapter !== undefined);
+          }
+        }
+      }
+    });
+
+    const SUMMARY_PROPERTIES: Array<[string, Record<string, unknown>]> = [
+      ['a list with a line', { short_descriptions: ['A line.'] }],
+      ['a list whose first line is empty', { short_descriptions: ['', 'A later line.'] }],
+      ['a plain string', { short_description: 'A line.' }],
+      ['both', { short_descriptions: ['From the list.'], short_description: 'From the string.' }],
+      ['an empty list and a string', { short_descriptions: [], short_description: 'A line.' }],
+      ['an empty list', { short_descriptions: [] }],
+      ['a long description only', { description: 'A long text.' }],
+      ['nothing', {}],
+      ['a list of the wrong kind', { short_descriptions: 'A line.' }],
+    ];
+
+    it.each(SUMMARY_PROPERTIES)('finds a summary in the same places as readEntities does (%s)', (_label, properties) => {
+      const body = { results: { entities: [row({ properties })] } };
+      const probe = find(evaluateReads(body, readsFor('insights:film')), 'summary');
+      expect(probe.status === 'OK').toBe(readEntities(body).entities[0]?.summary !== undefined);
+    });
+
+    it('tries the list before the plain string, in that order, and reports the one that worked', () => {
+      const read = readsFor('insights:film').find((candidate) => candidate.label === 'summary');
+      expect(read?.any).toEqual(['properties.short_descriptions[]', 'properties.short_description']);
+      const both = { results: { entities: [row({ properties: { short_descriptions: ['A line.'], short_description: 'A line.' } })] } };
+      expect(find(evaluateReads(both, readsFor('insights:film')), 'summary')).toMatchObject({ via: 'properties.short_descriptions[]', also: ['properties.short_description'] });
+      const plain = { results: { entities: [row({ properties: { short_description: 'A line.' } })] } };
+      expect(find(evaluateReads(plain, readsFor('insights:film')), 'summary')).toMatchObject({ via: 'properties.short_description' });
+    });
+
+    it('has a summary read for every kind of insights answer and for search', () => {
+      for (const kind of ['search', ...KINDS.map(([, , insights]) => insights)]) {
+        expect(readsFor(kind).some((read) => read.label === 'summary'), kind).toBe(true);
+      }
+      expect(readsFor('score').some((read) => read.label === 'summary')).toBe(false);
+    });
+  });
+
+  describe('explainability, in the shape the live API sends and in the older ones', () => {
+    // The live shape: an object keyed by the name of the signal parameter that was sent (it has dots in it).
+    const LIVE = { 'signal.interests.entities': [{ entity_id: 'sig-1', score: 0.31 }, { entity_id: 'sig-2', score: 0.12 }] };
+    const withExplain = (explainability: unknown, count = 1) => ({
+      results: { entities: Array.from({ length: count }, (_, n) => row({ entity_id: `inv-${n}`, query: { affinity: 0.5, explainability } })) },
+    });
+
+    it('finds the rows in the live shape, and reads their ids and scores', () => {
+      const results = evaluateReads(withExplain(LIVE, 3), readsFor('insights:film', { explain: true }));
+      expect(find(results, 'explainability')).toMatchObject({ status: 'OK', via: 'query.explainability', present: 3, of: 3, foundTypes: ['object'] });
+      expect(find(results, 'explainability rows')).toMatchObject({ status: 'OK', via: 'query.explainability.*', base: 'results.entities[]', present: 3, of: 3, foundTypes: ['array'] });
+      expect(find(results, 'explainability entity id')).toMatchObject({ status: 'OK', base: 'results.entities[].query.explainability.*[]', present: 6, of: 6 });
+      expect(find(results, 'explainability score')).toMatchObject({ status: 'OK', via: 'score', present: 6, of: 6, foundTypes: ['number'] });
+      // The live rows carry no name, and the adapter does not need one.
+      expect(find(results, 'explainability name')).toMatchObject({ status: 'MISSING', severity: 'optional' });
+    });
+
+    it('still finds the older shapes: a bare array, and rows under entities or signals', () => {
+      const rows = [{ entity_id: 'sig-1', name: 'Invented', score: 0.3 }];
+      for (const [shape, explainability, via] of [
+        ['a bare array', rows, 'query.explainability'],
+        ['entities', { entities: rows }, 'query.explainability.entities'],
+        ['signals', { signals: rows }, 'query.explainability.signals'],
+      ] as const) {
+        const results = evaluateReads(withExplain(explainability), readsFor('insights:film', { explain: true }));
+        expect(find(results, 'explainability rows'), shape).toMatchObject({ status: 'OK', via });
+        expect(find(results, 'explainability score'), shape).toMatchObject({ status: 'OK' });
+      }
+    });
+
+    it('says what it found when the live object holds no rows, or not a list', () => {
+      const none = evaluateReads(withExplain({ 'signal.interests.entities': [] }), readsFor('insights:film', { explain: true }));
+      expect(find(none, 'explainability rows').status).toBe('OK');
+      expect(find(none, 'explainability entity id')).toMatchObject({ status: 'NO_DATA', of: 0 });
+      const odd = evaluateReads(withExplain({ 'signal.interests.entities': { not: 'a list' } }), readsFor('insights:film', { explain: true }));
+      expect(find(odd, 'explainability rows')).toMatchObject({ status: 'WRONG_TYPE', foundTypes: ['object'], expected: ['array'] });
+      const missing = evaluateReads({ results: { entities: [row()] } }, readsFor('insights:film', { explain: true }));
+      expect(find(missing, 'explainability').status).toBe('MISSING');
+    });
+
+    it('finds rows exactly when readEntities finds contributions', () => {
+      const names = new Map([['sig-1', 'Invented one'], ['sig-2', 'Invented two']]);
+      const shapes: unknown[] = [
+        LIVE,
+        { 'signal.interests.entities': LIVE['signal.interests.entities'], 'signal.interests.tags': [{ entity_id: 'sig-2', score: 0.4 }] },
+        [{ entity_id: 'sig-1', score: 0.3 }],
+        { entities: [{ entity_id: 'sig-1', score: 0.3 }] },
+        { signals: [{ id: 'sig-2', score: 0.3 }] },
+        { 'signal.interests.entities': [] },
+        { 'signal.interests.entities': 'text' },
+        { 'signal.interests.entities': [{ entity_id: 'sig-1', score: 'high' }] },
+        'text',
+        null,
+        {},
+        [],
+      ];
+      // (A row for an entity the profile does not know, with no name of its own, is dropped by the adapter whatever the shape;
+      // the probe, which never learns names, still finds the row. That is the adapter's rule, not a difference in what is read.)
+      for (const explainability of shapes) {
+        const body = withExplain(explainability);
+        const results = evaluateReads(body, readsFor('insights:film', { explain: true }));
+        const rowsFound = find(results, 'explainability rows').status === 'OK' && find(results, 'explainability score').status === 'OK' && find(results, 'explainability entity id').status === 'OK';
+        const contributions = readEntities(body, { names }).entities[0]?.contributions ?? [];
+        expect(rowsFound, JSON.stringify(explainability)).toBe(contributions.length > 0);
+      }
+    });
+
+    it('finds the same rows as the adapter, row for row, in every shape', () => {
+      const shapes: unknown[] = [
+        LIVE,
+        { 'signal.interests.entities': LIVE['signal.interests.entities'], 'signal.interests.tags': [{ entity_id: 'sig-9', score: 0.4 }] },
+        [{ entity_id: 'sig-1', score: 0.3 }],
+        { entities: [{ entity_id: 'sig-1', score: 0.3 }], 'signal.interests.entities': [{ entity_id: 'sig-2', score: 0.3 }] },
+        { signals: [{ id: 'sig-2', score: 0.3 }] },
+        { other: 'text' },
+        null,
+        'text',
+      ];
+      const names = new Map([['sig-1', 'One'], ['sig-2', 'Two'], ['sig-9', 'Nine']]);
+      for (const explainability of shapes) {
+        const raw = row({ query: { explainability } });
+        const fromProbe = explainRows(raw)
+          .map((entry) => (typeof entry === 'object' && entry !== null ? ((entry as Record<string, unknown>).entity_id ?? (entry as Record<string, unknown>).id) : undefined))
+          .filter((id): id is string => typeof id === 'string' && names.has(id))
+          .sort();
+        const fromAdapter = (readEntities({ results: { entities: [raw] } }, { names }).entities[0]?.contributions ?? []).map((c) => c.entityId).sort();
+        expect(fromProbe, JSON.stringify(explainability)).toEqual(fromAdapter);
+      }
+    });
+
+    it('prints no key and no id: only paths, labels, counts and type names', () => {
+      const marked = withExplain({ 'signal.interests.entities': [{ entity_id: 'MARKER-sig', score: 918273.645 }] });
+      const text = JSON.stringify(evaluateReads(marked, readsFor('insights:film', { explain: true })));
+      expect(text).not.toContain('MARKER');
+      expect(text).not.toContain('918273');
+    });
   });
 
   it('puts only paths, labels, counts and type names in its results', () => {

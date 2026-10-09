@@ -449,6 +449,53 @@ describe('checkPaths', () => {
     expect(checkPaths([{ a: 1 }, { a: 2 }, {}], ['[].a'])[0]).toMatchObject({ status: 'OK', present: 2, of: 3 });
   });
 
+  describe('the * step: each value of an object, whatever its key', () => {
+    // The key is the name of a request parameter, with dots in it, which no path could spell.
+    const keyed = {
+      entities: [
+        { name: 'MARKER-a', query: { explain: { 'signal.interests.entities': [{ id: 'MARKER-1', score: 0.5 }, { id: 'MARKER-2', score: 0.25 }] } } },
+        { name: 'MARKER-b', query: { explain: { 'signal.interests.entities': [{ id: 'MARKER-3', score: 0.5 }], 'signal.interests.tags': [] } } },
+        { name: 'MARKER-c', query: {} },
+        { name: 'MARKER-d', query: { explain: [{ id: 'MARKER-4' }] } },
+      ],
+    };
+
+    it('finds the lists held under a key it was not told, and the rows inside them', () => {
+      // The fourth entity holds a bare array, and the third nothing: `*` is for objects only, so they add nothing and do not make the others fail.
+      const [lists, rows, scores] = checkPaths(keyed, ['entities[].query.explain.*', 'entities[].query.explain.*[]', 'entities[].query.explain.*[].score']);
+      expect(lists).toMatchObject({ status: 'OK', present: 3, of: 3, types: ['array'] });
+      expect(rows).toMatchObject({ status: 'OK', present: 3, of: 3, types: ['object'] });
+      expect(scores).toMatchObject({ status: 'OK', present: 3, of: 3, types: ['number'] });
+    });
+
+    it('does not spread an array or a string, and says MISSING where the way to it is absent', () => {
+      expect(checkPaths({ list: [1, 2] }, ['list.*'])[0]).toMatchObject({ status: 'MISSING', present: 0 });
+      expect(checkPaths({ a: 'text' }, ['a.*'])[0]).toMatchObject({ status: 'MISSING', present: 0 });
+      expect(checkPaths({ a: { b: 1 } }, ['c.*'])[0]).toMatchObject({ status: 'MISSING', present: 0 });
+    });
+
+    it('says NO_DATA for an object with no values, like an empty list', () => {
+      expect(checkPaths({ a: {} }, ['a.*'])[0]).toMatchObject({ status: 'NO_DATA', present: 0, of: 0 });
+      expect(checkPaths({ a: { k: [] } }, ['a.*[]'])[0]).toMatchObject({ status: 'NO_DATA', present: 0, of: 0 });
+    });
+
+    it('works at the root and after another step of the same kind', () => {
+      expect(checkPaths({ x: 1, y: 'two', z: null }, ['*'])[0]).toMatchObject({ status: 'OK', present: 2, types: ['string', 'number'] });
+      expect(checkPaths({ a: { b: { c: 1 } }, d: { e: { c: 2 } } }, ['*.*.c'])[0]).toMatchObject({ status: 'OK', present: 2, of: 2, types: ['number'] });
+    });
+
+    it('does not read inherited properties of the object it spreads', () => {
+      expect(checkPaths(Object.create({ inherited: 1 }), ['*'])[0]).toMatchObject({ status: 'NO_DATA', present: 0 });
+    });
+
+    it('prints only the path it was given and counts, never a key or a value', () => {
+      const text = JSON.stringify(checkPaths(keyed, ['entities[].query.explain.*[].id']));
+      expect(text).not.toContain('MARKER');
+      expect(text).not.toContain('signal.interests');
+      expect(JSON.parse(text)[0].path).toBe('entities[].query.explain.*[].id');
+    });
+  });
+
   it('does not read inherited properties', () => {
     for (const path of ['constructor', 'toString', '__proto__', 'results.hasOwnProperty']) {
       expect(checkPaths(body, [path])[0]).toMatchObject({ status: 'MISSING', present: 0 });

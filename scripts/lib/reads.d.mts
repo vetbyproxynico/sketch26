@@ -44,6 +44,7 @@ export function rowId(row: unknown): string | undefined;
 export function rowName(row: unknown): string | undefined;
 export function rowType(row: unknown): string | undefined;
 export function rowAffinity(row: unknown): number | undefined;
+export function explainRows(row: unknown): readonly unknown[];
 export function normaliseName(value: string): string;
 export function printableType(type: unknown): string;
 export function readsFor(kind: string, options?: { explain?: boolean }): readonly Read[];

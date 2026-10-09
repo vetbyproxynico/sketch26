@@ -313,7 +313,14 @@ export function shapeSignature(shape) {
 // Path checks
 // ---------------------------------------------------------------------------
 
-/** "a.b[].c" becomes [{key:'a'},{key:'b'},{each:true},{key:'c'}]. "[]" alone means each element of the root. */
+/**
+ * "a.b[].c" becomes [{key:'a'},{key:'b'},{each:true},{key:'c'}]. "[]" alone means
+ * each element of the root. A segment that is just "*" means each value of the
+ * object at that point, whatever its key: "a.*[]" is every element of every array
+ * held by `a`. It is for an object keyed by something that is not a field name,
+ * such as the name of a request parameter, which contains dots and so cannot be
+ * written as a key in a path.
+ */
 function parsePath(path) {
   const steps = [];
   for (const segment of path.split('.')) {
@@ -323,17 +330,21 @@ function parsePath(path) {
       name = name.slice(0, -2);
       each += 1;
     }
-    if (name !== '') steps.push({ key: name });
+    if (name === '*') steps.push({ values: true });
+    else if (name !== '') steps.push({ key: name });
     for (let index = 0; index < each; index += 1) steps.push({ each: true });
   }
   return steps;
 }
 
+/** A step that turns one value into several: each element of an array, or each value of an object. */
+const fansOut = (step) => step.each === true || step.values === true;
+
 const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function checkOne(value, path) {
   const steps = parsePath(path);
-  const lastEach = steps.findLastIndex((step) => step.each === true);
+  const lastEach = steps.findLastIndex(fansOut);
   let frontier = [value];
   let of = lastEach === -1 ? 1 : 0;
   let structureMissing = false;
@@ -344,6 +355,12 @@ function checkOne(value, path) {
       if (step.each === true) {
         if (Array.isArray(current)) for (const element of current) next.push(element);
         else if (index <= lastEach) structureMissing = true;
+      } else if (step.values === true) {
+        if (isObject(current)) {
+          for (const inner of Object.values(current)) if (inner !== undefined) next.push(inner);
+        } else if (index <= lastEach) {
+          structureMissing = true;
+        }
       } else if (isObject(current) && Object.hasOwn(current, step.key) && current[step.key] !== undefined) {
         next.push(current[step.key]);
       } else if (index <= lastEach) {
@@ -368,7 +385,10 @@ function checkOne(value, path) {
 /**
  * Checks dotted paths against a parsed value. `[]` after a name means "each
  * element of that array", so `results.entities[].properties.image.url` asks
- * about every entity. For each path the result says:
+ * about every entity. A segment `*` means "each value of that object, whatever
+ * its key", so `query.explainability.*[]` asks about every row of every list in
+ * the explainability object without ever writing its keys. For each path the
+ * result says:
  *
  *   status   OK when the path leads to a non-null value on at least one
  *            element; MISSING when it leads to none (or an array or object on

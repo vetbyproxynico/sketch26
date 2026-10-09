@@ -89,6 +89,45 @@ describe('a complete run against the stand-in', () => {
     expect(text).toContain('=== cultural map: taste words (French, born 1932) ===');
   });
 
+  it('checks the year of music and brands in the fields that hold theirs, with an end year for music', async () => {
+    const { text } = await run();
+    const lines = text.split('\n');
+    const section = (heading: string): string[] => {
+      const start = lines.findIndex((line) => line.startsWith(heading));
+      return lines.slice(start, lines.findIndex((line, index) => index > start && line.startsWith('=== ')));
+    };
+    const music = section('=== cultural map: music (French, born 1932)');
+    expect(music.some((line) => /^ {2}OK {10}year +results\.entities\[\]\.properties\.start_year +number +16\/16$/.test(line))).toBe(true);
+    expect(music.some((line) => /^ {2}OK {10}end year +results\.entities\[\]\.properties\.end_year +number +16\/16$/.test(line))).toBe(true);
+    const brands = section('=== cultural map: brands (French, born 1932)');
+    expect(brands.some((line) => /^ {2}OK {10}year +results\.entities\[\]\.properties\.founded_year +number +16\/16 +also present: properties\.inception$/.test(line))).toBe(true);
+    expect(brands.some((line) => line.includes('end year'))).toBe(false);
+    const films = section('=== cultural map: films (French, born 1932)');
+    expect(films.some((line) => /^ {2}OK {10}year +results\.entities\[\]\.properties\.release_year/.test(line))).toBe(true);
+  });
+
+  it('checks for the short descriptions that make the summary, and says which field held them', async () => {
+    const lines = (await run()).text.split('\n');
+    expect(lines.some((line) => /^ {2}OK {10}summary +results\.entities\[\]\.properties\.short_descriptions\[\] +string +/.test(line))).toBe(true);
+    expect(lines.some((line) => /^ {2}OK {10}summary .*also present: properties\.short_description$/.test(line))).toBe(true);
+    expect(lines.some((line) => /^ {2}(MISSING|WRONG TYPE) +summary/.test(line))).toBe(false);
+  });
+
+  it('finds explainability in the shape the live API sends: an object keyed by the signal parameter', async () => {
+    const { text } = await run();
+    const lines = text.split('\n');
+    expect(lines.some((line) => /^ {2}OK {10}explainability rows +results\.entities\[\]\.query\.explainability\.\* +array +16\/16$/.test(line))).toBe(true);
+    expect(lines.some((line) => /^ {2}OK {10}explainability score +results\.entities\[\]\.query\.explainability\.\*\[\]\.score +number +/.test(line))).toBe(true);
+    // The key is the name of a request parameter. It is hidden in the shape, as any key that is not a plain field name is.
+    expect(text).toContain('map (1 keys, key names hidden)');
+    expect(text).not.toContain('MARKER explained');
+  });
+
+  it('credits the favourites from the live shape too, so the strongest-favourites move can be tried', async () => {
+    const { text } = await run();
+    expect(text).not.toContain('explainability credited none of the favourites, or all of them');
+  });
+
   it('prints each search term (ours) with whether anything came back and which type it had', async () => {
     const { text } = await run();
     for (const term of TERMS) expect(text).toContain(`"${term}": status 200`);

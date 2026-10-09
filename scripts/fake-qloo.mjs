@@ -7,6 +7,16 @@
 // It proves the page and the server agree with each other, not that either
 // agrees with the real service.
 //
+// The answers are in the shapes seen on the live API on 9 October 2026 (field
+// names and types only): each kind of result carries the year that fits it
+// (`release_year`, `publication_year`, `date_of_birth`, a musician's `start_year`
+// and `end_year`, a brand's `founded_year` or `inception`), some carry a list of
+// `short_descriptions`, and explainability is an object keyed by the signal
+// parameter that was sent, holding rows of { entity_id, score }. The years in the
+// fixtures are invented to suit a person born in 1940 or 1941 (years 1950 to
+// 1971): some musicians and brands fit, some are far too recent, and some have no
+// year at all, so the dated check and the age check both show in the trace.
+//
 // Four lists answer thinly at first, on purpose, so that the agent loop has
 // something to decide and its reasoning shows in the trace panel:
 //   television  two programmes while a release country is asked for, six without
@@ -44,6 +54,22 @@ const COMPARE = fixture('compare');
 /** Each name typed gets its own invented match, so favourites stay distinct. */
 const SEARCH_TYPES = ['urn:entity:artist', 'urn:entity:movie', 'urn:entity:tv_show', 'urn:entity:book', 'urn:entity:person', 'urn:entity:brand'];
 
+/** The property that holds the year of each kind, with an invented value. */
+function yearProperties(type, year) {
+  switch (type) {
+    case 'urn:entity:artist':
+      return { start_year: year };
+    case 'urn:entity:brand':
+      return { founded_year: year };
+    case 'urn:entity:book':
+      return { publication_year: year };
+    case 'urn:entity:person':
+      return { date_of_birth: `${year - 30}-06-15` };
+    default:
+      return { release_year: year };
+  }
+}
+
 function searchAnswer(query) {
   const slug = query.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'blank';
   const type = SEARCH_TYPES[slug.length % SEARCH_TYPES.length];
@@ -54,10 +80,36 @@ function searchAnswer(query) {
         name: query,
         subtype: type,
         types: [type],
-        properties: { release_year: 1940 + (slug.length % 25), short_description: 'An invented match from the stand-in server.' },
+        properties: {
+          ...yearProperties(type, 1940 + (slug.length % 25)),
+          short_description: 'An invented match from the stand-in server.',
+          short_descriptions: ['An invented match, in one line, from the stand-in server.'],
+        },
       },
     ],
   };
+}
+
+/**
+ * Explainability as the live API sends it: on each result, an object keyed by the
+ * name of the signal parameter that was sent, holding a row for each signal entity
+ * with an invented score between 0 and 1. The rows carry no name. The fixtures'
+ * own explainability (in older guessed shapes) is replaced, so the page shows
+ * "Because they liked" for the favourites that were really sent.
+ */
+function withExplainability(body, params) {
+  const signals = listOf(params.get('signal.interests.entities'));
+  if (params.get('feature.explainability') !== 'true' || signals.length === 0) return body;
+  const entities = (body.results?.entities ?? []).map((entity, index) => ({
+    ...entity,
+    query: {
+      ...entity.query,
+      explainability: {
+        'signal.interests.entities': signals.map((entity_id, n) => ({ entity_id, score: Math.round((0.36 - ((index + n * 3) % 6) * 0.05) * 100) / 100 })),
+      },
+    },
+  }));
+  return { ...body, results: { ...body.results, entities } };
 }
 
 function demographicsAnswer(entityId) {
@@ -103,7 +155,8 @@ function answer(url) {
   if (url.pathname === '/v2/insights') {
     const type = url.searchParams.get('filter.type') ?? '';
     if (type === 'urn:demographics') return demographicsAnswer(url.searchParams.get('signal.interests.entities'));
-    return BY_TYPE[type] === undefined ? undefined : insightsAnswer(type, url.searchParams);
+    if (type === 'urn:tag') return BY_TYPE[type];
+    return BY_TYPE[type] === undefined ? undefined : withExplainability(insightsAnswer(type, url.searchParams), url.searchParams);
   }
   return undefined;
 }

@@ -2,8 +2,10 @@
  * A stand-in for the Qloo API for testing scripts/live-probe.mjs, with INVENTED
  * answers. Every string it makes up carries MARKER, so a test can prove that no
  * value from an answer ever reaches the probe's output. The response shapes are
- * the ones adapter.ts assumes (unverified guesses), plus a few extras that are
- * there to be hidden: a map keyed by data, unknown type words, extra fields.
+ * the ones adapter.ts assumes, including what the live API was seen to send on
+ * 9 October 2026 (explainability keyed by the signal parameter, a year of its
+ * own on musicians and brands, a list of short descriptions), plus a few extras
+ * that are there to be hidden: a map keyed by data, unknown type words, extra fields.
  */
 
 /** Part of every invented value. Nothing the probe prints may contain it. */
@@ -51,8 +53,14 @@ function entityRow(id: string, name: string, type: string, extra: Row = {}): Row
       release_year: 1950,
       publication_year: 1950,
       date_of_birth: '1920-05-17',
+      // The year a musician began and stopped performing, and when a brand was founded: invented, and the probe reads types only.
+      start_year: 1955,
+      end_year: 1990,
+      founded_year: 1925,
+      inception: `${MARKER}-invented-inception-date`,
       image: { url: `https://${MARKER.toLowerCase()}.example/image/${id}.jpg` },
       short_description: `${MARKER} invented description ${MARKER_NUMBERS[0]}`,
+      short_descriptions: [`${MARKER} invented short line one`, `${MARKER} invented short line two`],
       // A map keyed by data: its keys must be hidden by the probe.
       external: { [`urn:external:${MARKER}-${id}`]: { rating: Number(MARKER_NUMBERS[0]) } },
     },
@@ -85,8 +93,9 @@ function insightsAnswer(seen: Seen, ignoreFilters: boolean): unknown {
     entityRow(id, `${MARKER} Name ${index} ${MARKER_NUMBERS[1]}`, type, {
       query: {
         affinity: 0.5,
+        // The live shape: an object keyed by the name of the signal parameter that was sent, with rows that carry no name.
         ...(explain && signals[0] !== undefined
-          ? { explainability: [{ entity_id: signals[0], name: `${MARKER} explained by`, score: 0.4 }] }
+          ? { explainability: { 'signal.interests.entities': signals.slice(0, 3).map((entity_id, n) => ({ entity_id, score: 0.4 - n * 0.1 })) } }
           : {}),
       },
     }),
