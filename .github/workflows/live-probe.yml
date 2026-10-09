@@ -39,8 +39,14 @@ jobs:
           QLOO_API_KEY: ${{ secrets.QLOO_API_KEY }}
         run: |
           set +e
-          node scripts/live-probe.mjs 2>&1 | tee probe-report.txt
-          code=${PIPESTATUS[0]}
+          if [ "${PROBE_ONLY_QUESTIONS:-}" = "1" ] || [ -f .probe-questions-only ]; then
+            code=0
+            : > probe-report.txt
+          else
+            node scripts/live-probe.mjs 2>&1 | tee probe-report.txt
+            code=${PIPESTATUS[0]}
+          fi
+          node scripts/live-questions.mjs 2>&1 | tee -a probe-report.txt
           echo "code=$code" >> "$GITHUB_OUTPUT"
           exit 0
       - name: Save the report to the probe-reports branch
