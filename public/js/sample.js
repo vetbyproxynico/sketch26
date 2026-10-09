@@ -629,8 +629,10 @@ export function createSampleApi() {
         const catalogue = kind === 'book' ? /^specimen title (\d+)$/i.exec(name) : null;
         const make = (label, suffix) => {
           const id = catalogue && bookById.has(`SAMPLE-B${Number(catalogue[1])}`) ? `SAMPLE-B${Number(catalogue[1])}` : `SAMPLE-${kind.toUpperCase()}-${slug(label)}${suffix}`;
-          const year = 2000 + (fnv(id) % 25);
-          return { id, name: catalogue && bookById.has(id) ? bookById.get(id).name : label, entityType: KIND_TYPE[kind], kind, year, disambiguation: `${{ game: 'game', tv: 'TV', film: 'film', music: 'music', person: 'person', book: 'book' }[kind]}, ${year}` };
+          // A name the adult typed comes back as typed. It gets no year: a real title with a made-up year would read as a fact.
+          const known = catalogue && bookById.has(id) ? bookById.get(id) : undefined;
+          const kindWord = { game: 'game', tv: 'TV', film: 'film', music: 'music', person: 'person', book: 'book' }[kind];
+          return { id, name: known ? known.name : label, entityType: KIND_TYPE[kind], kind, ...(known?.year === undefined ? {} : { year: known.year }), disambiguation: known?.year === undefined ? `${kindWord}, sample` : `${kindWord}, ${known.year}` };
         };
         const chosen = make(name, '');
         if (/ambiguous/i.test(name)) {

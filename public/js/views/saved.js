@@ -35,6 +35,14 @@ export async function savedView() {
           }),
         ),
       );
+      // Escape does what "Keep it" does: the question closes and focus goes back to the button that asked it.
+      panel.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          panel.replaceWith(ask);
+          focusEl(ask);
+        }
+      });
       ask.replaceWith(panel);
       focusEl(panel.querySelector('button'));
     });

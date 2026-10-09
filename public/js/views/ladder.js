@@ -105,7 +105,7 @@ function buildView(record) {
   let renderedOnce = false;
   let lineObserver = null;
 
-  const ui = { mode: 'idle', pending: null, tags: new Set(), error: null, busy: false, armedAt: 0, fresh: false, offerBusy: false, retry: null };
+  const ui = { mode: 'idle', opener: null, pending: null, tags: new Set(), error: null, busy: false, armedAt: 0, fresh: false, offerBusy: false, retry: null };
   const title = h('h1', { class: 'page-title', tabindex: '-1' });
   const root = h('div', { class: 'page ladder-page' });
   const bar = dock('dock--ladder');
@@ -141,6 +141,8 @@ function buildView(record) {
   const armed = (event) => Date.now() >= ui.armedAt && !(event && event.detail > 1);
 
   function open(mode, extra = {}) {
+    // The first question to open remembers which button asked it, so closing it puts focus back there.
+    if (ui.mode === 'idle') ui.opener = extra.opener ?? null;
     ui.mode = mode;
     ui.pending = extra.pending ?? null;
     ui.tags = new Set();
@@ -155,7 +157,7 @@ function buildView(record) {
     ui.pending = null;
     ui.error = null;
     arm();
-    render({ focus: 'primary' });
+    render({ focus: ui.opener ? 'opener' : 'primary' });
   }
 
   function startReading(rung, event) {
@@ -296,18 +298,27 @@ function buildView(record) {
 
   /* ----------------------------------------------------- action buttons */
 
+  /** Marks a button as the one that opens a question, so focus can come back to it. */
+  function opens(el, which) {
+    el.dataset.opens = which;
+    return el;
+  }
+
   function verdictButtons(rung) {
     return [
       button({ label: 'Finished and loved it', variant: 'primary', icon: 'heart', onClick: () => submit(rung, { kind: 'loved' }) }),
       button({ label: 'Finished it', variant: 'secondary', icon: 'check', onClick: () => submit(rung, { kind: 'finished' }) }),
-      button({
-        label: 'Gave up',
-        variant: 'secondary',
-        icon: 'cross',
-        onClick: (event) => {
-          if (armed(event)) open('gave_up', { focus: 'panel' });
-        },
-      }),
+      opens(
+        button({
+          label: 'Gave up',
+          variant: 'secondary',
+          icon: 'cross',
+          onClick: (event) => {
+            if (armed(event)) open('gave_up', { focus: 'panel', opener: 'gave_up' });
+          },
+        }),
+        'gave_up',
+      ),
     ];
   }
 
@@ -326,7 +337,17 @@ function buildView(record) {
   /** The question being asked on the current rung's card. */
   function panelFor(rung) {
     if (ui.mode === 'idle') return null;
-    const wrap = (legend, hint, ...children) => h('fieldset', { class: 'ask', 'data-panel': ui.mode }, h('legend', { class: 'ask__legend', tabindex: '-1' }, legend), hint ? h('p', { class: 'fine' }, hint) : null, ...children);
+    const wrap = (legend, hint, ...children) => {
+      const box = h('fieldset', { class: 'ask', 'data-panel': ui.mode }, h('legend', { class: 'ask__legend', tabindex: '-1' }, legend), hint ? h('p', { class: 'fine' }, hint) : null, ...children);
+      // Escape closes the question and puts focus back on the main action, as the Cancel button does.
+      box.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancel();
+        }
+      });
+      return box;
+    };
     const cancelButton = button({ label: 'Cancel', variant: 'quiet', onClick: cancel });
     if (ui.mode === 'gave_up') {
       return wrap(
@@ -412,7 +433,7 @@ function buildView(record) {
     const panel = panelFor(rung);
     if (panel) items.push(panel);
     if (ui.mode === 'idle' && !frozen()) {
-      items.push(button({ label: 'Swap this book', variant: 'secondary', icon: 'swap', onClick: (event) => { if (armed(event)) open('swap'); } }));
+      items.push(opens(button({ label: 'Swap this book', variant: 'secondary', icon: 'swap', onClick: (event) => { if (armed(event)) open('swap', { opener: 'swap' }); } }), 'swap'));
     }
     items.push(lookItUp(rung.book));
     return items;
@@ -733,6 +754,7 @@ function buildView(record) {
     else if (focus === 'heading') target = title;
     else if (focus === 'now') target = list.nowCard?.li.querySelector('.rung__title');
     else if (focus === 'panel') target = pick('.ask .ask__legend');
+    else if (focus === 'opener') target = pick(`[data-opens="${ui.opener}"]`) ?? pick('.rung--now .rung__primary button, .dock--ladder button');
     else if (focus === 'primary') target = pick('.rung--now .rung__primary button, .dock--ladder button') ?? list.nowCard?.li.querySelector('.rung__title');
     else if (focus === 'error') target = root.querySelector('.alert-panel h2');
     else if (focus === 'save') target = root.querySelector('.saved-mark a');

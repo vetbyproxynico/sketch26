@@ -124,13 +124,13 @@ export function sentenceStatement(provider, mode) {
         ? 'a language model run on Cloudflare Workers AI'
         : null;
   const parts = [
-    'Your sentence goes to Rung’s server once and is not kept. Email addresses, phone numbers and web addresses are removed first, and it is cut at 600 characters.',
+    'Your sentence goes to Rung’s server once and is not kept. It can be 600 characters at most. Email addresses, phone numbers and web addresses are removed from it first.',
   ];
   if (model) {
-    parts.push(`Then ${model} reads it and returns only the names of games, programmes, films, musicians and people. Rung throws away any name that is not in your sentence.`);
+    parts.push(`Then ${model} reads it and returns the names of games, programmes, films, musicians and people in it, and any theme you said to avoid. If a name is not in your sentence, Rung throws the whole reply away and splits the sentence on commas and the word "and" instead.`);
   } else {
     parts.push('This server uses no language model, so the sentence is split on commas and the word "and".');
   }
-  parts.push('The names you confirm are sent to Qloo as search text. Nothing else about the child is sent. Nicknames never leave this device. Please do not put a real name in the sentence.');
+  parts.push('The names you confirm are sent to Qloo as search text. Nicknames never leave this device. Please do not put a real name in the sentence.');
   return parts.join(' ');
 }

@@ -7,7 +7,7 @@ import { session } from '../session.js';
 const FLOWS = [
   { data: 'Nickname', browser: 'Yes', server: 'Never', qloo: 'Never', model: 'Never' },
   { data: 'Age band (one of three)', browser: 'Yes', server: 'Yes', qloo: 'No. Only the IDs of its tags', model: 'Yes, as a hint about how to write' },
-  { data: 'Names of loves', browser: 'Yes', server: 'Yes', qloo: 'Yes, as search text and IDs', model: 'Yes, if you use the sentence box' },
+  { data: 'Names of loves', browser: 'Yes', server: 'Yes', qloo: 'Yes, as search text and IDs', model: 'Yes, if the server has a model: to write the reasons, and to read the sentence box' },
   { data: 'The sentence about tastes, if you use it', browser: 'No', server: 'Yes, once, not kept', qloo: 'No', model: 'Yes, after emails, phone numbers and web addresses are removed' },
   { data: 'Search word for a theme to rule out (40 characters at most)', browser: 'No', server: 'Yes', qloo: 'Yes, as a tag search', model: 'Never' },
   { data: 'Verdicts (fixed choices, no free text)', browser: 'Yes', server: 'Yes', qloo: 'No. Only the IDs they add or remove', model: 'Never' },
