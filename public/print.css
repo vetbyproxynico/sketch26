@@ -71,6 +71,7 @@ button,
 .rung__more,
 .rung__primary,
 .ladder-head__actions,
+.ladder-head__unsaved,
 .home__saved {
   display: none !important;
 }
@@ -105,11 +106,23 @@ a {
   box-shadow: none !important;
 }
 
-.rung,
 .title-card,
 .slip__item,
 .board-table tr {
   break-inside: avoid;
+}
+
+/*
+ * A rung on the ladder screen is tall, and one that does not fit the page it
+ * lands on would leave the rest of that page empty. It may start where it
+ * finds room; its parts (title, line, chips, flags) stay whole.
+ */
+.rung__card > * {
+  break-inside: avoid;
+}
+
+.rung__title {
+  break-after: avoid;
 }
 
 /* the banner that says the data is invented stays, in black on white */

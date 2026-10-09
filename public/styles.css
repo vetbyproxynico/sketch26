@@ -2952,6 +2952,14 @@ input[type='number'] {
   border-color: var(--ink);
 }
 
+/* The last line in a framed panel sits on the padding, not on a margin as well. */
+.stop > :last-child,
+.done > :last-child,
+.changed > :last-child,
+.empty > :last-child {
+  margin-bottom: 0;
+}
+
 .stop--soft .stop__title {
   color: var(--ink);
 }
