@@ -10,6 +10,7 @@ import { kindMark } from '../kinds.js';
 import { applyLadderAnswer, applyVerdictAnswer, climbed, displayName, isReading, openRungs, possessive, setAside } from '../records.js';
 import { checkStore, persistReader, session } from '../session.js';
 import { GIVE_UP_REASONS, STRENGTH_WORD, SWAP_REASONS, verdictWords } from '../words.js';
+import { runner } from './try.js';
 
 /*
  * R3 to R5: the ladder. Home base, the stepped rungs, the one action for the
@@ -58,9 +59,42 @@ export function sampleRecordNote(record) {
   return note('This reader was built with sample data, so every book on it is invented.', { tone: 'warn', title: 'Sample data' });
 }
 
+/** A saved reader that has loves but no ladder (an older save): ask for the ladder again, then show it. */
+function rebuildLadderView(record) {
+  const name = displayName(record);
+  const api = session.apiFor(record);
+  if (!api) {
+    const title = h('h1', { class: 'page-title', tabindex: '-1' }, record.nickname ? `${possessive(name)} ladder` : 'Your ladder');
+    return {
+      title: 'Your ladder',
+      el: h('div', { class: 'page prose' }, title, note('This reader was built with live data, but the live service is not available now. Try again when it is back.', { tone: 'warn', title: 'Read only for now' }), linkButton({ label: 'See what is saved', href: '#/saved' })),
+      heading: title,
+    };
+  }
+  return {
+    title: 'Rebuilding the ladder',
+    ...runner({
+      heading: record.nickname ? `Building ${possessive(name)} ladder again` : 'Building the ladder again',
+      summary: 'Rung keeps the loves on this device, not the answers. It asks Qloo again.',
+      backHref: '#/saved',
+      backLabel: 'Back to what is saved',
+      async start({ signal, progress, isGone }) {
+        progress('Finding books close to what they love');
+        const answer = await api.ladder(record.state, false, { signal });
+        if (isGone()) return;
+        session.logTrace(record.id, 'Building the ladder', answer.trace);
+        applyLadderAnswer(record, answer);
+        if (session.store.hasReader(record.id)) persistReader(record);
+        session.router.refresh();
+      },
+    }),
+  };
+}
+
 export async function ladderView({ id }) {
   const record = loadRecord(id);
   if (!record) return missingReader();
+  if (record.ladder === null) return rebuildLadderView(record);
   return buildView(record);
 }
 
@@ -70,7 +104,7 @@ function buildView(record) {
   let disposed = false;
   let renderedOnce = false;
 
-  const ui = { mode: 'idle', pending: null, tags: new Set(), error: null, busy: false, armedAt: 0, fresh: false, offerBusy: false };
+  const ui = { mode: 'idle', pending: null, tags: new Set(), error: null, busy: false, armedAt: 0, fresh: false, offerBusy: false, retry: null };
   const title = h('h1', { class: 'page-title', tabindex: '-1' });
   const root = h('div', { class: 'page ladder-page' });
   const bar = dock('dock--ladder');
@@ -114,7 +148,8 @@ function buildView(record) {
     render({ focus: extra.focus ?? 'panel' });
   }
 
-  function cancel() {
+  function cancel(event) {
+    if (!armed(event)) return;
     ui.mode = 'idle';
     ui.pending = null;
     ui.error = null;
@@ -134,8 +169,17 @@ function buildView(record) {
     render({ focus: 'now' });
   }
 
-  async function submit(rung, verdict, ruleOut) {
-    if (!armed()) return;
+  /** "Try again" after a failure does the same thing again, not just clears the message. */
+  function retryNow() {
+    const again = ui.retry;
+    ui.error = null;
+    if (again) again({ skipGuard: true });
+    else render({ focus: 'primary' });
+  }
+
+  async function submit(rung, verdict, ruleOut, { skipGuard = false } = {}) {
+    if (!skipGuard && !armed()) return;
+    ui.retry = (options) => submit(rung, verdict, ruleOut, options);
     await gate.run(async () => {
       const api = session.apiFor(record);
       ui.error = null;
@@ -176,6 +220,7 @@ function buildView(record) {
   }
 
   async function startNext() {
+    ui.retry = () => startNext();
     await gate.run(async () => {
       const api = session.apiFor(record);
       if (!api) return;
@@ -208,6 +253,7 @@ function buildView(record) {
       announce('Rung keeps at most 20 ruled-out themes.');
       return;
     }
+    ui.retry = () => acceptOffer(tag);
     await gate.run(async () => {
       const api = session.apiFor(record);
       if (!api) return;
@@ -357,7 +403,7 @@ function buildView(record) {
       return items;
     }
     if (ui.error) {
-      items.push(errorPanel(ui.error, { onRetry: () => { ui.error = null; render({ focus: 'primary' }); }, onSample: () => session.useSample?.() }));
+      items.push(errorPanel(ui.error, { onRetry: retryNow, onSample: () => session.useSample?.() }));
     }
     if (isReading(record, rung) && ui.mode === 'idle') {
       items.push(h('p', { class: 'rung__reading' }, h('strong', null, 'Reading now.'), ' When they have finished or given up, tap how it went.'));
@@ -365,7 +411,7 @@ function buildView(record) {
     const panel = panelFor(rung);
     if (panel) items.push(panel);
     if (ui.mode === 'idle' && !frozen()) {
-      items.push(button({ label: 'Swap this book', variant: 'secondary', icon: 'swap', onClick: () => open('swap') }));
+      items.push(button({ label: 'Swap this book', variant: 'secondary', icon: 'swap', onClick: (event) => { if (armed(event)) open('swap'); } }));
     }
     items.push(lookItUp(rung.book));
     return items;
@@ -414,8 +460,8 @@ function buildView(record) {
             h('ul', { class: 'offers__list' }, offers.map((tag) => h('li', { class: 'offer' },
               h('p', { class: 'offer__text' }, `Rule out books tagged ${tag.name} for good?`),
               h('div', { class: 'actions' },
-                button({ label: 'Rule it out', variant: 'secondary', ariaLabel: `Rule out ${tag.name} for good`, onClick: () => acceptOffer(tag) }),
-                button({ label: 'Not now', variant: 'quiet', ariaLabel: `Do not rule out ${tag.name}`, onClick: () => declineOffer(tag) }),
+                button({ label: 'Rule it out', variant: 'secondary', ariaLabel: `Rule it out: ${tag.name}`, onClick: () => acceptOffer(tag) }),
+                button({ label: 'Not now', variant: 'quiet', ariaLabel: `Not now: ${tag.name}`, onClick: () => declineOffer(tag) }),
               ),
             ))),
           )
@@ -612,7 +658,7 @@ function buildView(record) {
           )
         : null,
       setAsideList(),
-      ui.error && !list.now ? errorPanel(ui.error, { onRetry: () => { ui.error = null; render({ focus: 'none' }); }, onSample: () => session.useSample?.() }) : null,
+      ui.error && !list.now ? errorPanel(ui.error, { onRetry: retryNow, onSample: () => session.useSample?.() }) : null,
       ui.busy && !list.now ? loading('Working on the next ladder') : null,
     );
 

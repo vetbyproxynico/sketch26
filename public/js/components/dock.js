@@ -11,16 +11,33 @@ export function dock(className, ...children) {
   return h('div', { class: `dock ${className}`.trim() }, ...children);
 }
 
+/**
+ * A bar fixed to the foot of the screen is a help on a phone and a wall when the
+ * text is large or the screen is short: at 200% text it can fill half of a small
+ * phone. Then it is not fixed: the button sits in the card, or at the end of
+ * the form, where the content is.
+ */
+export function dockIsStatic() {
+  const fontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return fontSize >= 24 || window.innerHeight < 450;
+}
+
 /** @returns {() => void} the clean-up for the screen's `dispose`. */
 export function mountDock(el) {
   document.body.classList.add('has-dock');
-  const set = () => document.documentElement.style.setProperty('--dock-h', `${el.offsetHeight}px`);
+  const set = () => {
+    const fixed = !dockIsStatic();
+    document.body.classList.toggle('dock-static', !fixed);
+    document.documentElement.style.setProperty('--dock-h', fixed ? `${el.offsetHeight}px` : '0px');
+  };
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(set) : null;
   observer?.observe(el);
+  window.addEventListener('resize', set);
   set();
   return () => {
     observer?.disconnect();
-    document.body.classList.remove('has-dock');
+    window.removeEventListener('resize', set);
+    document.body.classList.remove('has-dock', 'dock-static');
     document.documentElement.style.removeProperty('--dock-h');
   };
 }
