@@ -22,11 +22,15 @@ import { AGENT_ACTIONS, AGENT_MOVES, type Decision, type ListObservation, type O
  *    adds its words here without anyone remembering to.
  * 2. The words of the model's view of the observation and of the closed list of
  *    moves it picks from (see `openersAllowed` in `view.ts`).
- * 3. The short list below: the small, closed class of function words
- *    (articles, pronouns, conjunctions, prepositions, auxiliaries), and the verbs
- *    of the moves in the forms a reason would start with. None of them is, or
- *    could be taken for, a personal name: that is the one rule for adding to it.
- *    `test/encore/agent/openers.test.ts` checks the list against a set of names.
+ * 3. The list below: the closed class of function words (articles, pronouns,
+ *    conjunctions, prepositions, auxiliaries), the verbs of the moves in the
+ *    forms a reason would start with, a few adverbs, and the plain nouns of the
+ *    task (results, years, country). Too short a list would send the model's
+ *    ordinary reasons to the rules and credit them for its choice, so it is
+ *    generous. None of its words is, or could be taken for, a personal name:
+ *    that is the one rule for adding to it, and `test/encore/agent/openers.test.ts`
+ *    checks the list against a set of names, including ones that end like an
+ *    ordinary word, and against openers a model plausibly writes.
  */
 const EVERYDAY: readonly string[] = [
   // Articles, determiners and quantities.

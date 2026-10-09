@@ -211,11 +211,16 @@ first word must therefore be an ordinary word instead (`src/encore/agent/openers
 The set of ordinary words is closed: the words of the rule advisor's own
 sentences (read off the code that writes them, for every kind of list and every
 move, so a new sentence adds its words by itself), the words of the model's own
-view of the observation, and a short hand-written list of function words and
-move verbs. A name belongs to an open class, so it can never be in a closed set.
-A reason that fails is replaced by the rules' choice, like any other. The
-prompt asks the model to begin with an ordinary word, and a test checks that
-every example the prompt gives passes.
+view of the observation, and a hand-written list of function words, move
+verbs, a few adverbs and the plain nouns of the task. A name belongs to an open
+class, so it can never be in a closed set. The list is generous on purpose: a
+reason that is refused is replaced by the rules' choice, and the page then
+credits the rules for a choice the model made. A test checks the list against
+famous one-word names (including ones that end like an ordinary word) and
+against a list of the openers a model plausibly writes. A reason that fails is
+replaced by the rules' choice, like any other. The prompt asks the model to
+begin with an ordinary word, and a test checks that every example the prompt
+gives passes.
 
 ### What the carer and the judge see
 

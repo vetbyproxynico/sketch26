@@ -75,7 +75,10 @@ sessions, and into one programme for a whole common room.
    brands. Films, television, books and people are limited to the years the
    person was about 10 to 30. Music and brands have no date filter, so Encore
    checks how much people over 55 like them. Each suggestion says which
-   favourites led to it and how strongly.
+   favourites led to it and how strongly. A box called "How Encore built this
+   map" says how many questions Encore asked Qloo and how often it changed
+   course, then lists each decision in plain words, marked as made by fixed rules
+   or by the language model.
 4. **A week of sessions.** Up to five days, each with a theme, an opening line,
    up to three things to bring, a reason for each, and four open questions
    about memories and feelings.
@@ -91,7 +94,9 @@ sessions, and into one programme for a whole common room.
 7. **Printed sheet.** Any day prints as one black-and-white page.
 8. **Trace.** A button on every page lists every question asked of Qloo, with
    its endpoint, parameters, result count and time, and each decision the map
-   agent took between them, with its reason.
+   agent took between them, with its reason. The decisions are saved with the
+   map in the browser, so the map page can still list them after a reload; the
+   full trace is not.
 
 People are saved only in the browser. The server keeps no accounts and no
 database. A judge can reach a full plan from an example person in three clicks:
@@ -268,12 +273,13 @@ open it and see how Qloo was used, step by step.
 
 - Run the whole flow, from example person to plan to room, against the live
   Qloo API and fix whatever it shows.
-- Connect "Gentle mode" to Qloo. The switch is saved today but does not yet
-  change what is asked of Qloo. It would exclude distressing themes with
-  `filter.exclude.tags`, using tag IDs found with `/v2/tags`.
-- Apply the carer's avoid list to the suggestions. Today it reaches only the
-  wording of the opening lines and questions. An item the carer wanted to avoid
-  can still be suggested, and marking it "Not today" removes it for good.
+- Ask Qloo to exclude distressing themes. Gentle mode and the carer's avoid list
+  already leave suggestions out, but in Encore's own code, on the names,
+  descriptions and tags Qloo returns, and a list that loses suggestions is
+  filled again from further down Qloo's answer. Excluding themes at Qloo with
+  `filter.exclude.tags` would need tag IDs found with `/v2/tags` on the live API.
+- Filter the sample data. The sample suggestions are invented and are not
+  filtered; the page says so when the person has something to avoid.
 - Offer the same tools to other agents through a remote MCP endpoint. This is not
   built.
 - Use more of what Qloo offers. Encore uses six of the ten entity types
