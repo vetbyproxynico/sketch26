@@ -18,14 +18,23 @@ import { loadRecord, missingReader } from './ladder.js';
 
 const today = () => longDate(new Date().toISOString());
 
-/** The class sheet wants landscape paper. The rule is added while the sheet is on screen and taken away after. */
+/**
+ * The class sheet wants landscape paper. The rule is added while the sheet is on
+ * screen and taken away after. It is built through the style sheet API and not a
+ * style element, because the page's content policy allows no inline style.
+ */
 function landscape() {
-  const style = document.createElement('style');
-  style.id = 'page-size';
-  style.media = 'print';
-  style.textContent = '@page { size: landscape; margin: 8mm; }';
-  document.head.append(style);
-  return () => style.remove();
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync('@page { size: landscape; margin: 8mm; }');
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    return () => {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter((one) => one !== sheet);
+    };
+  } catch {
+    // A browser without constructable style sheets prints the sheet on whatever paper it has.
+    return () => undefined;
+  }
 }
 
 function printBar({ backHref, backLabel, what }) {

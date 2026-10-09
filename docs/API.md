@@ -1,8 +1,10 @@
 # Rung's HTTP API
 
-The routes the Worker serves under `/api`. JSON in, JSON out. The page (not
-built yet) is a client of these routes and nothing else; the browser never calls
-Qloo, and the key never leaves the server.
+The routes the Worker serves under `/api`. JSON in, JSON out. The page in
+`public/` is a client of these routes and nothing else; the browser never calls
+Qloo, and the key never leaves the server. The Worker runs first only for
+`/api/*`; every other address is served from `public/`, and an unknown path
+under `/api` is a JSON 404, never the page.
 
 The routes are written in `src/rung/routes.ts` and the request checks in
 `src/rung/validate.ts`. `docs/SPEC.md` (section 6) says why they are shaped this
@@ -15,7 +17,10 @@ way. This file says what they do now.
 - **No nickname, ever.** A reader's nickname lives in the browser. A request
   that carries a key beginning with `nick` (`nickname`, `Nickname`,
   `nick_name`, `nicknames`), at any depth, is refused with a 400, whatever else
-  it holds. Group rows are numbers in the order they were sent.
+  it holds. Group rows are numbers in the order they were sent. The page builds
+  each body from a fixed list of fields, so a nickname kept on a saved record
+  cannot ride along, and checks the finished body for a key beginning `nick`
+  before it sends it (`public/js/api.js`).
 - **No raw Qloo response is returned.** Every value in an answer was read
   through `src/rung/qloo/adapter.ts` into Rung's own types.
 - **No key in any answer, log line or trace.** A trace entry holds the path and
@@ -279,10 +284,14 @@ once. Defaults are the primary designs of `docs/SPEC.md`; the comment on each in
 ## Trying it with no key
 
 `npm run fake-qloo` starts a stand-in for Qloo on `127.0.0.1:8799` and
-`npm run dev:fake` runs the Worker against it. Everything the stand-in serves is
-invented; it shows that the Worker and the stand-in agree with each other, not
-that either agrees with Qloo. A name starting `zzz` finds nothing, which shows
-the "not found" state.
+`npm run dev:fake` runs the Worker against it, with the page, on
+`http://127.0.0.1:8787`. Everything the stand-in serves is invented; it shows
+that the Worker and the stand-in agree with each other, not that either agrees
+with Qloo. A name starting `zzz` finds nothing, which shows the "not found"
+state. With no key at all (`npm run dev:local`), `/api/health` reports
+`qlooConfigured: false` and the page runs the whole journey on its own invented
+sample data, under a banner that says so (see the README). The same happens
+for any address with `?sample=1`.
 
 ```sh
 curl -s localhost:8787/api/resolve \

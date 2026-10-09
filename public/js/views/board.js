@@ -376,7 +376,7 @@ function buildView(record) {
       sampleNote,
       frozen() ? note('This group was built with live data, but the live service is not available now. You can look at the board. To change it, load the page again when the service is back.', { tone: 'warn', title: 'Read only for now' }) : null,
       changedPanel(),
-      noteList(serverNotes, { heading: 'Notes from Rung' }),
+      noteList(serverNotes, { heading: 'Notes from Rung', level: 2 }),
       lead,
       board.noSingleBook ? split : null,
       titlesSection(board),

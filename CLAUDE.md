@@ -98,3 +98,9 @@ See section 6 of `docs/SPEC.md`. In short:
   hand-written request validation.
 - `scripts/fake-qloo.mjs`: a stand-in Qloo server that serves invented data only
   (`npm run fake-qloo`, then `npm run dev:fake`).
+- `public/`: the page. Plain HTML, CSS and JavaScript modules with no framework,
+  no build step, no external fonts and no third-party requests. `js/api.js` is
+  the only code that talks to the server, and it builds every body from a fixed
+  list of fields. `js/sample.js` is the sample mode: invented books for when the
+  server has no Qloo key. `js/store.js` is the only code that touches browser
+  storage. Tests for the page are in `test/rung/client/`.

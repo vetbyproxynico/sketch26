@@ -3294,3 +3294,90 @@ body.dock-static.has-dock .site-footer {
 body.dock-static.has-dock .site-footer {
   padding-bottom: 1.5rem;
 }
+
+/* on a wide screen the ladder picture stands beside the words, larger */
+@media (min-width: 960px) {
+  .hero {
+    position: relative;
+    padding-right: 24rem;
+    min-height: 17rem;
+  }
+  .hero .steps {
+    position: absolute;
+    right: 3rem;
+    top: 2rem;
+    width: 17rem;
+    max-width: none;
+    margin: 0;
+    gap: 0.875rem;
+  }
+  .hero .steps__step {
+    height: 1.5rem;
+  }
+  .hero .steps__step::after {
+    right: -2.25rem;
+    top: -0.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+/* the lines in the margin of the ladder, from 960 pixels (js/components/rail-lines.js) */
+.ladder-col {
+  position: relative;
+}
+
+.rail-lines {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .ladder-col {
+    padding-left: 56px;
+  }
+  .rail-lines {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .rail-lines__line--game,
+  .rail-lines__dot--game {
+    stroke: var(--kind-game);
+    color: var(--kind-game);
+  }
+  .rail-lines__line--tv,
+  .rail-lines__dot--tv {
+    stroke: var(--kind-tv);
+    color: var(--kind-tv);
+  }
+  .rail-lines__line--film,
+  .rail-lines__dot--film {
+    stroke: var(--kind-film);
+    color: var(--kind-film);
+  }
+  .rail-lines__line--music,
+  .rail-lines__dot--music {
+    stroke: var(--kind-music);
+    color: var(--kind-music);
+  }
+  .rail-lines__line--person,
+  .rail-lines__dot--person {
+    stroke: var(--kind-person);
+    color: var(--kind-person);
+  }
+  .rail-lines__line--book,
+  .rail-lines__dot--book {
+    stroke: var(--kind-book);
+    color: var(--kind-book);
+  }
+  .rail-lines__dot {
+    fill: currentColor;
+    stroke: none;
+  }
+  .rail-lines__inner {
+    stroke: var(--ground);
+  }
+}

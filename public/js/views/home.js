@@ -86,5 +86,5 @@ export async function homeView() {
     h('p', { class: 'fine home__fine' }, 'Rung is a book-choosing aid. It matches taste, so it is not an age rating and it does not assess reading. You decide what a child reads.'),
     saved > 0 ? h('p', { class: 'home__saved' }, linkButton({ label: 'Saved on this device', href: '#/saved', icon: 'save' })) : null,
   );
-  return { title: 'Home', el: root, heading: title };
+  return { title: 'Books a reluctant reader might finish', el: root, heading: title };
 }

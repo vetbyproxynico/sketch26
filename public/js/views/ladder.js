@@ -3,6 +3,7 @@ import { ApiError, createGate } from '../api.js';
 import { checkTool } from '../components/check-tool.js';
 import { loveChip } from '../components/chips.js';
 import { dock, mountDock } from '../components/dock.js';
+import { drawRailLines } from '../components/rail-lines.js';
 import { foldedRung, lookItUp, openRung } from '../components/rung.js';
 import { tracePanel } from '../components/trace-panel.js';
 import { button, errorPanel, linkButton, loading, noteList, note, setBusy, toggleChip } from '../components/ui.js';
@@ -103,6 +104,7 @@ function buildView(record) {
   let controller = null;
   let disposed = false;
   let renderedOnce = false;
+  let lineObserver = null;
 
   const ui = { mode: 'idle', pending: null, tags: new Set(), error: null, busy: false, armedAt: 0, fresh: false, offerBusy: false, retry: null };
   const title = h('h1', { class: 'page-title', tabindex: '-1' });
@@ -512,6 +514,7 @@ function buildView(record) {
     const open = openRungs(record);
     const total = done.length + open.length;
     const items = [];
+    const lines = [];
     done.forEach((entry, index) => items.push(foldedRung({ entry, number: index + 1, total, index })));
     let nowCard = null;
     open.forEach((rung, position) => {
@@ -527,8 +530,9 @@ function buildView(record) {
         replaceChildren(card.more, lookItUp(rung.book));
       }
       items.push(card.li);
+      lines.push({ li: card.li, kinds: [...new Set(rung.links.map((link) => link.kind))] });
     });
-    return { items, nowCard, now: open[0] };
+    return { items, nowCard, now: open[0], lines };
   }
 
   function readingLinks() {
@@ -701,6 +705,15 @@ function buildView(record) {
       bar.hidden = true;
     }
 
+    // The lines in the margin need the cards in place to be measured, and are drawn again if the column changes height.
+    lineObserver?.disconnect();
+    const redraw = () => drawRailLines(ladderCol, ladderCol.querySelector('.home-base'), list.lines);
+    requestAnimationFrame(redraw);
+    if (typeof ResizeObserver === 'function') {
+      lineObserver = new ResizeObserver(() => requestAnimationFrame(redraw));
+      lineObserver.observe(ladderCol);
+    }
+
     root.classList.toggle('is-fresh', ui.fresh);
     ui.fresh = false;
     document.title = `${title.textContent} | Rung`;
@@ -734,6 +747,7 @@ function buildView(record) {
       disposed = true;
       controller?.abort();
       check.dispose();
+      lineObserver?.disconnect();
       unmountDock();
     },
   };

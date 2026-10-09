@@ -124,13 +124,13 @@ export function note(text, { tone = 'info', title } = {}) {
   return h('div', { class: `note note--${tone}` }, title ? h('p', { class: 'note__title' }, title) : null, h('p', null, text));
 }
 
-/** A list of notes from the server, each in plain words. */
-export function noteList(notes, { heading } = {}) {
+/** A list of notes from the server, each in plain words. `level` is the heading level under the one above. */
+export function noteList(notes, { heading, level = 3 } = {}) {
   if (!notes || notes.length === 0) return null;
   return h(
     'section',
     { class: 'note-list', 'aria-label': heading ?? 'Things to know' },
-    heading ? h('h3', { class: 'label-heading' }, heading) : null,
+    heading ? h(`h${level}`, { class: 'label-heading' }, heading) : null,
     h('ul', { class: 'plain-list' }, notes.map((item) => h('li', null, item.message))),
   );
 }

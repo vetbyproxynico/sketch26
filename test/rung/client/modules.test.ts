@@ -89,6 +89,24 @@ describe('the page modules', () => {
     }
   });
 
+  it('sets a content policy that lets the page talk to nobody but itself, and keeps to it', () => {
+    const html = read(join(PUBLIC, 'index.html'));
+    const policy = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(html)?.[1] ?? '';
+    expect(policy).toMatch(/default-src 'none'/);
+    expect(policy).toMatch(/script-src 'self'(?:;|$)/);
+    expect(policy).toMatch(/style-src 'self'(?:;|$)/);
+    expect(policy).toMatch(/connect-src 'self'(?:;|$)/);
+    expect(policy).not.toMatch(/unsafe-inline|unsafe-eval|\*/);
+    expect(policy).not.toMatch(/font-src|media-src|frame-src/);
+    // The policy blocks inline style and inline script, so no module may rely on either.
+    for (const file of scripts) {
+      const source = read(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+      expect(source, relative(PUBLIC, file)).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML|document\.write|eval\(|new Function|createElement\(\s*['"](?:style|script)['"]\s*\)|setAttribute\(\s*['"]style['"]/);
+    }
+    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>[^<]/);
+    expect(html).not.toMatch(/\sstyle=/);
+  });
+
   it('has an index.html that refers only to its own files', () => {
     const html = read(join(PUBLIC, 'index.html'));
     expect(html).toMatch(/<html lang="en-GB">/);
