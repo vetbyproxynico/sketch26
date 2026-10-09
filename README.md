@@ -158,8 +158,7 @@ No secret is stored in this repository.
 
 | Secret | Where the repository owner sets it | Used for |
 | --- | --- | --- |
-| `QLOO_API_KEY` | Cloudflare dashboard, Worker settings, Variables and Secrets | Server-side calls to the Qloo API at runtime |
-| `QLOO_API_KEY` | GitHub, Settings, Secrets and variables, Actions | The manual "Live smoke" workflow |
+| `QLOO_API_KEY` | GitHub, Settings, Secrets and variables, Actions | The "Live smoke" and "Live probe" workflows. The "Deploy" workflow also passes it to the Worker as a secret, so it is set in one place only |
 | `ANTHROPIC_API_KEY` (optional) | Cloudflare dashboard, same place | Uses the Anthropic API instead of Workers AI |
 | `CLOUDFLARE_API_TOKEN` (optional) | GitHub, Settings, Secrets and variables, Actions | Lets the "Deploy" workflow publish on pushes to `main` |
 
