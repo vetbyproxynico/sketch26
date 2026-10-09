@@ -6,6 +6,8 @@
     "moduleResolution": "Bundler",
     "types": ["@cloudflare/workers-types"],
     "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,

@@ -229,6 +229,7 @@ function tidyNickname(raw) {
 const MODES = ['live', 'sample'];
 
 /** One saved reader, or undefined when it holds nothing readable. */
+/** @returns {any} */
 export function tidyReader(raw, now = new Date().toISOString()) {
   if (!isObject(raw)) return undefined;
   const state = tidyState(isObject(raw.state) ? raw.state : raw, text(raw.id, 300));
@@ -288,6 +289,7 @@ function tidySharedRead(raw, rowCount) {
 }
 
 /** One saved group, or undefined when it has fewer than two readable rows. */
+/** @returns {any} */
 export function tidyGroup(raw, now = new Date().toISOString()) {
   if (!isObject(raw)) return undefined;
   const rows = list(raw.rows).map(tidyRow).filter(Boolean).slice(0, MAX_ROWS);
@@ -317,6 +319,7 @@ export function tidyGroup(raw, now = new Date().toISOString()) {
   };
 }
 
+/** @returns {any} */
 export function emptyData() {
   return { version: SHAPE_VERSION, readers: [], groups: [], prefs: { covers: false } };
 }
@@ -327,6 +330,7 @@ export function emptyData() {
  * of readers); and readers that kept their name as `name` or `nick`. Returns
  * the data and how many items could not be read.
  */
+/** @returns {{ data: any, dropped: number }} */
 export function tidy(raw, now = new Date().toISOString()) {
   const data = emptyData();
   let dropped = 0;

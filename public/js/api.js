@@ -152,11 +152,16 @@ function ladderBodyOf(ladder) {
 
 const rowBody = (row) => ({ loves: row.loves.map(loveBody), headcount: row.headcount ?? 1 });
 
+/**
+ * @typedef {{ state: any, ladder: any, rung: number, verdict: any, ruleOut?: string[], readingLinks?: any[] }} VerdictInput
+ * @typedef {{ rows: any[], books: any[], candidateIds: string[], scores: any[], rowPools: string[][], checkedId?: string, partial?: string[] }} BoardInput
+ */
 export const bodies = {
   parse: (sentence) => assertNoNickname({ sentence }),
   resolve: (loves) => assertNoNickname({ loves: loves.map((one) => (one.kind ? { name: one.name, kind: one.kind } : { name: one.name })) }),
   themes: (word) => assertNoNickname({ word }),
   ladder: (state, next = false) => assertNoNickname({ state: stateBody(state), ...(next ? { next: true } : {}) }),
+  /** @param {VerdictInput} input */
   verdict: ({ state, ladder, rung, verdict, ruleOut, readingLinks }) =>
     assertNoNickname({
       state: stateBody(state),
@@ -170,6 +175,7 @@ export const bodies = {
   groupPool: ({ rows, done = [], excludedTags = [], published = 'since_2000', trends = false }) =>
     assertNoNickname({ rows: rows.map(rowBody), done, excludedTags: excludedTags.map(tagBody), published, trends }),
   groupScore: (row, loves, candidateIds) => assertNoNickname({ row, loves: loves.map(loveBody), candidateIds }),
+  /** @param {BoardInput} input */
   groupBoard: ({ rows, books, candidateIds, scores, rowPools, checkedId, partial }) =>
     assertNoNickname({
       rows: rows.map(rowBody),

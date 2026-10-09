@@ -164,6 +164,7 @@ export const allMatched = (results) => [...results.values()].every((entry) => en
 
 /* ----------------------------------------------------------------- records */
 
+/** @returns {any} */
 export function newGroupRecord({ draft, rows, mode }) {
   const now = new Date().toISOString();
   return {
@@ -204,6 +205,7 @@ function sameRowIndex(record, row, index) {
  * and what the row did with each title the group has read together. A loved
  * title becomes a book the reader loved; every title is marked as done.
  */
+/** @returns {any} */
 export function readerFromRow(group, rowIndex) {
   const row = group.rows[rowIndex];
   const state = newState({ loves: row.loves.map((love) => ({ ...love })), published: group.settings.published, excludedWords: group.settings.cautions.slice(), excludedTags: group.settings.excludedTags.slice() });
@@ -266,6 +268,7 @@ function isRowFailure(error) {
  * board. Nothing is kept unless every step returns a good shape. Returns the
  * results the board screen draws.
  */
+/** @returns {Promise<any>} */
 export async function buildBoard(record, { signal, progress, checked } = {}) {
   const api = session.apiFor(record);
   if (!api) throw new ApiError({ kind: 'network', message: 'The live service is not available.' });
@@ -330,6 +333,7 @@ export async function askBoard(record, results, { signal } = {}) {
  * rebuilds the board with a column for it. `book` is an entity from the resolve
  * route (kind book).
  */
+/** @returns {Promise<any>} */
 export async function checkGroupBook(record, results, book, { signal } = {}) {
   const api = session.apiFor(record);
   if (!api) throw new ApiError({ kind: 'network', message: 'The live service is not available.' });

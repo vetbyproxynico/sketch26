@@ -11,6 +11,10 @@ import { randomId } from './dom.js';
 /** Words the "too young" verdict adds to the state. They are not caution chips. */
 const YOUNG_WORDS = ['picture book', "children's"];
 
+/**
+ * @param {{ id?: string, ageBand?: string, loves: any[], published?: string, excludedWords?: string[], excludedTags?: any[], onlyAgeTagged?: boolean }} options
+ * @returns {any}
+ */
 export function newState({ id = randomId('reader'), ageBand, loves, published = 'since_2000', excludedWords, excludedTags = [], onlyAgeTagged = false }) {
   return {
     id,
@@ -34,6 +38,10 @@ export function newState({ id = randomId('reader'), ageBand, loves, published = 
   };
 }
 
+/**
+ * @param {{ nickname?: string, state: any, mode: string }} options
+ * @returns {any}
+ */
 export function newRecord({ nickname = '', state, mode }) {
   const now = new Date().toISOString();
   return {
