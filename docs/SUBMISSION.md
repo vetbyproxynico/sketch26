@@ -301,7 +301,6 @@ open it and see how Qloo was used, step by step.
 - **A server that keeps nothing.** There are no accounts. The browser holds each
   person's profile, map and plan and sends them back with each request, so every
   request body is checked and limited in size.
-
 - **The first live run.** The code was written from the documentation, so the
   first run against the live API was the real test. Most guesses about the
   shape of Qloo's answers held, and the rest were fixed in the one module that
@@ -329,7 +328,6 @@ open it and see how Qloo was used, step by step.
 - A product that suggests things to talk about, and stops there, is easier to
   keep honest than one that implies a benefit. The prompts forbid medical
   claims, and the code rejects replies that make them.
-
 - The live API taught me things the documentation did not: the country filter
   wants a name and not a code, explainability is keyed by the signal parameter,
   search needs to be told which kinds to return, and calls must be paced. It
