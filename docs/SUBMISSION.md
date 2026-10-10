@@ -5,11 +5,13 @@ Before it is pasted:
 
 1. Every marker line must be filled in or deleted. A marker is a line like
    `[NEEDS EVIDENCE: ...]` (a fact we do not have) or `[AFTER LIVE TEST: ...]`
-   (something to fill in once the Qloo key has arrived and the demo has run
-   against the live API). The markers are listed in the table at the end.
-2. The section "How Qloo powers it" must be checked against the live API. Qloo
-   ignores a parameter that does not apply, so a parameter named there may do
-   nothing until a live test shows results.
+   (something only a run against the live API can show). The markers still
+   open are listed in the table at the end. `docs/DEVPOST_FORM.md` is this text
+   with the open markers left out, field by field, ready to paste.
+2. The section "How Qloo powers it" was checked against the live API on 10
+   October 2026. The figures come from two sources, both counts only: the live
+   probe (GitHub Actions run 38016988561, 10 October 2026) and the check of the
+   deployed demo after the last deploy (run 37910481232, 9 October 2026).
 3. The owner reads it once and changes anything that is not true.
 
 Nothing in the draft is invented: there are no interviews, pilots, figures or
@@ -77,9 +79,9 @@ sessions, and into one programme for a whole common room.
    reads the year in each answer (when a singer or band began performing, when a
    brand was founded) and leaves out what began after those years, or a band
    that had stopped before them. If there is no year, it checks how much people
-   over 55 like it. Each card shows a short line about the suggestion when Qloo
-   gave one. Each suggestion says which
-   favourites led to it and how strongly. A box called "How Encore built this
+   over 55 like it. Book and brand cards show a short line about the suggestion
+   when Qloo gave one. Each suggestion says which favourites led to it and how
+   strongly. A box called "How Encore built this
    map" says how many questions Encore asked Qloo and how often it changed
    course, then lists each decision in plain words, marked as made by fixed rules
    or by the language model.
@@ -143,9 +145,11 @@ the trace.
 The tests run offline against hand-written fixtures with invented values. A
 stand-in Qloo server that serves those fixtures lets the page and the server run
 together on one machine. GitHub Actions runs the type check and the tests on
-every push, and a separate manual workflow can run a small check against the
-live Qloo API. The Qloo key stays on the server, and the browser never calls
-Qloo.
+every push. Two more workflows reach the live Qloo API, which my build
+workspace cannot: a probe that makes every kind of call Encore makes and reports
+counts and field names only, and a check after every deploy that walks the
+deployed demo through each example person, from favourites to map to week. The
+Qloo key stays on the server, and the browser never calls Qloo.
 
 ---
 
@@ -157,7 +161,16 @@ nothing to suggest. Each paragraph below names a Qloo capability, the feature it
 carries, and what would be lost without it. All calls are `GET` requests to
 `https://hackathon.api.qloo.com` with the key in the `X-Api-Key` header.
 
-[AFTER LIVE TEST: confirm that every parameter named in this section returned results on the live API, and remove or correct any that Qloo ignored.]
+**Checked on the live API on 10 October 2026.** A probe made 130 calls with
+the favourites of the three example people (French, born 1932; British, born
+1941; American, born 1951). 128 succeeded. The two that failed were timeouts
+after 20 seconds on one optional call, the "start from taste tags" move for
+music. Every parameter named below was accepted and returned results, with two
+limits: `filter.exclude.tags` and the feedback loop were not part of the probe,
+and `filter.exclude.entities` was sent on 60 calls and accepted, without a
+separate check that an excluded item stays away. One correction came out of it:
+`filter.release_country` takes the country's name in English, such as `United
+Kingdom`. A two-letter code returns nothing, without an error.
 
 **Entity search (`/search`, with `query` and `take`).** This carries the check of
 the matches. Each favourite the carer types becomes a Qloo entity with an ID,
@@ -180,7 +193,12 @@ person.
 people inside the years the person was about 10 to 30, and films and television
 inside their country. People are limited by birth date to the stars of that
 time. If a list is thin, Encore decides whether to drop the country or widen
-the years by five either side, and tells the carer what it relaxed. Without these filters the map would drift to recent titles.
+the years by five either side, and tells the carer what it relaxed. Without
+these filters the map would drift to recent titles. On the live API the probe
+switched each filter on and off: the results changed in all 18 comparisons (12
+for the years, 6 for the country). For one of the three example people the
+country filter left 2 television programmes where the years alone gave 16;
+this is the case where Encore drops the country and says so.
 
 **Older-audience signal, the year of music and brands, and the age check
 (`signal.demographics.age=55_and_older`, and `filter.type=urn:demographics`).**
@@ -194,13 +212,18 @@ them. Only those with no year are checked with a `urn:demographics` call (the to
 six in each group); those that skew older come first and carry the label "Popular
 with older people". Without either check they would be marked "Era not checked".
 
-[AFTER LIVE TEST: whether `urn:demographics` returned a `55_and_older` value for older entities, as counts of entities with and without one. Counts only, no response data.]
+On the live API, all 6 `urn:demographics` calls in the probe returned a
+`55_and_older` value (the first music and the first brand suggestion of each
+example person). On the deployed demo the age check was not needed: of the 128
+suggestions across the three example maps, 87 were limited by a date filter and
+41 were judged by the year in Qloo's answer, and all 128 carried a year.
 
 **Explainability (`feature.explainability=true`).** This carries "Because they
 liked", the bars that show which favourites led to each suggestion, and the
 reason line under each item in the plan. Without it, the reason falls back to a
 general line that names only the person's era, and the carer cannot see why an
-item is there.
+item is there. On the deployed demo all 128 suggestions across the three
+example maps carried at least one reason.
 
 **Taste analysis (`filter.type=urn:tag`).** This returns the person's taste in
 words, which is shown on the map and passed to the wording layer so that session
@@ -220,17 +243,31 @@ scored against each resident, and the programme is ranked by the lowest score
 in the room. Without it, there would be no common measure between residents,
 and a room could only get the overlap of lists.
 
-[AFTER LIVE TEST: whether `filter.results.entities` returned a comparable score for every resident, as counts of scored and unscored candidates.]
+On the live API the probe sent 10 film candidates for each of the three example
+people: 30 of 30 came back with a score, and every score seen was between 0 and
+1, so the lowest score in a room compares like with like.
 
 **Comparing residents (`/v2/analysis/compare` with `a.signal.interests.entities`
 and `b.signal.interests.entities`).** This carries "What the room has in
 common". It returns tags two residents share, which the wording layer turns into
 one or two plain sentences. Without it, the room view would show scores but no
-shared ground.
+shared ground. On the live API all three pairs of example people returned
+shared tags.
 
-[AFTER LIVE TEST: coverage observed for artists, films and brands from the 1940s to the 1970s, especially outside the United States, as counts per group only.]
+**Coverage for older and non-American culture.** The three example people grew
+up in France, the United Kingdom and the United States, between the 1940s and
+the 1970s. On the deployed demo Qloo found all 21 of their favourites (7 each);
+for one person, 3 of the 7 had several matches and wait for the carer to choose.
+In the probe, asked for 16 suggestions per list with Encore's own filters, Qloo
+returned 16 for 17 of the 18 lists (six lists for each person); the exception is the
+television list noted above. After Encore's own checks the demo shows 4 to 8
+suggestions in each list.
 
-[AFTER LIVE TEST: typical number of Qloo calls and total time to build one map and one room programme, read from the trace panel.]
+**Calls and time.** On the deployed demo a map took 7, 7 and 8 Qloo calls and
+1.8, 1.8 and 3.0 seconds for the three example people, measured from outside,
+with the week planned afterwards as 5 sessions and 15 items each time.
+
+[AFTER LIVE TEST: Qloo calls and time for one room programme on the deployed demo. The Deploy workflow's "Common room" annotation gives both from the next deploy onwards. Fill this in or delete it.]
 
 The trace panel lists every one of these calls with its parameters. A judge can
 open it and see how Qloo was used, step by step.
@@ -248,9 +285,12 @@ open it and see how Qloo was used, step by step.
   list, not an error. Encore tells the carer when a list is empty, and it tells
   "nothing came back" apart from "an answer came back that could not be read".
 - **No date filter for music and brands.** Qloo's documentation lists date
-  filters for films, television, books and people only. For music and brands
-  Encore reads the 55-and-older affinity instead, and says on screen that this
-  is a different test.
+  filters for films, television, books and people only. The first live answers
+  offered a company founded in the 1990s as a brand to reminisce about. Qloo's
+  answers carry a founding year for brands and a starting year for singers and
+  bands, so Encore now reads those and leaves out what came later. It falls
+  back to the 55-and-older affinity only when there is no year, and says on
+  screen which test was used.
 - **Keeping the model to wording.** Every model reply is checked, medical and
   therapeutic words are rejected, and a template replaces any reply that fails.
   The model is never sent Qloo IDs or scores. The README lists exactly what it
@@ -259,7 +299,21 @@ open it and see how Qloo was used, step by step.
   person's profile, map and plan and sends them back with each request, so every
   request body is checked and limited in size.
 
-[AFTER LIVE TEST: what went wrong or surprised the owner when the app first met the live API, in plain words.]
+- **The first live run.** The code was written from the documentation, so the
+  first run against the live API was the real test. Most guesses about the
+  shape of Qloo's answers held, and the rest were fixed in the one module that
+  reads them. Four things were wrong in ways no error message pointed to. The
+  reasons were empty, because explainability arrives as an object keyed by the
+  name of the signal parameter. Search put places first: a search for a film
+  title returned mostly places until Encore asked for the kinds it can use. The
+  country filter returned nothing until it was given the country's English
+  name. And Qloo refuses bursts: of ten identical calls sent at once, 4 were
+  answered and 6 refused, so Encore now sends two at a time, paced, with
+  retries.
+- **Processor time on the host.** One live map was refused by Cloudflare for
+  using too much processor time on the free plan. The filters were made
+  cheaper, a map went from about 20 Qloo calls to 7 or 8, and the demo runs on
+  the paid Workers plan until judging ends.
 
 ---
 
@@ -273,14 +327,26 @@ open it and see how Qloo was used, step by step.
   keep honest than one that implies a benefit. The prompts forbid medical
   claims, and the code rejects replies that make them.
 
-[AFTER LIVE TEST: what the live API taught the owner that the documentation did not.]
+- The live API taught me things the documentation did not: the country filter
+  wants a name and not a code, explainability is keyed by the signal parameter,
+  search needs to be told which kinds to return, and calls must be paced. It
+  also carries more than I expected. Music and brands come with years, which
+  let Encore keep them to the person's era without a date filter.
+- A check that prints counts and field names only, and never a value from an
+  answer, was enough to find every one of these. It also meant the logs could
+  be public without publishing Qloo's data.
 
 ---
 
 ## What's next
 
-- Run the whole flow, from example person to plan to room, against the live
-  Qloo API and fix whatever it shows.
+- Run the feedback loop and the common room against the live Qloo API as part
+  of the check after each deploy. Maps and weekly plans are checked that way
+  today; the calls behind the room (scoring and comparing) were checked by the
+  probe.
+- Show a short line on every card. Qloo sends short descriptions for films,
+  television, music and people as a list in several languages, which Encore
+  does not read yet, so those cards show the longer description.
 - Ask Qloo to exclude distressing themes. Gentle mode and the carer's avoid list
   already leave suggestions out, but in Encore's own code, on the names,
   descriptions and tags Qloo returns, and a list that loses suggestions is
@@ -307,9 +373,10 @@ Wrangler, Claude (AI-assisted development).
 
 ### Try it out
 
-Live demo: to be added
+Live demo: https://sketch26.vetbyproxy.workers.dev
 
-Repository: to be added (the repository is private until submission)
+Repository: https://github.com/vetbyproxynico/sketch26 (private until
+submission; the owner makes it public just before submitting)
 
 ---
 
@@ -322,9 +389,9 @@ The requirements below come from `CLAUDE.md`. "Owner" is the repository owner.
   November 2026.** Build: ships the code and the deploy workflow. Owner: sets
   the Cloudflare token and the `QLOO_API_KEY` secret, deploys, and keeps the
   demo and the Qloo key working until judging ends.
-- [ ] **The demo runs on the live Qloo API, not sample data.** Owner: runs the
-  "Live smoke" and "Live probe" workflows, then opens the demo and checks that no "Sample data"
-  banner shows. Build: fixes any mismatch the live run shows.
+- [ ] **The demo runs on the live Qloo API, not sample data.** Owner: opens the demo and checks that no "Sample data" banner shows. The
+  last "Deploy" run shows the three example journeys and the common room as
+  annotations. Build: fixes any mismatch the live run shows.
 - [ ] **A public repository with all source, assets and run instructions.**
   Build: keeps the README and `docs/` up to date. Owner: makes the repository
   public at submission.
@@ -357,11 +424,10 @@ The requirements below come from `CLAUDE.md`. "Owner" is the repository owner.
 | Inspiration | Evidence | The owner's own reason, if he wants to give one |
 | Inspiration | Evidence | A cited source on reminiscence activities and on music and memory |
 | Inspiration | Evidence | A cited figure for how many people live in care |
-| How Qloo powers it | Live test | Every named parameter confirmed on the live API |
-| How Qloo powers it | Live test | Whether `urn:demographics` gave a `55_and_older` value |
-| How Qloo powers it | Live test | Whether `filter.results.entities` gave comparable scores |
-| How Qloo powers it | Live test | Coverage for the 1940s to 1970s, outside the United States |
-| How Qloo powers it | Live test | Calls and time for one map and one room, from the trace |
-| Challenges | Live test | What went wrong or surprised the owner on the first live run |
-| What we learned | Live test | What the live API taught the owner |
+| How Qloo powers it | Live test | Calls and time for one room programme, from the next deploy's "Common room" annotation |
 | What's next | Evidence | Feedback from a carer or coordinator, with permission |
+
+Filled on 10 October 2026 from the live probe (run 38016988561) and the check
+of the deployed demo (run 37910481232): the parameters, the age check, the
+scores, the coverage, the calls and time for a map, the first live run, and
+what the live API taught.

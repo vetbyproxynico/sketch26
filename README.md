@@ -168,7 +168,7 @@ No secret is stored in this repository.
 
 | Secret | Where the repository owner sets it | Used for |
 | --- | --- | --- |
-| `QLOO_API_KEY` | GitHub, Settings, Secrets and variables, Actions | The "Live smoke" and "Live probe" workflows. The "Deploy" workflow also passes it to the Worker as a secret, so it is set in one place only |
+| `QLOO_API_KEY` | GitHub, Settings, Secrets and variables, Actions | The "Live probe" workflow. The "Deploy" workflow also passes it to the Worker as a secret, so it is set in one place only |
 | `ANTHROPIC_API_KEY` (optional) | Cloudflare dashboard, same place | Uses the Anthropic API instead of Workers AI |
 | `CLOUDFLARE_API_TOKEN` (optional) | GitHub, Settings, Secrets and variables, Actions | Lets the "Deploy" workflow publish on pushes to `main` |
 
@@ -179,10 +179,12 @@ For local runs, copy `.env.example` to `.dev.vars` and fill it in. That file is 
 ### Checking the live Qloo API
 
 The build workspace cannot reach the Qloo API, so live checks run in GitHub
-Actions: open the Actions tab, choose "Live smoke", and press "Run workflow".
-It prints status codes, timings and result counts only, never response data.
+Actions. They print counts, statuses, timings and field names only, never
+response data.
 
-A second manual workflow, "Live probe", runs `scripts/live-probe.mjs`. It makes every kind of call Encore makes and reports whether the response fields that `src/encore/qloo/adapter.ts` reads exist. It prints field names, types, counts, statuses and timings only.
+The manual workflow "Live probe" runs `scripts/live-probe.mjs`: open the Actions tab, choose "Live probe", and press "Run workflow". It makes every kind of call Encore makes and reports whether the response fields that `src/encore/qloo/adapter.ts` reads exist. See `docs/LIVE_PROBE.md`.
+
+After every deploy, the "Deploy" workflow runs `scripts/live-journey.mjs` against the deployed demo: for each example person it looks the favourites up, builds the map and plans the week, and fails the run if a route fails or a map is empty.
 
 ### Layout
 
@@ -198,9 +200,9 @@ A second manual workflow, "Live probe", runs `scripts/live-probe.mjs`. It makes 
 - `src/qloo/`: typed Qloo client, query serialisation, private cache, errors.
 - `src/llm/`: provider interface with Workers AI, Anthropic and a test mock.
 - `public/`: the static frontend served by the Worker. `sample-data.js` holds the invented sample data.
-- `scripts/`: `fake-qloo.mjs` (the stand-in server), `live-smoke.mjs` (the short live check) and `live-probe.mjs` (the full live probe, with helpers in `scripts/lib/`).
+- `scripts/`: `fake-qloo.mjs` (the stand-in server), `live-probe.mjs` (the full live probe, with helpers in `scripts/lib/`), `live-questions.mjs` (a few pointed live questions) and `live-journey.mjs` (the check of the deployed demo).
 - `test/`: offline tests. Fixtures are invented and only mirror response shapes.
-- `docs/`: `SPEC.md` (the original product plan, written before the build, so the code differs from it in places), `API.md` (the HTTP routes), `QLOO_API.md` (notes on Qloo's documented API) and `SUBMISSION.md` (draft text for the hackathon form).
+- `docs/`: `SPEC.md` (the original product plan, written before the build, so the code differs from it in places), `API.md` (the HTTP routes), `QLOO_API.md` (notes on Qloo's documented API) `LIVE_PROBE.md` (how the live probe works and how to read it), `SUBMISSION.md` (draft text for the hackathon form) and `DEVPOST_FORM.md` (the same text, field by field, ready to paste).
 - `.github/workflows/`: tests on every push, a gated deploy, and the two manual live checks.
 
 ## Licence
