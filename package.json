@@ -16,7 +16,6 @@
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke": "node scripts/live-smoke.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
