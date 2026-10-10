@@ -11,7 +11,8 @@ Before it is pasted:
 2. The section "How Qloo powers it" was checked against the live API on 10
    October 2026. The figures come from two sources, both counts only: the live
    probe (GitHub Actions run 38016988561, 10 October 2026) and the check of the
-   deployed demo after the last deploy (run 37910481232, 9 October 2026).
+   deployed demo after a deploy (runs 37910481232, 9 October 2026, and
+   38019340300, 10 October 2026).
 3. The owner reads it once and changes anything that is not true.
 
 Nothing in the draft is invented: there are no interviews, pilots, figures or
@@ -263,11 +264,13 @@ returned 16 for 17 of the 18 lists (six lists for each person); the exception is
 television list noted above. After Encore's own checks the demo shows 4 to 8
 suggestions in each list.
 
-**Calls and time.** On the deployed demo a map took 7, 7 and 8 Qloo calls and
-1.8, 1.8 and 3.0 seconds for the three example people, measured from outside,
-with the week planned afterwards as 5 sessions and 15 items each time.
-
-[AFTER LIVE TEST: Qloo calls and time for one room programme on the deployed demo. The Deploy workflow's "Common room" annotation gives both from the next deploy onwards. Fill this in or delete it.]
+**Calls and time.** On the deployed demo a map took 7, 7 and 8 Qloo calls for the
+three example people, and the week was planned afterwards as 5 sessions and 15
+items each time. Measured from outside, a map took 1.8 to 3.0 seconds in one
+check and 8.9 to 10.6 seconds in another a day later, with the same calls and
+the same number of suggestions both times. A common-room programme for the
+three took 12 Qloo calls and 4.6 seconds: 4 items, nobody left out, and two
+lines on what the room has in common.
 
 The trace panel lists every one of these calls with its parameters. A judge can
 open it and see how Qloo was used, step by step.
@@ -340,10 +343,9 @@ open it and see how Qloo was used, step by step.
 
 ## What's next
 
-- Run the feedback loop and the common room against the live Qloo API as part
-  of the check after each deploy. Maps and weekly plans are checked that way
-  today; the calls behind the room (scoring and comparing) were checked by the
-  probe.
+- Run the feedback loop against the live Qloo API as part of the check after
+  each deploy. Maps, weekly plans and the common room are checked that way
+  today.
 - Show a short line on every card. Qloo sends short descriptions for films,
   television, music and people as a list in several languages, which Encore
   does not read yet, so those cards show the longer description.
@@ -424,10 +426,9 @@ The requirements below come from `CLAUDE.md`. "Owner" is the repository owner.
 | Inspiration | Evidence | The owner's own reason, if he wants to give one |
 | Inspiration | Evidence | A cited source on reminiscence activities and on music and memory |
 | Inspiration | Evidence | A cited figure for how many people live in care |
-| How Qloo powers it | Live test | Calls and time for one room programme, from the next deploy's "Common room" annotation |
 | What's next | Evidence | Feedback from a carer or coordinator, with permission |
 
 Filled on 10 October 2026 from the live probe (run 38016988561) and the check
-of the deployed demo (run 37910481232): the parameters, the age check, the
+of the deployed demo (runs 37910481232 and 38019340300): the parameters, the age check, the
 scores, the coverage, the calls and time for a map, the first live run, and
 what the live API taught.

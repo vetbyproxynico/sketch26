@@ -94,7 +94,7 @@ On the live API the probe sent 10 film candidates for each of the three example 
 
 **Coverage for older and non-American culture.** The three example people grew up in France, the United Kingdom and the United States, between the 1940s and the 1970s. On the deployed demo Qloo found all 21 of their favourites (7 each); for one person, 3 of the 7 had several matches and wait for the carer to choose. In the probe, asked for 16 suggestions per list with Encore's own filters, Qloo returned 16 for 17 of the 18 lists (six lists for each person); the exception is the television list noted above. After Encore's own checks the demo shows 4 to 8 suggestions in each list.
 
-**Calls and time.** On the deployed demo a map took 7, 7 and 8 Qloo calls and 1.8, 1.8 and 3.0 seconds for the three example people, measured from outside, with the week planned afterwards as 5 sessions and 15 items each time.
+**Calls and time.** On the deployed demo a map took 7, 7 and 8 Qloo calls for the three example people, and the week was planned afterwards as 5 sessions and 15 items each time. Measured from outside, a map took 1.8 to 3.0 seconds in one check and 8.9 to 10.6 seconds in another a day later, with the same calls and the same number of suggestions both times. A common-room programme for the three took 12 Qloo calls and 4.6 seconds: 4 items, nobody left out, and two lines on what the room has in common.
 
 The trace panel lists every one of these calls with its parameters. A judge can open it and see how Qloo was used, step by step.
 
@@ -120,7 +120,7 @@ The trace panel lists every one of these calls with its parameters. A judge can 
 
 ## What's next
 
-- Run the feedback loop and the common room against the live Qloo API as part of the check after each deploy. Maps and weekly plans are checked that way today; the calls behind the room (scoring and comparing) were checked by the probe.
+- Run the feedback loop against the live Qloo API as part of the check after each deploy. Maps, weekly plans and the common room are checked that way today.
 - Show a short line on every card. Qloo sends short descriptions for films, television, music and people as a list in several languages, which Encore does not read yet, so those cards show the longer description.
 - Ask Qloo to exclude distressing themes. Gentle mode and the carer's avoid list already leave suggestions out, but in Encore's own code, on the names, descriptions and tags Qloo returns, and a list that loses suggestions is filled again from further down Qloo's answer. Excluding themes at Qloo with `filter.exclude.tags` would need tag IDs found with `/v2/tags` on the live API.
 - Filter the sample data. The sample suggestions are invented and are not filtered; the page says so when the person has something to avoid.
