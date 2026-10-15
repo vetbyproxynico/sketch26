@@ -2,7 +2,7 @@ import * as api from '../api.js';
 import { entry } from '../components/entry.js';
 import { journey } from '../components/journey.js';
 import { mapWorkBlock } from '../components/map-work.js';
-import { emptyBlock, errorBlock, loadingBlock, retryButton } from '../components/status.js';
+import { emptyBlock, errorBlock, retryButton, steppedLoadingBlock } from '../components/status.js';
 import { announce, focusEl, h, scrollToEl } from '../dom.js';
 import { buildMap, noteNames } from '../flow.js';
 import { DOMAIN_EMPTY, DOMAIN_HEADING, DOMAIN_ORDER, SAMPLE_FILTER_NOTE, eraLegend, hasFilters, personSummary, plural } from '../format.js';
@@ -40,7 +40,15 @@ export function mapView(id) {
     const { signal } = controller;
     // The button that was pressed is about to disappear, so keep the keyboard on this page.
     if (force) focusEl(el.querySelector('h1'));
-    holder.replaceChildren(loadingBlock('Building the map...', 'Encore is asking the taste service about each kind of thing. This can take up to half a minute.'));
+    holder.replaceChildren(
+      steppedLoadingBlock('Building the map...', [
+        'Asking Qloo for films and television',
+        'Asking Qloo for music, books, people and brands',
+        'Checking each list against the years and the country',
+        'Asking again where a list came back thin',
+        'Adding taste words',
+      ]),
+    );
     try {
       if (force || !person.map || (person.sample && !api.isSample())) await buildMap(person, { signal });
       if (!alive) return;

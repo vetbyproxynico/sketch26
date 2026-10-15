@@ -99,32 +99,53 @@ export function createTraced(client: QlooClient, maxConcurrent: number = QLOO_CO
     params: QlooParams,
     run: () => Promise<QlooResponse>,
     ledBy?: DecisionNote,
+    peek?: () => Promise<QlooResponse | undefined>,
   ): Promise<QlooResponse> {
-    return limit(async () => {
-      const started = Date.now();
-      const record = (status: number, count: number, cached: boolean): void => {
-        // Pushed together, so nothing can come between a decision and its call.
-        if (ledBy !== undefined) entries.push(decisionEntry(ledBy));
-        entries.push({ step, endpoint, params: asStrings(params), status, count, ms: Date.now() - started, cached });
-      };
+    const log = (started: number, status: number, count: number, cached: boolean): void => {
+      // Pushed together, so nothing can come between a decision and its call.
+      if (ledBy !== undefined) entries.push(decisionEntry(ledBy));
+      entries.push({ step, endpoint, params: asStrings(params), status, count, ms: Date.now() - started, cached });
+    };
 
-      let response: QlooResponse;
-      try {
-        response = await run();
-      } catch (error) {
-        record(error instanceof QlooError ? (error.status ?? 0) : 0, 0, false);
-        throw error;
-      }
-      record(response.status, countResults(response.data), response.cached);
-      return response;
+    // An answer already in the cache costs Qloo nothing, so it neither waits for a slot nor for the pacing gap.
+    const lookup = async (): Promise<QlooResponse | undefined> => {
+      if (peek === undefined) return undefined;
+      const started = Date.now();
+      const hit = await peek();
+      if (hit !== undefined) log(started, hit.status, countResults(hit.data), true);
+      return hit;
+    };
+
+    return lookup().then((hit) => {
+      if (hit !== undefined) return hit;
+      return limit(async () => {
+        const started = Date.now();
+        let response: QlooResponse;
+        try {
+          response = await run();
+        } catch (error) {
+          log(started, error instanceof QlooError ? (error.status ?? 0) : 0, 0, false);
+          throw error;
+        }
+        log(started, response.status, countResults(response.data), response.cached);
+        return response;
+      });
     });
   }
 
   return {
     search: (step, name, params = {}) =>
-      call(step, '/search', { ...params, query: name }, () => client.search(name, { params })),
-    insights: (step, params, ledBy) => call(step, '/v2/insights', params, () => client.insights(params), ledBy),
-    get: (step, path, params) => call(step, path, params, () => client.get(path, params)),
+      call(
+        step,
+        '/search',
+        { ...params, query: name },
+        () => client.search(name, { params }),
+        undefined,
+        () => client.cachedGet('/search', { ...params, query: name }),
+      ),
+    insights: (step, params, ledBy) =>
+      call(step, '/v2/insights', params, () => client.insights(params), ledBy, () => client.cachedGet('/v2/insights', params)),
+    get: (step, path, params) => call(step, path, params, () => client.get(path, params), undefined, () => client.cachedGet(path, params)),
     decide: (decision) => {
       entries.push(decisionEntry(decision));
     },
