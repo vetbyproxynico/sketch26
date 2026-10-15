@@ -317,11 +317,13 @@ describe('evaluateReads', () => {
 
     it('tries the list before the plain string, in that order, and reports the one that worked', () => {
       const read = readsFor('insights:film').find((candidate) => candidate.label === 'summary');
-      expect(read?.any).toEqual(['properties.short_descriptions[]', 'properties.short_description']);
+      expect(read?.any).toEqual(['properties.short_descriptions[]', 'properties.short_descriptions[].value', 'properties.short_description']);
       const both = { results: { entities: [row({ properties: { short_descriptions: ['A line.'], short_description: 'A line.' } })] } };
       expect(find(evaluateReads(both, readsFor('insights:film')), 'summary')).toMatchObject({ via: 'properties.short_descriptions[]', also: ['properties.short_description'] });
       const plain = { results: { entities: [row({ properties: { short_description: 'A line.' } })] } };
       expect(find(evaluateReads(plain, readsFor('insights:film')), 'summary')).toMatchObject({ via: 'properties.short_description' });
+      const withLanguages = { results: { entities: [row({ properties: { short_descriptions: [{ value: 'A line.', languages: ['en'] }] } })] } };
+      expect(find(evaluateReads(withLanguages, readsFor('insights:film')), 'summary')).toMatchObject({ via: 'properties.short_descriptions[].value' });
     });
 
     it('has a summary read for every kind of insights answer and for search', () => {

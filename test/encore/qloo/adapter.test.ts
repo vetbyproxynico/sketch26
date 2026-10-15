@@ -199,6 +199,20 @@ describe('field fallbacks', () => {
       expect(summary({ short_descriptions: [4, null, {}, ' Spaces trimmed ', 'Later'] })).toBe('Spaces trimmed');
     });
 
+    it('reads { value, languages } entries and prefers English', () => {
+      expect(
+        summary({
+          short_descriptions: [
+            { value: 'Une ligne inventee.', languages: ['fr'] },
+            { value: 'An invented line.', languages: ['en'] },
+          ],
+        }),
+      ).toBe('An invented line.');
+      expect(summary({ short_descriptions: [{ value: 'Eine erfundene Zeile.', languages: ['de'] }, { value: 'No language named.' }] })).toBe('No language named.');
+      expect(summary({ short_descriptions: [{ value: 'Une ligne inventee.', languages: ['fr'] }] })).toBe('Une ligne inventee.');
+      expect(summary({ short_descriptions: [{ value: '  ', languages: ['en'] }, { value: 'English-GB line.', languages: ['en-GB'] }] })).toBe('English-GB line.');
+    });
+
     it('is short_description when short_descriptions gives none', () => {
       expect(summary({ short_description: 'A single line.' })).toBe('A single line.');
       expect(summary({ short_descriptions: [], short_description: 'A single line.' })).toBe('A single line.');

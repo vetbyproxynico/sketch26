@@ -173,8 +173,8 @@ function entityReads({ typeSeverity, typeNote, years, endYear, tags, extras }) {
         in: 'list',
         label: 'summary',
         severity: 'optional',
-        // The first non-empty string in the list, else the plain string. `[]` after the name means each string in the list.
-        any: ['properties.short_descriptions[]', 'properties.short_description'],
+        // A line from the list (a plain string, or the `value` of a { value, languages } entry; English is preferred), else the plain string. `[]` after the name means each entry in the list.
+        any: ['properties.short_descriptions[]', 'properties.short_descriptions[].value', 'properties.short_description'],
         types: STRING,
         note: 'shown on the card in place of the long description; without it the card shows the description as before',
       },
