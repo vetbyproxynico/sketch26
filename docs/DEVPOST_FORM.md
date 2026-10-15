@@ -46,13 +46,15 @@ Encore turns a few things an older person loved into a week of short memory sess
 6. **Common room.** Two to eight saved people. Encore ranks candidates by the lowest Qloo score in the room. This reduces poor matches and shows the differences, with a bar per person and a companion item for anyone who may be left out.
 7. **Printed sheet and trace.** Any day prints on one page, and a trace lists every question asked of Qloo and every decision between them.
 
-Cards show a short line when Qloo gave one; people cards have none. There are no accounts and no saved people on the server: profiles stay in the browser. Qloo answers are cached for 6 hours.
+Cards show a short line when Qloo gave one; people cards have none. There are no accounts and no saved people on the server: profiles stay in the browser. Qloo answers are cached privately on the server (33 days on the demo, so it stays quick until judging ends).
+
+**One real example** (invented person: Peggy, born 1941, Leeds; run on the live demo on 15 October 2026). Her favourites include Brief Encounter, Cliff Richard and Glenn Miller. Day 3, "Classic Entertainment", opens: "Let's talk about some classic entertainment, like Dean Martin and The Importance of Being Earnest." The film card (1952) says: "Because Peggy loved Brief Encounter and Cliff Richard", and the day's questions include "What did you think of the film adaptation of The Importance of Being Earnest?" Because Peggy asked to avoid hospital dramas, six suggestions were left out, and the page said so. Only five British television programmes fitted her years, so it said that other countries' programmes were added.
 
 ## How we built it
 
 **Built with AI assistance.** The code, tests and documents were written by Claude, an AI model made by Anthropic, in sessions I directed. I review the changes.
 
-Encore is a Cloudflare Worker in TypeScript with Hono, serving a plain JavaScript page. Plain code plans the sessions, applies feedback and ranks the room. A language model, when configured, has three jobs: it words themes, opening lines and questions; it reads notes written after a session; and it picks the next Qloo question from a closed list. It never chooses a suggestion. Code checks every reply, allows one repair, then falls back to a template, so the app works without a model.
+Encore is a Cloudflare Worker in TypeScript with Hono, serving a plain JavaScript page. Plain code plans the sessions, applies feedback and ranks the room. A language model, when configured, has three jobs: it words themes, opening lines and questions; it reads notes written after a session; and it picks the next Qloo question from a closed list when a list comes back short (drop the country, widen the years, lean on other favourites, start from taste tags, or drop the older-audience signal), with at most 8 extra questions and 3 rounds per map. Without a model, plain rules choose. It never chooses a suggestion. Code checks every reply, allows one repair, then falls back to a template, so the app works without a model.
 
 The tests run offline on hand-written fixtures with invented values. GitHub Actions runs the type check and tests on every push, plus a probe and a post-deploy check that walks the live demo, because my build workspace cannot reach Qloo. The key stays on the server.
 
@@ -85,8 +87,7 @@ On 10 October a probe made 130 calls for the three example people (French, Briti
 
 ## What's next
 
-- Run the feedback loop on live data after every deploy.
-- Show a short summary on every card.
+- Check that Qloo's terms allow showing its images, then add them to the cards.
 - Exclude distressing themes at Qloo.
 - Use more of Qloo's entity types.
 
