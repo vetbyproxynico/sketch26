@@ -239,14 +239,39 @@ function refOf(raw: Record<string, unknown>, fallbackType: string | undefined): 
   return ref;
 }
 
-/** The first non-empty string in `short_descriptions`, else `short_description`. */
+/** Whether a language label means English: "en", "en-GB", "English". */
+function isEnglish(label: string): boolean {
+  const value = label.trim().toLowerCase();
+  return value === 'english' || value === 'en' || value.startsWith('en-') || value.startsWith('en_');
+}
+
+/** The language labels of a summary entry, from `languages` (a list) or `language` (one string). */
+function languagesOf(entry: Record<string, unknown>): string[] {
+  const list = Array.isArray(entry.languages) ? entry.languages : [entry.language];
+  return list.map(text).filter((label): label is string => label !== undefined);
+}
+
+/**
+ * A short line about the entity. Qloo sends `short_descriptions` as a list whose entries are either
+ * plain strings or `{ value, languages }`. The first English line wins; failing that, the first line
+ * with no language named; failing that, the first line there is. Else the plain `short_description`.
+ */
 function summaryOf(raw: Record<string, unknown>): string | undefined {
   const list = path(raw, 'properties', 'short_descriptions');
   if (Array.isArray(list)) {
+    const lines: Array<{ line: string; languages: string[] }> = [];
     for (const entry of list) {
-      const line = text(entry);
-      if (line !== undefined) return line;
+      if (isRecord(entry)) {
+        const line = text(entry.value);
+        if (line !== undefined) lines.push({ line, languages: languagesOf(entry) });
+      } else {
+        const line = text(entry);
+        if (line !== undefined) lines.push({ line, languages: [] });
+      }
     }
+    const chosen =
+      lines.find((entry) => entry.languages.some(isEnglish)) ?? lines.find((entry) => entry.languages.length === 0) ?? lines[0];
+    if (chosen !== undefined) return chosen.line;
   }
   return text(path(raw, 'properties', 'short_description'));
 }
