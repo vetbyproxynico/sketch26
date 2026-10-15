@@ -192,7 +192,7 @@ async function feedbackStep(label, profile, map, plan) {
   }
   const body = answered.body ?? {};
   const nextMap = body.map ?? {};
-  const nextItems = Array.isArray(nextMap.items) ? nextMap.items : [];
+  const nextItems = Object.values(nextMap.byDomain ?? {}).flat();
   const nextSessions = Array.isArray(body.plan?.sessions) ? body.plan.sessions : [];
   const trace = Array.isArray(body.trace) ? body.trace : [];
   const calls = trace.filter((entry) => entry?.kind !== 'decision');
