@@ -2835,3 +2835,12 @@ a.journey-link:hover {
 .entry-more p {
   margin: 0 0 var(--s-2);
 }
+
+.progress-row.is-done .progress-name {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.progress-row.is-current .progress-name::before {
+  content: '\2192\00a0';
+}

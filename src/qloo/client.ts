@@ -18,6 +18,8 @@ export const DEFAULT_CACHE_TTL_SECONDS = 21_600;
 export const MAX_RATE_LIMIT_RETRIES = 3;
 /** Upper bound for a Retry-After wait, so a request never stalls for long. */
 const MAX_RETRY_DELAY_MS = 3_000;
+/** Most time one call may spend in total, retries and waits included. A retry that would run past it is not made. */
+export const MAX_CALL_BUDGET_MS = 20_000;
 
 export interface QlooClientOptions {
   apiKey: string;
@@ -126,12 +128,15 @@ export class QlooClient {
 
     // A server error gets one more try. A 429 gets up to three, each wait
     // longer than the last: on the live API a short burst of calls is refused
-    // and the same call succeeds a moment later.
+    // and the same call succeeds a moment later. The whole call, waits included,
+    // stays within MAX_CALL_BUDGET_MS.
     let attempt = await this.attempt(url, path);
     for (let retry = 1; !attempt.ok; retry += 1) {
       const allowed = attempt.error.kind === 'rate_limited' ? MAX_RATE_LIMIT_RETRIES : attempt.error.kind === 'server_error' ? 1 : 0;
       if (retry > allowed) break;
-      await sleep(this.retryWait(attempt.retryAfterMs) * retry);
+      const wait = this.retryWait(attempt.retryAfterMs) * retry;
+      if (Date.now() - started + wait + this.timeoutMs > MAX_CALL_BUDGET_MS) break;
+      await sleep(wait);
       attempt = await this.attempt(url, path);
     }
     if (!attempt.ok) throw attempt.error;
@@ -140,6 +145,19 @@ export class QlooClient {
       await this.cache.write(key, attempt.data);
     }
     return { data: attempt.data as T, status: attempt.status, cached: false, durationMs: Date.now() - started };
+  }
+
+  /**
+   * The cached answer to a GET, or undefined. Makes no request to Qloo, so a caller can
+   * skip any waiting it would do before a real call.
+   */
+  async cachedGet<T = unknown>(path: string, params: QlooParams = {}, opts: CallOptions = {}): Promise<QlooResponse<T> | undefined> {
+    if (!this.cache.enabled || opts.skipCache) return undefined;
+    const started = Date.now();
+    const query = buildQuery(params);
+    const key = await cacheKey(`${this.baseUrl}${path}${query ? `?${query}` : ''}`);
+    const hit = await this.cache.read(key);
+    return hit === undefined ? undefined : { data: hit as T, status: 200, cached: true, durationMs: Date.now() - started };
   }
 
   private retryWait(retryAfterMs: number | undefined): number {

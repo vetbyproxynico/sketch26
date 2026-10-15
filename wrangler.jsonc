@@ -32,7 +32,9 @@
   "vars": {
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
-    "QLOO_CACHE_TTL_SECONDS": "21600",
+    // Qloo answers are kept for 33 days (2,851,200 s) so the demo stays quick through the end of judging on 16 November 2026.
+    // The code default is 6 hours.
+    "QLOO_CACHE_TTL_SECONDS": "2851200",
     // The live Qloo API refuses short bursts of calls, so they are spaced out.
     "QLOO_PACE_MS": "220"
   }

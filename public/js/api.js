@@ -15,7 +15,7 @@ const ROUTES = {
   room: '/api/room',
 };
 
-const REQUEST_TIMEOUT_MS = 90000;
+const REQUEST_TIMEOUT_MS = 45000;
 const HEALTH_TIMEOUT_MS = 8000;
 
 let sampleMode = false;
