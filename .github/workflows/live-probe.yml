@@ -47,6 +47,7 @@ jobs:
             code=${PIPESTATUS[0]}
           fi
           node scripts/live-questions.mjs 2>&1 | tee -a probe-report.txt
+          node scripts/live-tags.mjs 2>&1 | tee -a probe-report.txt
           echo "code=$code" >> "$GITHUB_OUTPUT"
           exit 0
       - name: Save the report to the probe-reports branch
