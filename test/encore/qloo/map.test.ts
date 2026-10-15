@@ -27,7 +27,7 @@ const SHARED = {
   'feature.explainability': 'true',
   take: '16',
   'filter.exclude.entities': `EXCL-1,${SIGNALS}`,
-  'filter.exclude.tags': 'urn:tag:example:dark',
+  'filter.exclude.tags': 'urn:tag:genre:example:dark',
 };
 
 const emptyEntities = () => jsonResponse({ success: true, results: { entities: [] } });
@@ -58,7 +58,7 @@ describe('the request each domain sends', () => {
     expect(new URL(ofType(calls, 'urn:entity:movie')[0]?.url ?? '').search).toBe(
       '?feature.explainability=true' +
         '&filter.exclude.entities=EXCL-1,FAV-1,FAV-2,LIKED-1' +
-        '&filter.exclude.tags=urn%3Atag%3Aexample%3Adark' +
+        '&filter.exclude.tags=urn%3Atag%3Agenre%3Aexample%3Adark' +
         '&filter.release_country=United%20Kingdom' +
         '&filter.release_year.max=1970' +
         '&filter.release_year.min=1950' +
@@ -110,7 +110,7 @@ describe('the request each domain sends', () => {
     const { calls, map } = await run();
     const tag = ofType(calls, 'urn:tag');
     expect(tag).toHaveLength(1);
-    expect(tag[0]?.params).toEqual({ 'filter.type': 'urn:tag', 'signal.interests.entities': SIGNALS, take: '12' });
+    expect(tag[0]?.params).toEqual({ 'filter.type': 'urn:tag', 'filter.tag.types': 'urn:tag:genre:media', 'signal.interests.entities': SIGNALS, take: '12' });
     expect(map.tasteWords.map((t) => t.name)).toEqual(['Example Drama', 'Example Sea', 'Example Comedy']);
   });
 
@@ -193,7 +193,7 @@ describe('the map that comes back', () => {
       summary: 'An invented lighthouse story, in one line.',
       tags: [
         { id: 'urn:tag:genre:media:example-drama', name: 'Example Drama', type: 'urn:tag:genre:media' },
-        { id: 'urn:tag:keyword:media:example-sea', name: 'Example Sea' },
+        { id: 'urn:tag:genre:media:example-sea', name: 'Example Sea' },
       ],
     });
   });
@@ -563,9 +563,20 @@ describe('taste words', () => {
   });
 
   it('keeps at most 12 taste words', async () => {
-    const tags = Array.from({ length: 20 }, (_, i) => ({ id: `urn:tag:t${i}`, name: `Tag ${i}` }));
+    const tags = Array.from({ length: 20 }, (_, i) => ({ id: `urn:tag:genre:t${i}`, name: `Tag ${i}` }));
     const { source } = makeSource(mapHandler({ 'urn:tag': () => jsonResponse({ results: { tags } }) }));
     expect((await source.culturalMap(makeProfile())).tasteWords).toHaveLength(12);
+  });
+
+  it('keeps only genre tags, whatever Qloo sends back', async () => {
+    const tags = [
+      { id: 'urn:tag:genre:media:one', name: 'One', subtype: 'urn:tag:genre:media' },
+      { id: 'urn:tag:keyword:media:two', name: 'Two' },
+      { id: 'urn:tag:audience:three', name: 'Three' },
+      { id: 'urn:tag:genre:media:four', name: 'Four', subtype: 'urn:tag:keyword:media' },
+    ];
+    const { source } = makeSource(mapHandler({ 'urn:tag': () => jsonResponse({ results: { tags } }) }));
+    expect((await source.culturalMap(makeProfile())).tasteWords.map((t) => t.name)).toEqual(['One']);
   });
 });
 

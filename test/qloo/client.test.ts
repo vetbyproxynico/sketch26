@@ -292,3 +292,37 @@ describe('private cache', () => {
     expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('cachedGet and the call budget', () => {
+  it('cachedGet answers from the cache without any request, and is undefined for a miss', async () => {
+    const kv = new MemoryKv();
+    const fetchStub = stubFetch(jsonResponse(insights));
+    const client = makeClient(fetchStub, { cache: kv });
+    expect(await client.cachedGet('/v2/insights', { 'filter.type': 'urn:entity:movie' })).toBeUndefined();
+    expect(fetchStub).not.toHaveBeenCalled();
+    await client.insights({ 'filter.type': 'urn:entity:movie' });
+    const hit = await client.cachedGet('/v2/insights', { 'filter.type': 'urn:entity:movie' });
+    expect(hit?.cached).toBe(true);
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it('cachedGet is undefined with no cache configured', async () => {
+    expect(await makeClient(stubFetch()).cachedGet('/search', { query: 'x' })).toBeUndefined();
+  });
+
+  it('stops retrying a rate-limited call once the call budget would be passed', async () => {
+    const limited = () => new Response(null, { status: 429, headers: { 'Retry-After': '3' } });
+    const fetchStub = vi.fn<FetchLike>(() => Promise.resolve(limited()));
+    // A 10 s timeout plus waits of 3 s, 6 s and 9 s cannot all fit in the 20 s budget.
+    vi.useFakeTimers();
+    try {
+      const pending = caught(makeClient(fetchStub, { retryDelayMs: 3_000 }).search('x'));
+      await vi.advanceTimersByTimeAsync(60_000);
+      const error = await pending;
+      expect(error.kind).toBe('rate_limited');
+      expect(fetchStub.mock.calls.length).toBeLessThan(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

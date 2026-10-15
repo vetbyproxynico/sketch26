@@ -91,7 +91,7 @@ export function makeProfile(overrides: Partial<Profile> = {}): Profile {
     ],
     liked: [entityRef('LIKED-1', 'Example Show Liked', { entityType: 'urn:entity:tv_show', domain: 'tv' })],
     excludedEntityIds: ['EXCL-1'],
-    excludedTagIds: ['urn:tag:example:dark'],
+    excludedTagIds: ['urn:tag:genre:example:dark'],
     avoidNotes: [],
     gentle: true,
     ...overrides,

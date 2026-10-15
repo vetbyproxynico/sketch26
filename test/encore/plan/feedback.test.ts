@@ -206,3 +206,14 @@ describe('applyFeedback: purity', () => {
     expect(next).toMatchObject({ id: 'keep', nickname: 'Nan', gentle: false, birthYear: 1940, country: 'GB' });
   });
 });
+
+describe('applyFeedback: only genre tags are excluded', () => {
+  it('does not exclude a tag of another type, even on two refused items', () => {
+    const a = item({ id: 'x1', name: 'A', domain: 'film', tags: ['urn:tag:keyword:media:murder'] });
+    const b = item({ id: 'x2', name: 'B', domain: 'film', tags: ['urn:tag:keyword:media:murder'] });
+    const p = planOf('p2', [sessionOf('s1', [a, b])]);
+    const { profile: next } = applyFeedback(profile(), p, feedback([['x1', 'not_today'], ['x2', 'not_today']]));
+    expect(next.excludedEntityIds).toEqual(['x1', 'x2']);
+    expect(next.excludedTagIds).toEqual([]);
+  });
+});

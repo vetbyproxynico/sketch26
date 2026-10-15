@@ -241,7 +241,7 @@ describe("the probe makes each of the agent's moves the way Encore does", () => 
   const IDS = ['SIG-1', 'SIG-2', 'SIG-3', 'SIG-4'];
   const KIND: Record<string, Domain> = { 'SIG-1': 'music', 'SIG-2': 'film', 'SIG-3': 'film', 'SIG-4': 'book' };
   const KINDS = { music: ['SIG-1'], film: ['SIG-2', 'SIG-3'], book: ['SIG-4'] };
-  const TAG_IDS = ['urn:tag:invented:one', 'urn:tag:invented:two', 'urn:tag:invented:three', 'urn:tag:invented:four', 'urn:tag:invented:five', 'urn:tag:invented:six'];
+  const TAG_IDS = ['urn:tag:genre:invented:one', 'urn:tag:genre:invented:two', 'urn:tag:genre:invented:three', 'urn:tag:genre:invented:four', 'urn:tag:genre:invented:five', 'urn:tag:genre:invented:six'];
   /** Explainability in every invented answer credits SIG-2 most, then SIG-1, and the others not at all. */
   const STRONGEST = ['SIG-2', 'SIG-1'];
 

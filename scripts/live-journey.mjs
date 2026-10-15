@@ -143,6 +143,13 @@ async function journey(example) {
     `Qloo calls ${calls.length} (statuses ${tally(calls.map((c) => c?.status))}); ` +
     `decisions: ${tally(decisions.map((d) => `${d?.decidedBy}/${d?.action}`)) || 'none'}`;
 
+  const wordsList = Array.isArray(map.tasteWords) ? map.tasteWords : [];
+  const notGenre = wordsList.filter((tag) => !String(tag?.id ?? '').startsWith('urn:tag:genre:')).length;
+  if (notGenre > 0) {
+    fail(`Journey ${label}`, `${matchLine}. ${mapLine}. ${notGenre} of ${wordsList.length} taste words are not genre tags.`);
+    return { ok: false };
+  }
+
   if (items.length === 0) {
     fail(`Journey ${label}`, `${matchLine}. ${mapLine}. The map is empty.`);
     return { ok: false };
@@ -156,7 +163,51 @@ async function journey(example) {
       : `plan answered ${planned.status} (code ${errorCode(planned)})`;
 
   note(`Journey ${label}`, `${matchLine}. ${mapLine}. ${planLine}`);
-  return { ok: planned.status === 200 && sessions.length > 0, profile, map };
+  const looped = planned.status === 200 && sessions.length > 0 ? await feedbackStep(label, profile, map, planned.body.plan) : false;
+  return { ok: planned.status === 200 && sessions.length > 0 && looped, profile, map };
+}
+
+/**
+ * The feedback loop on live data: mark the first session's items (the first lit up, the next two
+ * not wanted), send them, and check that Qloo was asked again and the week came back rebuilt.
+ * Counts and Encore's own codes only.
+ */
+async function feedbackStep(label, profile, map, plan) {
+  const title = `Feedback ${label}`;
+  const session = Array.isArray(plan?.sessions) ? plan.sessions[0] : undefined;
+  const ids = (Array.isArray(session?.items) ? session.items : []).map((entry) => entry?.item?.entity?.id).filter((id) => typeof id === 'string');
+  if (ids.length < 3) {
+    fail(title, `the first session has ${ids.length} items, and the check needs 3`);
+    return false;
+  }
+  const reactions = [
+    { entityId: ids[0], reaction: 'lit_up' },
+    { entityId: ids[1], reaction: 'not_today' },
+    { entityId: ids[2], reaction: 'not_today' },
+  ];
+  const answered = await post('/api/feedback', { profile, map, plan, feedback: { sessionId: session.id, reactions } });
+  if (answered.status !== 200) {
+    fail(title, `feedback answered ${answered.status} (code ${errorCode(answered)})`);
+    return false;
+  }
+  const body = answered.body ?? {};
+  const nextMap = body.map ?? {};
+  const nextItems = Array.isArray(nextMap.items) ? nextMap.items : [];
+  const nextSessions = Array.isArray(body.plan?.sessions) ? body.plan.sessions : [];
+  const trace = Array.isArray(body.trace) ? body.trace : [];
+  const calls = trace.filter((entry) => entry?.kind !== 'decision');
+  const stillThere = nextItems.filter((item) => ids.slice(1, 3).includes(item?.entity?.id)).length;
+  const line =
+    `feedback took ${answered.ms} ms; changes ${Array.isArray(body.changes) ? body.changes.length : 0}; ` +
+    `excluded items ${body.profile?.excludedEntityIds?.length ?? 0}, excluded tags ${body.profile?.excludedTagIds?.length ?? 0}; ` +
+    `new map items ${nextItems.length}, refused items still on the map ${stillThere}; plan ${nextSessions.length} sessions; ` +
+    `Qloo calls ${calls.length} (statuses ${tally(calls.map((c) => c?.status)) || 'none'})`;
+  if (nextItems.length === 0 || nextSessions.length === 0 || stillThere > 0) {
+    fail(title, `${line}. The loop did not hold.`);
+    return false;
+  }
+  note(title, line);
+  return true;
 }
 
 /** The common room: every example person whose map was built, in one programme. Counts and Encore's own codes only. */

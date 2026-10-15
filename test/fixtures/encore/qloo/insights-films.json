@@ -15,7 +15,7 @@
         },
         "tags": [
           { "id": "urn:tag:genre:media:example-drama", "name": "Example Drama", "type": "urn:tag:genre:media" },
-          { "tag_id": "urn:tag:keyword:media:example-sea", "name": "Example Sea" }
+          { "tag_id": "urn:tag:genre:media:example-sea", "name": "Example Sea" }
         ],
         "query": {
           "affinity": 0.91,

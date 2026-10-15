@@ -47,10 +47,10 @@ const SHARED = {
   'feature.explainability': 'true',
   take: '16',
   'filter.exclude.entities': `EXCL-1,${FOUR}`,
-  'filter.exclude.tags': 'urn:tag:example:dark',
+  'filter.exclude.tags': 'urn:tag:genre:example:dark',
 };
 const FILM_BASE = { ...SHARED, 'filter.type': TYPE.film, 'filter.release_year.min': '1950', 'filter.release_year.max': '1970', 'filter.release_country': 'United Kingdom' };
-const TAGS = 'urn:tag:genre:media:example-drama,urn:tag:keyword:media:example-sea,urn:tag:genre:media:example-comedy';
+const TAGS = 'urn:tag:genre:media:example-drama,urn:tag:genre:media:example-sea,urn:tag:genre:media:example-comedy';
 
 /** Every parameter name a list query may carry. All are in docs/QLOO_API.md. */
 const DOCUMENTED = new Set([
@@ -213,7 +213,7 @@ describe('each move sends exactly its documented parameters', () => {
   });
 
   it('taste_tags sends at most five tags', async () => {
-    const tags = Array.from({ length: 9 }, (_, i) => ({ id: `urn:tag:invented:t${i}`, name: `Invented ${i}` }));
+    const tags = Array.from({ length: 9 }, (_, i) => ({ id: `urn:tag:genre:invented:t${i}`, name: `Invented ${i}` }));
     const advisor = scripted([{ domain: 'film', action: 'taste_tags' }], [{ domain: 'film', action: 'accept' }]);
     const { source, calls } = makeSource(
       mapHandler({ [TYPE.film]: () => page(entity('F-1')), 'urn:tag': () => jsonResponse({ results: { tags } }) }),

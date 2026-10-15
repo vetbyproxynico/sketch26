@@ -44,7 +44,7 @@ describe('readEntities on a well-formed body', () => {
     expect(first?.description).toBe('An invented story about a lighthouse.');
     expect(first?.tags).toEqual([
       { id: 'urn:tag:genre:media:example-drama', name: 'Example Drama', type: 'urn:tag:genre:media' },
-      { id: 'urn:tag:keyword:media:example-sea', name: 'Example Sea' },
+      { id: 'urn:tag:genre:media:example-sea', name: 'Example Sea' },
     ]);
   });
 
@@ -197,6 +197,20 @@ describe('field fallbacks', () => {
       expect(summary({ short_descriptions: ['A first line.', 'A second line.'] })).toBe('A first line.');
       expect(summary({ short_descriptions: ['', '   ', 'The third try.'] })).toBe('The third try.');
       expect(summary({ short_descriptions: [4, null, {}, ' Spaces trimmed ', 'Later'] })).toBe('Spaces trimmed');
+    });
+
+    it('reads { value, languages } entries and prefers English', () => {
+      expect(
+        summary({
+          short_descriptions: [
+            { value: 'Une ligne inventee.', languages: ['fr'] },
+            { value: 'An invented line.', languages: ['en'] },
+          ],
+        }),
+      ).toBe('An invented line.');
+      expect(summary({ short_descriptions: [{ value: 'Eine erfundene Zeile.', languages: ['de'] }, { value: 'No language named.' }] })).toBe('No language named.');
+      expect(summary({ short_descriptions: [{ value: 'Une ligne inventee.', languages: ['fr'] }] })).toBe('Une ligne inventee.');
+      expect(summary({ short_descriptions: [{ value: '  ', languages: ['en'] }, { value: 'English-GB line.', languages: ['en-GB'] }] })).toBe('English-GB line.');
     });
 
     it('is short_description when short_descriptions gives none', () => {
@@ -417,7 +431,7 @@ describe('readTags', () => {
     const page = readTags(tags);
     expect(page.tags.map((t) => t.id)).toEqual([
       'urn:tag:genre:media:example-drama',
-      'urn:tag:keyword:media:example-sea',
+      'urn:tag:genre:media:example-sea',
       'urn:tag:genre:media:example-comedy',
     ]);
     expect(page.tags[2]).toEqual({ id: 'urn:tag:genre:media:example-comedy', name: 'Example Comedy' });

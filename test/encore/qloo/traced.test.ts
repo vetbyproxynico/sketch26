@@ -288,3 +288,19 @@ describe('pacing', () => {
     expect(Date.now() - started).toBeLessThan(25);
   });
 });
+
+describe('answers already in the cache', () => {
+  it('skip the pacing gap, and are marked cached in the trace', async () => {
+    const kv = new MemoryKv();
+    const net = routed(() => jsonResponse(MARKER_BODY));
+    const client = makeClient(net.fetch, { cache: kv });
+    const warm = createTraced(client);
+    await warm.insights('first', { 'filter.type': 'urn:entity:movie' });
+    const paced = createTraced(client, 1, 400);
+    const started = Date.now();
+    await Promise.all([1, 2, 3].map(() => paced.insights('again', { 'filter.type': 'urn:entity:movie' })));
+    expect(Date.now() - started).toBeLessThan(300);
+    expect(paced.trace().every((entry) => entry.cached === true)).toBe(true);
+    expect(net.calls.length).toBe(1);
+  });
+});
