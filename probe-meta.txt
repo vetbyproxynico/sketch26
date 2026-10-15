@@ -1,0 +1,5 @@
+run: 38675033282
+commit: 5e8fe087b529c9aeb4699d633cd8886c6641dc78
+finished: 2026-10-15T03:15:16Z
+exit code: 1
+lines: 7409
