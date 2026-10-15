@@ -44,7 +44,7 @@ describe('readEntities on a well-formed body', () => {
     expect(first?.description).toBe('An invented story about a lighthouse.');
     expect(first?.tags).toEqual([
       { id: 'urn:tag:genre:media:example-drama', name: 'Example Drama', type: 'urn:tag:genre:media' },
-      { id: 'urn:tag:keyword:media:example-sea', name: 'Example Sea' },
+      { id: 'urn:tag:genre:media:example-sea', name: 'Example Sea' },
     ]);
   });
 
@@ -417,7 +417,7 @@ describe('readTags', () => {
     const page = readTags(tags);
     expect(page.tags.map((t) => t.id)).toEqual([
       'urn:tag:genre:media:example-drama',
-      'urn:tag:keyword:media:example-sea',
+      'urn:tag:genre:media:example-sea',
       'urn:tag:genre:media:example-comedy',
     ]);
     expect(page.tags[2]).toEqual({ id: 'urn:tag:genre:media:example-comedy', name: 'Example Comedy' });

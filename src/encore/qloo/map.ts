@@ -7,7 +7,7 @@ import { firstRound, leftOut, shownItems, type DomainContext, type ListState } f
 import { recoverableFailure } from './faults';
 import { runLoop } from './loop';
 import { AGE_CHECKED, HAS_COUNTRY, type ListQuery } from './query';
-import { genreTagIds } from '../tags';
+import { genreTagIds, isAllowedTasteWord, TASTE_WORD_TAG_TYPE } from '../tags';
 import { signalIds, signalNames, unique } from './signals';
 import type { TracedQloo } from './traced';
 import {
@@ -75,11 +75,12 @@ async function tasteWords(traced: TracedQloo, signals: readonly string[]): Promi
   try {
     const response = await traced.insights('cultural map: taste words', {
       'filter.type': 'urn:tag',
+      'filter.tag.types': TASTE_WORD_TAG_TYPE,
       'signal.interests.entities': [...signals],
       take: TASTE_WORD_COUNT,
     });
     const page = readTags(response.data);
-    const tags = page.tags.slice(0, TASTE_WORD_COUNT);
+    const tags = page.tags.filter(isAllowedTasteWord).slice(0, TASTE_WORD_COUNT);
     return { tags, warnings: tags.length === 0 ? [emptyWarning(TASTE_WORDS_LABEL, page.unrecognised)] : [] };
   } catch (error) {
     const failure = recoverableFailure(error);

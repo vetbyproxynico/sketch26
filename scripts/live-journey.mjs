@@ -143,6 +143,13 @@ async function journey(example) {
     `Qloo calls ${calls.length} (statuses ${tally(calls.map((c) => c?.status))}); ` +
     `decisions: ${tally(decisions.map((d) => `${d?.decidedBy}/${d?.action}`)) || 'none'}`;
 
+  const wordsList = Array.isArray(map.tasteWords) ? map.tasteWords : [];
+  const notGenre = wordsList.filter((tag) => !String(tag?.id ?? '').startsWith('urn:tag:genre:')).length;
+  if (notGenre > 0) {
+    fail(`Journey ${label}`, `${matchLine}. ${mapLine}. ${notGenre} of ${wordsList.length} taste words are not genre tags.`);
+    return { ok: false };
+  }
+
   if (items.length === 0) {
     fail(`Journey ${label}`, `${matchLine}. ${mapLine}. The map is empty.`);
     return { ok: false };

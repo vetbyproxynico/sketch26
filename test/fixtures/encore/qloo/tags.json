@@ -4,7 +4,7 @@
   "results": {
     "tags": [
       { "id": "urn:tag:genre:media:example-drama", "name": "Example Drama", "type": "urn:tag:genre:media" },
-      { "id": "urn:tag:keyword:media:example-sea", "name": "Example Sea", "type": "urn:tag:keyword:media" },
+      { "id": "urn:tag:genre:media:example-sea", "name": "Example Sea", "type": "urn:tag:genre:media" },
       { "id": "urn:tag:genre:media:example-comedy", "name": "Example Comedy" }
     ]
   }
