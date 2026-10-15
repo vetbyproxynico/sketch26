@@ -114,7 +114,7 @@ it sees), `query.ts` (how a move becomes Qloo parameters) and
    an excluded item is never let in.
 5. Repeat from step 2 until a stop rule applies.
 
-A list is thin when Qloo answered for it and it has fewer than 4 suggestions
+A list is thin when Qloo answered for it and it has fewer than 6 suggestions
 that count (fewer than the number of items kept per list, when that is below
 4). What counts: for films, television, books and people with a birth year,
 the suggestions inside the years of the date filter that returned them; for

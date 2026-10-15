@@ -49,7 +49,7 @@ export interface AgentLimits {
 }
 
 export const DEFAULT_LIMITS: AgentLimits = {
-  thinTarget: 4,
+  thinTarget: 6,
   maxExtraCalls: 8,
   maxRounds: 3,
   deadlineMs: 15_000,

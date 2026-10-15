@@ -14,7 +14,8 @@ const everything: Handler = (call) => {
   return mapHandler()(call);
 };
 
-const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY };
+// These fixtures are sized for a thin target of 4; the default of 6 is checked in routes.test.ts.
+const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY, AGENT_THIN_TARGET: '4' };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -153,11 +154,13 @@ describe('POST /api/map', () => {
     const net = stubQloo();
     const { response, json } = await post('/api/map', { profile: makeProfile() });
     expect(response.status).toBe(200);
-    const result = json<{ map: CulturalMap; trace: unknown[] }>();
+    const result = json<{ map: CulturalMap; trace: Array<{ kind?: string }> }>();
     expect(result.map.profileId).toBe('profile-1');
     expect(Object.keys(result.map.byDomain).sort()).toEqual(['book', 'brand', 'film', 'music', 'person', 'tv']);
     expect(result.map.byDomain.film.length).toBeGreaterThan(0);
-    expect(result.trace).toHaveLength(net.calls.length);
+    // One entry per call, plus the agent's decisions (it asks again for lists that are short of 6).
+    expect(result.trace.filter((entry) => entry.kind !== 'decision')).toHaveLength(net.calls.length);
+    expect(result.trace.some((entry) => entry.kind === 'decision')).toBe(true);
   });
 
   it('rejects a profile with no id', async () => {
@@ -231,11 +234,11 @@ describe('POST /api/feedback', () => {
       feedback: { sessionId: session.id, reactions: [{ entityId, reaction: 'not_today' }] },
     });
     expect(response.status).toBe(200);
-    const result = json<{ profile: Profile; map: CulturalMap; plan: Plan; changes: string[]; trace: unknown[] }>();
+    const result = json<{ profile: Profile; map: CulturalMap; plan: Plan; changes: string[]; trace: Array<{ kind?: string }> }>();
     expect(result.profile.excludedEntityIds).toContain(entityId);
     expect(result.changes.length).toBeGreaterThan(0);
     expect(net.calls.length).toBeGreaterThan(before);
-    expect(result.trace.length).toBe(net.calls.length - before);
+    expect(result.trace.filter((entry) => entry.kind !== 'decision').length).toBe(net.calls.length - before);
     const ids = result.plan.sessions.flatMap((s) => s.items.map(({ item }) => item.entity.id));
     expect(ids).not.toContain(entityId);
   });

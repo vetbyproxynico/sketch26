@@ -129,9 +129,13 @@ export function reasonFor(decision: Decision, list: ListObservation, observation
 export type StopWhy = 'done' | 'budget' | 'rounds' | 'time';
 
 /** The closing decision in plain words. `lists` is the last observation of every list. */
-export function stopReason(why: StopWhy, asked: number, lists: readonly ListObservation[], target: number): string {
-  const head = asked === 0 ? 'Asked nothing more.' : `Stopped after ${asked} extra ${asked === 1 ? 'question' : 'questions'}.`;
+export function stopReason(why: StopWhy, asked: number, lists: readonly ListObservation[], target: number, roundsPlayed = 1): string {
   const short = lists.filter((list) => list.thin);
+  if (roundsPlayed === 0 && short.length === 0) {
+    const every = lists.every((list) => list.state === 'ok') ? 'every list' : 'every list that Qloo could answer for';
+    return `Checked ${every}: each already has at least ${target} ${target === 1 ? 'suggestion' : 'suggestions'} that fit, so Encore asked nothing more.`;
+  }
+  const head = asked === 0 ? 'Asked nothing more.' : `Stopped after ${asked} extra ${asked === 1 ? 'question' : 'questions'}.`;
   if (short.length === 0) {
     const every = lists.every((list) => list.state === 'ok') ? 'Every list' : 'Every list that Qloo could answer for';
     return `${head} ${every} now has at least ${target} ${target === 1 ? 'suggestion' : 'suggestions'}.`;

@@ -18,7 +18,8 @@ import { type Handler, makeProfile, mapHandler, routed } from './qloo/helpers';
  * Qloo uses. None of it is Qloo data.
  */
 
-const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY };
+// These fixtures are sized for a thin target of 4; the default of 6 is checked in routes.test.ts.
+const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY, AGENT_THIN_TARGET: '4' };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -196,7 +197,7 @@ describe('POST /api/map: music and brands from outside the person\'s years', () 
   it('asks nothing more of Qloo for a list that was topped up from the same answer', async () => {
     const net = stub();
     const { trace } = await mapFor(PROFILE);
-    expect(trace.filter((entry) => entry.kind === 'decision')).toEqual([]);
+    expect(trace.filter((entry) => entry.kind === 'decision' && (entry as { action?: string }).action !== 'stop')).toEqual([]);
     expect(net.calls.filter((call) => call.params['filter.type'] === 'urn:entity:artist')).toHaveLength(1);
     expect(net.calls.filter((call) => call.params['filter.type'] === 'urn:entity:brand')).toHaveLength(1);
   });

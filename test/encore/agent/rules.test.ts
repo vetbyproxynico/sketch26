@@ -25,8 +25,8 @@ describe('the closed set of actions', () => {
     expect([...RULE_ORDER_WHEN_EMPTY].sort()).toEqual([...AGENT_MOVES].sort());
   });
 
-  it('runs with a budget of 8 extra calls, 3 rounds and a target of 4', () => {
-    expect(DEFAULT_LIMITS).toEqual({ thinTarget: 4, maxExtraCalls: 8, maxRounds: 3, deadlineMs: 15_000, advisorTimeoutMs: 6_000 });
+  it('runs with a budget of 8 extra calls, 3 rounds and a target of 6', () => {
+    expect(DEFAULT_LIMITS).toEqual({ thinTarget: 6, maxExtraCalls: 8, maxRounds: 3, deadlineMs: 15_000, advisorTimeoutMs: 6_000 });
   });
 });
 

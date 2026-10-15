@@ -100,24 +100,26 @@ function alwaysThin(domain: Domain, entities: unknown[] = [entity(`ONLY-${domain
 const NOTHING_ANYWHERE: Handler = mapHandler(Object.fromEntries(DOMAINS.map((domain) => [TYPE[domain], () => page()])));
 
 describe('a map whose lists are all full enough', () => {
-  it('asks nothing more and records no decision', async () => {
+  it('asks nothing more and records only a line saying every list was checked', async () => {
     const advisor = scripted();
     const { source, calls } = makeSource(mapHandler(), { advisor });
     const map = await source.culturalMap(makeProfile());
 
     expect(advisor.seen).toEqual([]);
-    expect(source.trace()).toHaveLength(calls.length);
-    expect(source.trace().some(isDecision)).toBe(false);
+    expect(source.trace()).toHaveLength(calls.length + 1);
+    expect(decisionsOf(source.trace()).map((d) => d.action)).toEqual(['stop']);
+    expect(decisionsOf(source.trace())[0]?.reason).toContain('Checked every list');
     expect(map.warnings).toEqual([]);
   });
 
   it('treats a list as full at exactly the target, and as thin one below it', async () => {
+    const TARGET = 4; // makeSource pins the target to 4; the default of 6 is covered in the routes tests
     const withTv = (count: number) => makeSource(mapHandler({ [TYPE.tv]: () => page(...many('TV', count)) }), { advisor: scripted() });
-    const full = withTv(DEFAULT_LIMITS.thinTarget);
+    const full = withTv(TARGET);
     await full.source.culturalMap(makeProfile());
-    expect(full.source.trace().some(isDecision)).toBe(false);
+    expect(decisionsOf(full.source.trace()).map((d) => d.action)).toEqual(['stop']);
 
-    const thin = withTv(DEFAULT_LIMITS.thinTarget - 1);
+    const thin = withTv(TARGET - 1);
     await thin.source.culturalMap(makeProfile());
     expect(decisionsOf(thin.source.trace()).map((d) => [d.domain, d.action])).toEqual([
       ['tv', 'drop_country'],
@@ -130,7 +132,7 @@ describe('a map whose lists are all full enough', () => {
   it('lowers the target to the number of items kept when that is smaller', async () => {
     const { source } = makeSource(mapHandler({ [TYPE.tv]: () => page(...many('TV', 2)) }));
     await source.culturalMap(makeProfile(), { perDomain: 2 });
-    expect(source.trace().some(isDecision)).toBe(false);
+    expect(decisionsOf(source.trace()).map((d) => d.action)).toEqual(['stop']);
   });
 });
 
@@ -608,9 +610,9 @@ describe('the wall-clock guard', () => {
 
   it('says nothing about time when no list was short anyway', async () => {
     const net = routed(mapHandler());
-    const source = createTasteSource(makeClient(net.fetch), { now: ticking(60_000) });
+    const source = createTasteSource(makeClient(net.fetch), { now: ticking(60_000), limits: { thinTarget: 4 } });
     await source.culturalMap(makeProfile());
-    expect(source.trace().some(isDecision)).toBe(false);
+    expect(decisionsOf(source.trace()).every((d) => !(d.reason ?? '').includes('taken a while'))).toBe(true);
   });
 });
 

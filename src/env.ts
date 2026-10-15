@@ -47,6 +47,11 @@ export interface Env {
    * short bursts; unset means no pacing.
    */
   QLOO_PACE_MS?: string;
+  /**
+   * Var. A map list with fewer suggestions than this that fit counts as thin and the map agent
+   * acts on it. Unset means the default (6).
+   */
+  AGENT_THIN_TARGET?: string;
   /** Var. Cache lifetime for Qloo responses, in seconds. */
   QLOO_CACHE_TTL_SECONDS?: string;
   /**
