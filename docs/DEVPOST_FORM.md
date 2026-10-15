@@ -70,7 +70,7 @@ Encore holds no catalogue of films, songs or books, and the model is never asked
 - **Exclusions and learning** (`filter.exclude.entities`, and liked items added to `signal.interests.entities`) carry the feedback loop: "Not today" items stay away and the week changes.
 - **Scoring** (`filter.results.entities`) and **comparison** (`/v2/analysis/compare`) carry the common room: a score per person, and the tags two residents share.
 
-On 10 October a probe made 130 calls for the three example people (French, British and American, born 1932 to 1951). 128 succeeded; the two failures were timeouts on one optional call. A map takes 7 or 8 Qloo calls, and Qloo found all 21 example favourites. The trace lists every call with its parameters, so a judge can see how Qloo was used, step by step.
+On 10 October a probe made 130 calls for the three example people (French, British and American, born 1932 to 1951). 128 succeeded; the two failures were timeouts on one optional call. In the live walk on 15 October a map took 7 to 12 Qloo calls (the extra ones come from the agent repairing short lists), and Qloo found all 21 example favourites. The trace lists every call with its parameters, so a judge can see how Qloo was used, step by step.
 
 ## Challenges
 
