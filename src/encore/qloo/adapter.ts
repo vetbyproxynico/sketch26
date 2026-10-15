@@ -209,7 +209,8 @@ function tagOf(raw: unknown): TagRef | undefined {
   const id = text(field(raw, 'id')) ?? text(field(raw, 'tag_id'));
   const name = text(field(raw, 'name'));
   if (id === undefined || name === undefined) return undefined;
-  const type = text(field(raw, 'type'));
+  const types = field(raw, 'types');
+  const type = text(field(raw, 'subtype')) ?? text(field(raw, 'type')) ?? (Array.isArray(types) ? types.map(text).find((t) => t !== undefined) : undefined);
   return type === undefined ? { id, name } : { id, name, type };
 }
 

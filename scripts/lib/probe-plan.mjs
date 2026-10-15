@@ -17,6 +17,7 @@ export const SEARCH_TAKE = 5; // resolve.ts
 /** The six kinds Encore can use, in the order of DOMAINS in src/encore/types.ts. resolve.ts */
 export const SEARCH_TYPES = Object.freeze(['urn:entity:movie', 'urn:entity:tv_show', 'urn:entity:artist', 'urn:entity:book', 'urn:entity:person', 'urn:entity:brand']);
 export const TASTE_WORD_TAKE = 12; // map.ts
+export const TASTE_WORD_TAG_TYPE = 'urn:tag:genre:media'; // src/encore/tags.ts
 export const SCORE_TAKE = 50; // score.ts
 export const COMPARE_TAKE = 10; // shared.ts
 export const AGE_BAND = '55_and_older'; // AGE_55_PLUS in adapter.ts
@@ -306,7 +307,7 @@ export function personaSteps(persona, signals, currentYear) {
     role: 'taste',
     kind: 'tags',
     endpoint: '/v2/insights',
-    params: { 'filter.type': 'urn:tag', 'signal.interests.entities': ids, take: TASTE_WORD_TAKE },
+    params: { 'filter.type': 'urn:tag', 'filter.tag.types': TASTE_WORD_TAG_TYPE, 'signal.interests.entities': ids, take: TASTE_WORD_TAKE },
   });
   return steps;
 }

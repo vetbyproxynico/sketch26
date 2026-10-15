@@ -1,5 +1,6 @@
 import type { EntityRef, Feedback, FeedbackOutcome, MapItem, Plan, Profile, Reaction } from '../types';
 import { displayName } from './affinity';
+import { isGenreTagId } from '../tags';
 
 /** The most liked items kept on a profile. When it overflows, the oldest go first. */
 export const MAX_LIKED = 12;
@@ -34,7 +35,8 @@ function tagsOf(item: MapItem): Map<string, string> {
  *   unless the person already has it as a favourite or a liked item.
  * - `not_today` adds the entity to `excludedEntityIds`.
  * - `neutral` changes nothing.
- * - A tag on two or more `not_today` items and on no `lit_up` item is excluded.
+ * - A genre tag (`urn:tag:genre:`) on two or more `not_today` items and on no `lit_up` item is excluded;
+ *   tags of other types are never excluded.
  * - `extraAvoidNotes` (for example read from the carer's note) join `avoidNotes`
  *   without duplicates.
  *
@@ -109,6 +111,7 @@ export function applyFeedback(
   }
   const alreadyExcludedTags = new Set<string>(excludedTagIds);
   for (const [tagId, { label, count }] of notTodayCounts) {
+    if (!isGenreTagId(tagId)) continue;
     if (count < TAG_AVOID_THRESHOLD || tagsOnLitUp.has(tagId) || alreadyExcludedTags.has(tagId)) continue;
     excludedTagIds.push(tagId);
     changes.push(`Will steer away from ${label} suggestions, since ${count} of them were not wanted`);
