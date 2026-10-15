@@ -45,10 +45,11 @@ describe('the trace across methods', () => {
   it('lists every call made through the instance, oldest first, one entry per request', async () => {
     const { source, calls } = await useEverything();
     const trace = source.trace();
-    expect(trace).toHaveLength(calls.length);
+    // One entry per request, plus the agent's closing line.
+    expect(trace).toHaveLength(calls.length + 1);
     expect(trace[0]).toMatchObject({ endpoint: '/search', step: 'resolve favourites' });
     expect(trace.at(-1)).toMatchObject({ endpoint: '/v2/analysis/compare' });
-    expect(new Set(trace.map((t) => t.endpoint))).toEqual(new Set(['/search', '/v2/insights', '/v2/analysis/compare']));
+    expect(new Set(trace.filter((t) => t.kind !== 'decision').map((t) => t.endpoint))).toEqual(new Set(['/search', '/v2/insights', '/v2/analysis/compare']));
   });
 
   it('names the step of every cultural map call', async () => {

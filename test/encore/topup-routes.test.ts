@@ -19,7 +19,8 @@ import { COMPARE_BODY, type Handler, makeProfile, mapHandler, routed } from './q
  * Qloo uses. None of it is Qloo data.
  */
 
-const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY };
+// These fixtures are sized for a thin target of 4; the default of 6 is checked in routes.test.ts.
+const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY, AGENT_THIN_TARGET: '4' };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -154,7 +155,7 @@ describe('POST /api/map: a list the avoid list thinned is topped up', () => {
   it('asks Qloo nothing more for a list that the top-up filled', async () => {
     const net = stub();
     const { trace } = await mapFor(wide({ avoidNotes: ['the war'] }));
-    expect(trace.filter((entry) => entry.kind === 'decision')).toEqual([]);
+    expect(trace.filter((entry) => entry.kind === 'decision' && (entry as { action?: string }).action !== 'stop')).toEqual([]);
     expect(net.calls.filter((call) => call.params['filter.type'] === 'urn:entity:movie')).toHaveLength(1);
   });
 

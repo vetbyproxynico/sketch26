@@ -69,7 +69,8 @@ export function failingClient(error: Error): QlooClient {
 /** A taste source over a routed stub, with the clock fixed at NOW. `options` reach the taste source as given. */
 export function makeSource(handler: Handler, options: Omit<TasteSourceOptions, 'now'> = {}) {
   const net = routed(handler);
-  const source = createTasteSource(makeClient(net.fetch), { now: () => NOW, ...options });
+  // Most tests are about how the loop moves, with fixtures sized for a target of 4; the real target is in DEFAULT_LIMITS.
+  const source = createTasteSource(makeClient(net.fetch), { now: () => NOW, ...options, limits: { thinTarget: 4, ...options.limits } });
   return { ...net, source };
 }
 

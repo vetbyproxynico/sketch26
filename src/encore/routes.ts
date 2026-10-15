@@ -1,3 +1,4 @@
+import { DEFAULT_LIMITS } from './agent/types';
 import type { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
@@ -58,11 +59,12 @@ function tasteFor(env: Env): TasteSource {
   const client = createQlooClient(env);
   // Unset means no pacing, which is what the tests and the local stand-in want.
   const paceMs = positiveInt(env.QLOO_PACE_MS, 0);
+  const limits = env.AGENT_THIN_TARGET === undefined ? undefined : { thinTarget: positiveInt(env.AGENT_THIN_TARGET, DEFAULT_LIMITS.thinTarget) };
   try {
-    return createTasteSource(client, { advisor: createModelAdvisor(createLlmProvider(env)), paceMs });
+    return createTasteSource(client, { advisor: createModelAdvisor(createLlmProvider(env)), paceMs, ...(limits === undefined ? {} : { limits }) });
   } catch {
     // No model configured: the rule advisor, which is the default.
-    return createTasteSource(client, { paceMs });
+    return createTasteSource(client, { paceMs, ...(limits === undefined ? {} : { limits }) });
   }
 }
 

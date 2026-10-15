@@ -146,12 +146,15 @@ export async function runLoop(input: LoopInput): Promise<void> {
 
   const last = look(played + 1).observation;
   const short = last.lists.filter((list) => list.thin);
-  // Say nothing when there was nothing to decide: a map whose lists were all full, or a loop that is switched off.
-  if (played === 0 && !(why === 'time' && short.length > 0)) return;
+  // A map whose lists were all full still gets a closing line that says Encore checked; a loop that is switched off says nothing.
+  // The agent is switched off when it has no rounds, no extra calls or no target; then it says nothing.
+  const enabled = maxRounds > 0 && Math.floor(limits.maxExtraCalls) > 0 && Math.floor(limits.thinTarget) >= 1;
+  const checkedAndKept = enabled && why === 'done' && short.length === 0;
+  if (played === 0 && !(why === 'time' && short.length > 0) && !checkedAndKept) return;
   why ??= actionable(last).length === 0 ? 'done' : callsLeft <= 0 ? 'budget' : 'rounds';
   ctx.traced.decide({
     step: STOP_STEP,
-    reason: stopReason(why, asked, last.lists, facts.target),
+    reason: stopReason(why, asked, last.lists, facts.target, played),
     decidedBy: 'rules',
     action: 'stop',
     round: Math.max(1, played),

@@ -11,7 +11,8 @@ import { type Handler, makeProfile, mapHandler, routed } from './qloo/helpers';
  * answer here is hand-written with invented values: no Qloo data.
  */
 
-const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY };
+// These fixtures are sized for a thin target of 4; the default of 6 is checked in routes.test.ts.
+const WITH_KEY: Env = { QLOO_API_KEY: TEST_KEY, AGENT_THIN_TARGET: '4' };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -128,11 +129,12 @@ describe('POST /api/map when some lists come back thin', () => {
     expect(traceText).not.toContain('Example Series');
   });
 
-  it('records no decision when every list is full enough', async () => {
+  it('records only a closing line saying every list was checked when every list is full enough', async () => {
     const net = stubQloo(mapHandler());
     const { trace } = (await post('/api/map', { profile: makeProfile() })).json<MapAnswer>();
-    expect(decisionsOf(trace)).toEqual([]);
-    expect(trace).toHaveLength(net.calls.length);
+    expect(decisionsOf(trace).map((d) => d.action)).toEqual(['stop']);
+    expect(decisionsOf(trace)[0]?.reason).toContain('Checked every list');
+    expect(trace).toHaveLength(net.calls.length + 1);
   });
 
   it('decides again when feedback rebuilds the map', async () => {
