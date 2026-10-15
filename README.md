@@ -48,7 +48,7 @@ This table lists the Qloo calls the code makes. The names are taken from `src/en
 Other points about how the calls are made:
 
 - Every call is a `GET` from the Worker to `https://hackathon.api.qloo.com`, with the key in the `X-Api-Key` header.
-- At most three calls run at once for one request. A call that fails with a rate limit or a server error is tried once more. A call that gets no answer in 10 seconds is dropped. When a map is being built, the page then shows a plain warning for that group and the rest still arrive.
+- At most two calls run at once for one request, and the deployed Worker spaces them out. A call that fails with a rate limit is tried again up to three times, with a longer wait each time; a server error is tried once more. A call that gets no answer in 10 seconds is dropped. When a map is being built, the page then shows a plain warning for that group and the rest still arrive.
 - For a room, shared ground is asked for at most three pairs of residents. If Qloo cannot score the room for one person, Encore ranks using the scores already on that person's own map and names them in a warning. If scoring fails for everyone, the request ends with an error.
 - The date filters need a birth year. Without one, films, television, books and people are not limited by date, and the page says so.
 - When a list comes back thin, Encore decides its next question from what the last one returned: it can drop the country, widen the years by five either side, drop the older-audience signal, lean on a different set of favourites, or start from the person's taste tags. It is limited to eight extra questions and three rounds per map, and it tells the carer what it relaxed.
