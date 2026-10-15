@@ -47,7 +47,7 @@ const SHARED = {
   'feature.explainability': 'true',
   take: '16',
   'filter.exclude.entities': `EXCL-1,${FOUR}`,
-  'filter.exclude.tags': 'urn:tag:example:dark',
+  'filter.exclude.tags': 'urn:tag:genre:example:dark',
 };
 const FILM_BASE = { ...SHARED, 'filter.type': TYPE.film, 'filter.release_year.min': '1950', 'filter.release_year.max': '1970', 'filter.release_country': 'United Kingdom' };
 const TAGS = 'urn:tag:genre:media:example-drama,urn:tag:keyword:media:example-sea,urn:tag:genre:media:example-comedy';

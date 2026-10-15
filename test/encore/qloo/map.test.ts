@@ -27,7 +27,7 @@ const SHARED = {
   'feature.explainability': 'true',
   take: '16',
   'filter.exclude.entities': `EXCL-1,${SIGNALS}`,
-  'filter.exclude.tags': 'urn:tag:example:dark',
+  'filter.exclude.tags': 'urn:tag:genre:example:dark',
 };
 
 const emptyEntities = () => jsonResponse({ success: true, results: { entities: [] } });
@@ -58,7 +58,7 @@ describe('the request each domain sends', () => {
     expect(new URL(ofType(calls, 'urn:entity:movie')[0]?.url ?? '').search).toBe(
       '?feature.explainability=true' +
         '&filter.exclude.entities=EXCL-1,FAV-1,FAV-2,LIKED-1' +
-        '&filter.exclude.tags=urn%3Atag%3Aexample%3Adark' +
+        '&filter.exclude.tags=urn%3Atag%3Agenre%3Aexample%3Adark' +
         '&filter.release_country=United%20Kingdom' +
         '&filter.release_year.max=1970' +
         '&filter.release_year.min=1950' +

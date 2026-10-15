@@ -7,6 +7,7 @@ import { firstRound, leftOut, shownItems, type DomainContext, type ListState } f
 import { recoverableFailure } from './faults';
 import { runLoop } from './loop';
 import { AGE_CHECKED, HAS_COUNTRY, type ListQuery } from './query';
+import { genreTagIds } from '../tags';
 import { signalIds, signalNames, unique } from './signals';
 import type { TracedQloo } from './traced';
 import {
@@ -160,7 +161,7 @@ export async function buildCulturalMap(traced: TracedQloo, profile: Profile, opt
     traced,
     names: signalNames(profile),
     excluded: new Set(excluded),
-    shared: { take: perDomain * 2, excludedIds: excluded, excludedTags: unique(profile.excludedTagIds) },
+    shared: { take: perDomain * 2, excludedIds: excluded, excludedTags: genreTagIds(unique(profile.excludedTagIds)) },
     ...(window === undefined ? {} : { window }),
     ...(options.keep === undefined ? {} : { keep: options.keep }),
   };
